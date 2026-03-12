@@ -29,7 +29,7 @@ public:
 		LOG_DEBUG("Window and Surface destroyed");
 	}
 
-	void updateFPS(const std::string& titlePrefix)
+	inline void updateFPS(const std::string& titlePrefix)
 	{
 		double currentTime = glfwGetTime();
 		m_nbFrames++;

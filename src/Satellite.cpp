@@ -29,7 +29,6 @@ SatelliteNetwork::SatelliteNetwork(const VulkanDevice& device, uint32_t count)
 		throw std::runtime_error("Device UBO limit too small for satellite data");
 	}
 
-
 	// Pre-allocate vector capacity to avoid reallocations
 	satellites.reserve(count);
 	satellites.resize(count); // tmp, will remove later

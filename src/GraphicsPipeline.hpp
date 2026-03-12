@@ -31,8 +31,8 @@ protected:
 			vk::Format depthFormat
 	);
 
-	vk::raii::PipelineLayout m_pipelineLayout = nullptr;
 	vk::raii::DescriptorSetLayout m_descriptorSetLayout = nullptr;
+	vk::raii::PipelineLayout m_pipelineLayout = nullptr;
 	vk::raii::Pipeline m_pipeline = nullptr;
 };
 

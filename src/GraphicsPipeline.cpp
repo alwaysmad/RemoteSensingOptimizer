@@ -94,12 +94,16 @@ GraphicsPipeline::GraphicsPipeline(
 		.descriptorCount = 1,
 		.stageFlags = vk::ShaderStageFlagBits::eVertex 
 	};
-	const vk::DescriptorSetLayoutCreateInfo dslInfo { .bindingCount = 1, .pBindings = &binding0 };
+	const vk::DescriptorSetLayoutCreateInfo dslInfo { 
+		.bindingCount = 1,
+		.pBindings = &binding0
+	};
 	m_descriptorSetLayout = vk::raii::DescriptorSetLayout(device.device(), dslInfo);
 
 	static constexpr vk::PushConstantRange pcRange {
 		.stageFlags = vk::ShaderStageFlagBits::eVertex,
-		.offset = 0, .size = sizeof(CameraPushConstants)
+		.offset = 0,
+		.size = sizeof(CameraPushConstants)
 	};
 
 	const vk::PipelineLayoutCreateInfo pipelineLayoutInfo {

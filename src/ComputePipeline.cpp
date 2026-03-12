@@ -46,7 +46,6 @@ ComputePipeline::ComputePipeline(const VulkanDevice& device)
 	};
 	m_pipelineLayout = vk::raii::PipelineLayout(device.device(), pipelineLayoutInfo);
 
-
 	// 4. Load Shader
 	const vk::raii::ShaderModule computeShader(device.device(), solver::smci);
 

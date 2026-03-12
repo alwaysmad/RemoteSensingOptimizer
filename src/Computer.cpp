@@ -49,7 +49,8 @@ void Computer::registerResources(const Mesh& earthMesh, const SatelliteNetwork& 
 	const vk::DescriptorBufferInfo uboInfo {
 		.buffer = *satNet.getBuffer(),
 		.offset = 0,
-		.range = satNet.getFrameSize()
+		//.range = satNet.getFrameSize()
+		.range = vk::WholeSize
 	};
 
 	// Binding 1: Earth (SSBO)

@@ -22,13 +22,12 @@ public:
 	// Records copy from src -> dst
 	// Submits to Transfer Queue
 	// Signals 'signalSemaphore' when done
-	void uploadAsync(
-			uint32_t currentFrame,
-			const vk::raii::Buffer& src, vk::DeviceSize srcOffset,
-			const vk::raii::Buffer& dst, vk::DeviceSize dstOffset,
-			vk::DeviceSize size, vk::Semaphore signalSemaphore,
-			vk::PipelineStageFlags2 dstStage = vk::PipelineStageFlagBits2::eComputeShader,
-    			vk::AccessFlags2 dstAccess = vk::AccessFlagBits2::eUniformRead
+	void uploadAsync( uint32_t currentFrame,
+			  const vk::raii::Buffer& src, vk::DeviceSize srcOffset,
+			  const vk::raii::Buffer& dst, vk::DeviceSize dstOffset,
+			  vk::DeviceSize size, vk::Semaphore signalSemaphore,
+			  vk::PipelineStageFlags2 dstStage = vk::PipelineStageFlagBits2::eComputeShader,
+    			  vk::AccessFlags2 dstAccess = vk::AccessFlagBits2::eUniformRead
 	);
 
 private:

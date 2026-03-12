@@ -148,7 +148,7 @@ void Renderer::updateProjectionMatrix()
 	// f = 1.0 / tan(fov / 2)
 	// For 45 deg, tan(22.5) approx 0.4142 -> f approx 2.4142
 	constexpr float f = 2.41421356f;
-	constexpr float near = 1.0f;
+	constexpr float near = 0.1f;
 
 	constexpr glm::mat4 hardcodedProj = {
 		f,	  0.0f,	0.0f,	0.0f,	// Col 0 (Right)
