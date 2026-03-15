@@ -24,9 +24,7 @@ public:
 
 	~VulkanCommand() { LOG_DEBUG("VulkanCommand resources destroyed"); }
 
-	const vk::raii::CommandBuffer& getBuffer(uint32_t index) const { return m_commandBuffers[index]; }
-	// const vk::raii::CommandPool& getPool() const { return m_commandPool; }
-
+	inline const vk::raii::CommandBuffer& getBuffer(uint32_t index) const { return m_commandBuffers[index]; }
 private:
 	vk::raii::CommandPool m_commandPool;
 	vk::raii::CommandBuffers m_commandBuffers;

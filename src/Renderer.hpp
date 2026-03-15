@@ -13,11 +13,11 @@ class VulkanWindow;
 class Mesh;
 class SatelliteNetwork;
 
-struct DrawTask {
+class DrawTask {
+private:
 	vk::raii::CommandPool pool;
-	// CHANGED: Now a vector of buffers (one per frame in flight)
 	std::vector<vk::raii::CommandBuffer> cmds; 
-
+public:
 	DrawTask(const VulkanDevice& device, uint32_t queueFamily) 
 	: pool(device.device(), { 
 		// FIX 1: Add eResetCommandBuffer
@@ -27,16 +27,16 @@ struct DrawTask {
 	{
 		// FIX 3: Allocate 2 buffers (MAX_FRAMES_IN_FLIGHT)
 		vk::CommandBufferAllocateInfo allocInfo {
-		.commandPool = *pool,
-		.level = vk::CommandBufferLevel::eSecondary,
-		.commandBufferCount = MAX_FRAMES_IN_FLIGHT // <--- Important!
+			.commandPool = *pool,
+			.level = vk::CommandBufferLevel::eSecondary,
+			.commandBufferCount = MAX_FRAMES_IN_FLIGHT
 		};
 		// allocateCommandBuffers returns a vector, so we just move it.
 		cmds = vk::raii::CommandBuffers(device.device(), allocInfo);
 	}
 
 	// Helper to get the current frame's buffer
-	const vk::raii::CommandBuffer& get(uint32_t frame) { return cmds[frame]; }
+	inline const vk::raii::CommandBuffer& get(uint32_t frame) { return cmds[frame]; }
 };
 
 class Renderer
@@ -110,7 +110,6 @@ private:
 	std::vector<vk::raii::Semaphore> m_renderFinishedSemaphores;
 	void remakeRenderFinishedSemaphores();
 	
-	void recordCommands(const vk::raii::CommandBuffer&, uint32_t, const Mesh&, const SatelliteNetwork&, const glm::mat4&, const glm::mat4&);
 	void submitDummy(vk::Fence fence, vk::Semaphore waitSemaphore);
 
 	// Constants and default values
