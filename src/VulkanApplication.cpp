@@ -32,6 +32,7 @@ VulkanApplication::VulkanApplication(const std::string& AppName, const std::stri
 	glfwSetCursorPosCallback(window, cursorPositionCallback);
 	glfwSetMouseButtonCallback(window, mouseButtonCallback);
 	glfwSetScrollCallback(window, scrollCallback);
+	glfwSetKeyCallback(window, keyCallback);
 
 	// Set initial camera angles matching the old "defaultView"
 	// Eye approx (0, 1.5, 3.0) -> Radius ~3.35
@@ -111,6 +112,18 @@ void VulkanApplication::scrollCallback(GLFWwindow* window, [[maybe_unused]] doub
 	if (app->m_camera.radius > 20.0f) app->m_camera.radius = 20.0f;
 }
 
+void VulkanApplication::keyCallback(GLFWwindow* window, int key, [[maybe_unused]] int scancode, int action, [[maybe_unused]] int mods)
+{
+	auto* app = reinterpret_cast<VulkanApplication*>(glfwGetWindowUserPointer(window));
+
+	// Toggle pause state on Spacebar press
+	if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
+	{
+		app->m_isPaused = !app->m_isPaused;
+		LOG_DEBUG("Simulation Paused: " << (app->m_isPaused ? "TRUE" : "FALSE"));
+	}
+}
+
 VulkanApplication::~VulkanApplication()
 {
 	// Wait for GPU to finish all work
@@ -160,10 +173,10 @@ void VulkanApplication::updateSatellites(double time)
 {
 	// --- SATELLITE CAMERAS PARAMETERS ---
 	//const float fovY = glm::radians(15.0f);
-	const float tanHalfFov = 0.5; //std::tan(fovY / 2.0f);
-	const float aspect = 1.0f; // Square frustum for satellites
-	const float zNear = 0.1f;
-	const float zFar = 0.4f;   // Length of the cone
+	constexpr float tanHalfFov = 0.5; //std::tan(fovY / 2.0f);
+	constexpr float aspect = 1.0f; // Square frustum for satellites
+	constexpr float zNear = 0.1f;
+	constexpr float zFar = 0.4f;   // Length of the cone
 
 	const uint32_t count = satelliteNetwork.satellites.size();
 
@@ -224,6 +237,9 @@ int VulkanApplication::run()
 	constexpr float dt = 0.1;
 	glm::mat4 model = glm::mat4(1.0f);
 
+	// Track real time to calculate delta
+	double lastRealTime = vulkanWindow.getTime();
+
 	// 3. Loop
 	while (!vulkanWindow.shouldClose())
 	{
@@ -238,37 +254,49 @@ int VulkanApplication::run()
 		if (vulkanDevice.device().waitForFences({*fence}, vk::True, UINT64_MAX) != vk::Result::eSuccess)
 			{ throw std::runtime_error("Fence wait failed"); }
 
-		const auto time = vulkanWindow.getTime();
+		// --- TIME LOGIC ---
+		const double currentRealTime = vulkanWindow.getTime();
+		const double realDt = currentRealTime - lastRealTime;
+		lastRealTime = currentRealTime;
 
-		// --- Update Satellite Colors (Cosine) ---
-		updateSatellites(time);
+		if (!m_isPaused)
+		{
+			// Advance simulation time
+			m_simTime += realDt;
 
-		// Upload new data to UBO
-		satelliteNetwork.upload(currentFrame, vulkanLoader, *uploadSem);
+			// --- Update Satellite Colors (Cosine) ---
+			updateSatellites(m_simTime);
 
-		// --- Update Model matrix
-		constexpr auto rotSpeed = 0.05f;
-		const auto cos_time = std::cos(time * rotSpeed);
-		const auto sin_time = std::sin(time * rotSpeed);
-		
-		model = glm::mat4 {
-			cos_time,   0.0f,      sin_time, 0.0f,
-			0.0f,       1.0f,      0.0f,     0.0f,
-			-sin_time,  0.0f,      cos_time, 0.0f,
-			0.0f,       0.0f,      0.0f,     1.0f };
+			// Upload new data to UBO
+			satelliteNetwork.upload(currentFrame, vulkanLoader, *uploadSem);
 
-		// --- Compute  ---
-		// Run the compute shader (Copies Satellite Color -> Vertex Color)
-		// Pass nullptr for fence (we don't need CPU wait here)
-		// Signal computeSem for the Graphics Queue
-		computer.compute(currentFrame, model, dt, {}, *uploadSem, *computeSem);
+			// --- Update Model matrix ---
+			constexpr auto rotSpeed = 0.05f;
+			const auto cos_time = std::cos(m_simTime * rotSpeed);
+			const auto sin_time = std::sin(m_simTime * rotSpeed);
+			
+			model = glm::mat4 {
+				cos_time,   0.0f,      sin_time, 0.0f,
+				0.0f,       1.0f,      0.0f,     0.0f,
+				-sin_time,  0.0f,      cos_time, 0.0f,
+				0.0f,       0.0f,      0.0f,     1.0f };
 
-		// --- Render ---
-		// Wait for computeSem before processing vertices
-		renderer.draw(m_mesh, satelliteNetwork, currentFrame, *fence, *computeSem, model, getCameraView());
+			// --- Compute ---
+			computer.compute(currentFrame, model, dt, {}, *uploadSem, *computeSem);
+
+			// --- Render (Wait for Compute) ---
+			renderer.draw(m_mesh, satelliteNetwork, currentFrame, *fence, *computeSem, model, getCameraView());
+		}
+		else
+		{
+			// --- Render ONLY ---
+			// Notice the empty `{}` for waitSemaphore. The renderer instantly draws using 
+			// the previous frame's SSBO and UBO data, which is completely thread-safe!
+			renderer.draw(m_mesh, satelliteNetwork, currentFrame, *fence, {}, model, getCameraView());
+		}
 		
 		// 3. Flow Guaranteed: Always advance
-		currentFrame = advanceFrame(currentFrame);
+		currentFrame = advanceFrame(currentFrame);	
 	}
 	return EXIT_SUCCESS;
 }
