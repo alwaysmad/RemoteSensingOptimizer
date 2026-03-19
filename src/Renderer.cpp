@@ -83,10 +83,9 @@ void Renderer::createDepthBuffer()
 	m_depthViews.clear();
 
 	const auto extent = m_swapchain.getExtent();
-	const uint32_t imageCount = m_swapchain.getImages().size();
 
 	// Loop through and create one depth buffer per swapchain image
-	for (uint32_t i = 0; i < imageCount; i++)
+	for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		const vk::ImageCreateInfo imageInfo {
 			.imageType = vk::ImageType::e2D,
@@ -173,19 +172,19 @@ void Renderer::submitDummy(vk::Fence fence, vk::Semaphore waitSemaphore)
 	// must reset the fence before submitting
 	m_device.device().resetFences({fence});
 
-	constexpr vk::PipelineStageFlags waitStage = vk::PipelineStageFlagBits::eAllCommands;
+	const vk::SemaphoreSubmitInfo waitInfo {
+		.semaphore = waitSemaphore,
+		.stageMask = vk::PipelineStageFlagBits2::eAllCommands
+	};
 	
-	const vk::SubmitInfo submitInfo {
-		// If waitSemaphore exists, wait for it.
-		.waitSemaphoreCount = waitSemaphore ? 1u : 0u,
-		.pWaitSemaphores = waitSemaphore ? &waitSemaphore : nullptr,
-		.pWaitDstStageMask = waitSemaphore ? &waitStage : nullptr,
-		.commandBufferCount = 0, 
-		.signalSemaphoreCount = 0
+	// If waitSemaphore exists, wait for it.
+	const vk::SubmitInfo2 submitInfo {
+		.waitSemaphoreInfoCount = waitSemaphore ? 1u : 0u,
+		.pWaitSemaphoreInfos = waitSemaphore ? &waitInfo : nullptr,
 	};
 	
 	// Must signal 'fence' so the CPU knows this "frame" is done
-	m_device.graphicsQueue().submit(submitInfo, fence);
+	m_device.graphicsQueue().submit2(submitInfo, fence);
 }
 
 // --- NEW: Bake Mesh (Secondary) ---
@@ -253,8 +252,8 @@ void Renderer::draw( const Mesh& mesh,
 
 	// 3.1 Record
 	const auto& cmd = m_command.getBuffer(currentFrame);
-	const auto& swapchainImageView = m_swapchain.getImageViews()[imageIndex];
 	const auto& swapchainImage = m_swapchain.getImages()[imageIndex];
+	const auto& swapchainImageView = m_swapchain.getImageViews()[imageIndex];
 
 	// --- 3.2. Record Primary (The Glue) ---
 	cmd.reset();
@@ -284,7 +283,7 @@ void Renderer::draw( const Mesh& mesh,
 			.dstAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
 			.oldLayout = vk::ImageLayout::eUndefined,
 			.newLayout = vk::ImageLayout::eDepthAttachmentOptimal,
-			.image = *m_depthImages[imageIndex],
+			.image = *m_depthImages[currentFrame],
 			.subresourceRange = { .aspectMask = vk::ImageAspectFlagBits::eDepth,
 				.baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1 }
 		}
@@ -303,7 +302,7 @@ void Renderer::draw( const Mesh& mesh,
 	};
 	// Depth Attachment
 	const vk::RenderingAttachmentInfo depthAttachment {
-		.imageView = *m_depthViews[imageIndex],
+		.imageView = *m_depthViews[currentFrame],
 		.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal,
 		.loadOp = vk::AttachmentLoadOp::eClear,
 		.storeOp = vk::AttachmentStoreOp::eStore,
@@ -358,32 +357,48 @@ void Renderer::draw( const Mesh& mesh,
 
 	cmd.end();
 
-	// 5. Submit
+	// 5. Submit (Modern Vulkan 1.3)
 	// Signals 'renderSem' when rendering finishes, so Present can start.
 	vk::Semaphore renderSem = *m_renderFinishedSemaphores[imageIndex]; // extract handle
 
-	// Define stages statically (Fixed mapping: Index 0 = Color, Index 1 = Vertex)
-	constexpr std::array<vk::PipelineStageFlags, 2> waitStages = {
-		vk::PipelineStageFlagBits::eColorAttachmentOutput,
-		vk::PipelineStageFlagBits::eVertexInput
+	// A. Wait Semaphores (Stack Allocated Array)
+	// Index 0: Always the Swapchain Image
+	// Index 1: The Compute Semaphore (Optional)
+	const std::array<vk::SemaphoreSubmitInfo, 2> waitInfos = {
+		vk::SemaphoreSubmitInfo {
+			.semaphore = *imgSem,
+			.stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput
+		},
+		vk::SemaphoreSubmitInfo {
+			.semaphore = waitSemaphore, // It is perfectly safe to pass a null handle here...
+			.stageMask = vk::PipelineStageFlagBits2::eVertexInput
+		}
 	};
 
-	// If waitSemaphore is null, it sits harmlessly at index 1 because waitCount will be 1.
-	const std::array<vk::Semaphore, 2> waitSems = { *imgSem, waitSemaphore };
+	// B. Command Buffer
+	const vk::CommandBufferSubmitInfo cmdInfo { .commandBuffer = *cmd };
 
-	const vk::SubmitInfo submitInfo {
-		.waitSemaphoreCount = waitSemaphore ? 2u : 1u,
-		.pWaitSemaphores = waitSems.data(),
-		.pWaitDstStageMask = waitStages.data(),
-		.commandBufferCount = 1, .pCommandBuffers = &*cmd,
-		.signalSemaphoreCount = 1, .pSignalSemaphores = &renderSem
-	};
-
-	// Submit to queue.
-	// - Waits on 'waitSems'
+	// C. Signal Semaphore
 	// - Signals 'renderSem'
+	const vk::SemaphoreSubmitInfo signalInfo {
+		.semaphore = renderSem,
+		.stageMask = vk::PipelineStageFlagBits2::eAllGraphics
+	};
+
+	// D. The Submit Info 2
+	const vk::SubmitInfo2 submitInfo {
+		// ... because this ternary perfectly shields the null handle from the driver!
+		.waitSemaphoreInfoCount = waitSemaphore ? 2u : 1u,
+		.pWaitSemaphoreInfos = waitInfos.data(),
+		.commandBufferInfoCount = 1,
+		.pCommandBufferInfos = &cmdInfo,
+		.signalSemaphoreInfoCount = 1,
+		.pSignalSemaphoreInfos = &signalInfo
+	};
+
+	// E. Submit to queue.
 	// - Signals 'fence' when ALL work is done (for CPU sync)
-	m_device.graphicsQueue().submit(submitInfo, fence);
+	m_device.graphicsQueue().submit2(submitInfo, fence);
 
 	// 6. Present
 	try {

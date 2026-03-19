@@ -35,9 +35,14 @@ VulkanLoader::createBuffer(const void* data, vk::DeviceSize size, vk::BufferUsag
 	
 	cmd.end();
 
-	// 4. Submit & Wait
-	const vk::SubmitInfo submitInfo{ .commandBufferCount = 1, .pCommandBuffers = &*cmd };
-	m_device.transferQueue().submit(submitInfo, nullptr);
+	// 4. Submit & Wait (Modern Vulkan 1.3)
+	const vk::CommandBufferSubmitInfo cmdInfo { .commandBuffer = *cmd };
+	const vk::SubmitInfo2 submitInfo {
+		.commandBufferInfoCount = 1,
+		.pCommandBufferInfos = &cmdInfo
+	};
+
+	m_device.transferQueue().submit2(submitInfo, nullptr);
 	m_device.transferQueue().waitIdle();
 
 	return { std::move(dBuf), std::move(dMem) };
@@ -70,9 +75,14 @@ void VulkanLoader::downloadBuffer(const vk::raii::Buffer& src, void* dst, vk::De
 
 	cmd.end();
 
-	// 3. Submit & Wait
-	const vk::SubmitInfo submitInfo{ .commandBufferCount = 1, .pCommandBuffers = &*cmd };
-	m_device.transferQueue().submit(submitInfo, nullptr);
+	// 3. Submit & Wait (Modern Vulkan 1.3)
+	const vk::CommandBufferSubmitInfo cmdInfo { .commandBuffer = *cmd };
+	const vk::SubmitInfo2 submitInfo {
+		.commandBufferInfoCount = 1,
+		.pCommandBufferInfos = &cmdInfo
+	};
+
+	m_device.transferQueue().submit2(submitInfo, nullptr);
 	m_device.transferQueue().waitIdle();
 
 	// 4. Map & Read
@@ -128,13 +138,19 @@ void VulkanLoader::uploadAsync(
 	cmd.end();
 
 	// 4. Submit with Signal
-	const vk::SubmitInfo submitInfo {
-		.commandBufferCount = 1,
-		.pCommandBuffers = &*cmd,
-		.signalSemaphoreCount = 1,
-		.pSignalSemaphores = &signalSemaphore
+	const vk::CommandBufferSubmitInfo cmdInfo { .commandBuffer = *cmd };
+
+	const vk::SemaphoreSubmitInfo signalInfo {
+		.semaphore = signalSemaphore,
+		.stageMask = vk::PipelineStageFlagBits2::eTransfer
 	};
 
-	// Submit, no waitIdle here.
-	m_device.transferQueue().submit(submitInfo, nullptr);
+	const vk::SubmitInfo2 submitInfo {
+		.commandBufferInfoCount = 1,
+		.pCommandBufferInfos = &cmdInfo,
+		.signalSemaphoreInfoCount = 1,
+		.pSignalSemaphoreInfos = &signalInfo
+	};
+
+	m_device.transferQueue().submit2(submitInfo, nullptr);
 }

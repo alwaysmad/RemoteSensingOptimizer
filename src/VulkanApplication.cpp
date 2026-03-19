@@ -222,6 +222,8 @@ int VulkanApplication::run()
 
 	uint32_t currentFrame = 0;
 	constexpr float dt = 0.1;
+	glm::mat4 model = glm::mat4(1.0f);
+
 	// 3. Loop
 	while (!vulkanWindow.shouldClose())
 	{
@@ -244,17 +246,16 @@ int VulkanApplication::run()
 		// Upload new data to UBO
 		satelliteNetwork.upload(currentFrame, vulkanLoader, *uploadSem);
 
-		// --- 
+		// --- Update Model matrix
 		constexpr auto rotSpeed = 0.05f;
 		const auto cos_time = std::cos(time * rotSpeed);
 		const auto sin_time = std::sin(time * rotSpeed);
 		
-		const glm::mat4 model = {
+		model = glm::mat4 {
 			cos_time,   0.0f,      sin_time, 0.0f,
 			0.0f,       1.0f,      0.0f,     0.0f,
 			-sin_time,  0.0f,      cos_time, 0.0f,
 			0.0f,       0.0f,      0.0f,     1.0f };
-		// ---
 
 		// --- Compute  ---
 		// Run the compute shader (Copies Satellite Color -> Vertex Color)

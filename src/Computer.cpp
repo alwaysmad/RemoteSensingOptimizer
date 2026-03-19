@@ -103,20 +103,28 @@ void Computer::compute (
 	recordComputeCommands(cmd);
 
 	// 3. Submit
-	constexpr vk::PipelineStageFlags waitStage = vk::PipelineStageFlagBits::eComputeShader;
-	
-	const vk::SubmitInfo submitInfo {
-		.waitSemaphoreCount = waitSemaphore ? 1u : 0u,
-		.pWaitSemaphores = waitSemaphore ? &waitSemaphore : nullptr,
-		.pWaitDstStageMask = waitSemaphore ? &waitStage : nullptr, // Wait at Compute Stage
-		.commandBufferCount = 1,
-		.pCommandBuffers = &*cmd,
-		.signalSemaphoreCount = signalSemaphore ? 1u : 0u,
-		.pSignalSemaphores = signalSemaphore ? &signalSemaphore : nullptr
+	const vk::SemaphoreSubmitInfo waitInfo {
+		.semaphore = waitSemaphore,
+		.stageMask = vk::PipelineStageFlagBits2::eComputeShader
 	};
 
-	// Submit to the compute queue
-	m_device.computeQueue().submit(submitInfo, fence);
+	const vk::CommandBufferSubmitInfo cmdInfo { .commandBuffer = *cmd };
+
+	const vk::SemaphoreSubmitInfo signalInfo {
+		.semaphore = signalSemaphore,
+		.stageMask = vk::PipelineStageFlagBits2::eComputeShader
+	};
+
+	const vk::SubmitInfo2 submitInfo {
+		.waitSemaphoreInfoCount = waitSemaphore ? 1u : 0u,
+		.pWaitSemaphoreInfos = waitSemaphore ? &waitInfo : nullptr,
+		.commandBufferInfoCount = 1,
+		.pCommandBufferInfos = &cmdInfo,
+		.signalSemaphoreInfoCount = signalSemaphore ? 1u : 0u,
+		.pSignalSemaphoreInfos = signalSemaphore ? &signalInfo : nullptr
+	};
+
+	m_device.computeQueue().submit2(submitInfo, fence);
 }
 
 void Computer::recordComputeCommands(const vk::raii::CommandBuffer& cmd)
