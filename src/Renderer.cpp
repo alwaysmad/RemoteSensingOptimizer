@@ -77,36 +77,46 @@ void Renderer::createDescriptors(const SatelliteNetwork& satNet)
 
 void Renderer::createDepthBuffer()
 {
+	// Clear old ones on recreate
+	m_depthImages.clear();
+	m_depthMemories.clear();
+	m_depthViews.clear();
+
 	const auto extent = m_swapchain.getExtent();
+	const uint32_t imageCount = m_swapchain.getImages().size();
 
-	const vk::ImageCreateInfo imageInfo {
-		.imageType = vk::ImageType::e2D,
-		.format = m_depthFormat,
-		.extent = { extent.width, extent.height, 1 },
-		.mipLevels = 1,
-		.arrayLayers = 1,
-		.samples = vk::SampleCountFlagBits::e1,
-		.tiling = vk::ImageTiling::eOptimal,
-		.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment,
-		.sharingMode = vk::SharingMode::eExclusive,
-		.initialLayout = vk::ImageLayout::eUndefined
-	};
+	// Loop through and create one depth buffer per swapchain image
+	for (uint32_t i = 0; i < imageCount; i++)
+	{
+		const vk::ImageCreateInfo imageInfo {
+			.imageType = vk::ImageType::e2D,
+			.format = m_depthFormat,
+			.extent = { extent.width, extent.height, 1 },
+			.mipLevels = 1,
+			.arrayLayers = 1,
+			.samples = vk::SampleCountFlagBits::e1,
+			.tiling = vk::ImageTiling::eOptimal,
+			.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment,
+			.sharingMode = vk::SharingMode::eExclusive,
+			.initialLayout = vk::ImageLayout::eUndefined
+		};
 
-	auto [img, mem] = m_device.createImage(imageInfo, vk::MemoryPropertyFlagBits::eDeviceLocal);
-	m_depthImage = std::move(img);
-	m_depthMemory = std::move(mem);
+		auto [img, mem] = m_device.createImage(imageInfo, vk::MemoryPropertyFlagBits::eDeviceLocal);
+		m_depthImages.push_back(std::move(img));
+		m_depthMemories.push_back(std::move(mem));
 
-	const vk::ImageViewCreateInfo viewInfo {
-		.image = *m_depthImage,
-		.viewType = vk::ImageViewType::e2D,
-		.format = m_depthFormat,
-		.subresourceRange = {
-		.aspectMask = vk::ImageAspectFlagBits::eDepth,
-		.baseMipLevel = 0, .levelCount = 1,
-		.baseArrayLayer = 0, .layerCount = 1
-		}
-	};
-	m_depthView = vk::raii::ImageView(m_device.device(), viewInfo);
+		const vk::ImageViewCreateInfo viewInfo {
+			.image = *m_depthImages.back(), // Point to the newly added image!
+			.viewType = vk::ImageViewType::e2D,
+			.format = m_depthFormat,
+			.subresourceRange = {
+			.aspectMask = vk::ImageAspectFlagBits::eDepth,
+			.baseMipLevel = 0, .levelCount = 1,
+			.baseArrayLayer = 0, .layerCount = 1
+			}
+		};
+		m_depthViews.emplace_back(m_device.device(), viewInfo);
+	}
 }
 
 void Renderer::remakeRenderFinishedSemaphores()
@@ -274,7 +284,7 @@ void Renderer::draw( const Mesh& mesh,
 			.dstAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
 			.oldLayout = vk::ImageLayout::eUndefined,
 			.newLayout = vk::ImageLayout::eDepthAttachmentOptimal,
-			.image = *m_depthImage,
+			.image = *m_depthImages[imageIndex],
 			.subresourceRange = { .aspectMask = vk::ImageAspectFlagBits::eDepth,
 				.baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1 }
 		}
@@ -293,7 +303,7 @@ void Renderer::draw( const Mesh& mesh,
 	};
 	// Depth Attachment
 	const vk::RenderingAttachmentInfo depthAttachment {
-		.imageView = *m_depthView,
+		.imageView = *m_depthViews[imageIndex],
 		.imageLayout = vk::ImageLayout::eDepthAttachmentOptimal,
 		.loadOp = vk::AttachmentLoadOp::eClear,
 		.storeOp = vk::AttachmentStoreOp::eStore,

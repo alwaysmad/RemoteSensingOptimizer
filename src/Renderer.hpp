@@ -55,10 +55,10 @@ private:
 	void recreateSwapchain();
 
 	// Depth Resources
-	vk::raii::Image     m_depthImage = nullptr;
-	TrackedDeviceMemory m_depthMemory;
-	vk::raii::ImageView m_depthView = nullptr;
-	vk::Format          m_depthFormat;
+	std::vector<vk::raii::Image>     m_depthImages;
+	std::vector<TrackedDeviceMemory> m_depthMemories;
+	std::vector<vk::raii::ImageView> m_depthViews;	
+	vk::Format			 m_depthFormat;
 	void createDepthBuffer();
 
 	// Pipelines
