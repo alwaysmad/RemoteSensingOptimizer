@@ -214,11 +214,11 @@ void Renderer::bakeMeshTask(uint32_t currentFrame, const Mesh& mesh, const glm::
 	cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, *m_meshPipeline.getPipeline());
 
 	// Viewport/Scissor (Must be set in secondary if dynamic)
-	/*const auto extent = m_swapchain.getExtent();
+	const auto extent = m_swapchain.getExtent();
 	const vk::Viewport vp { .width = (float)extent.width, .height = (float)extent.height, .maxDepth = 1.0f };
 	cmd.setViewport(0, vp);
 	const vk::Rect2D scissor { .extent = extent };
-	cmd.setScissor(0, scissor);*/
+	cmd.setScissor(0, scissor);
 
 	// Push Constants
 	m_pc.viewProj = PackedHalfMat4(m_proj * view);
@@ -258,11 +258,11 @@ void Renderer::bakeSatelliteTask(uint32_t currentFrame, const SatelliteNetwork& 
 	cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, *m_satellitePipeline.getPipeline());
 
 	// Viewport/Scissor
-	/*const auto extent = m_swapchain.getExtent();
+	const auto extent = m_swapchain.getExtent();
 	const vk::Viewport vp { .width = (float)extent.width, .height = (float)extent.height, .maxDepth = 1.0f };
 	cmd.setViewport(0, vp);
 	const vk::Rect2D scissor { .extent = extent };
-	cmd.setScissor(0, scissor);*/
+	cmd.setScissor(0, scissor);
 
 	// Push Constants
 	m_pc.viewProj = PackedHalfMat4(m_proj * view);
@@ -382,12 +382,6 @@ void Renderer::draw( const Mesh& mesh,
 
 	// --- 2. START RENDERING ---
 	cmd.beginRendering(renderInfo);
-
-	// Viewport/Scissor
-	const vk::Viewport vp { .width = (float)extent.width, .height = (float)extent.height, .maxDepth = 1.0f };
-	cmd.setViewport(0, vp);
-	const vk::Rect2D scissor { .extent = extent };
-	cmd.setScissor(0, scissor);
 
 	// --- EXECUTE MODULES ---
 	// This is the magic line.
