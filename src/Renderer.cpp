@@ -36,10 +36,6 @@ Renderer::Renderer(const VulkanDevice& device, const VulkanWindow& window, const
 
 	createDescriptors(satNet);
 
-	// Initialize the Tasks
-	m_meshTask.emplace(device, device.getGraphicsQueueIndex());
-	m_satelliteTask.emplace(device, device.getGraphicsQueueIndex());
-
 	LOG_DEBUG("Renderer initialized");
 }
 
@@ -183,96 +179,33 @@ void Renderer::submitDummy(vk::Fence fence, vk::Semaphore waitSemaphore)
 }
 
 // --- NEW: Bake Mesh (Secondary) ---
-void Renderer::bakeMeshTask(uint32_t currentFrame, const Mesh& mesh, const glm::mat4& model, const glm::mat4& view)
+void Renderer::bakeMeshTask(const vk::raii::CommandBuffer& cmd, const Mesh& mesh, const glm::mat4& model, const glm::mat4& view)
 {
-	auto& cmd = m_meshTask->get(currentFrame);
-
-	// 1. Define Dynamic Inheritance
-	// This tells the secondary buffer: "You will be rendering to these formats"
-	const vk::Format colorFmt = m_swapchain.getImageFormat();
-	const vk::Format depthFmt = m_depthFormat;
-
-	const vk::CommandBufferInheritanceRenderingInfo dynamicInheritance {
-		.colorAttachmentCount = 1,
-		.pColorAttachmentFormats = &colorFmt,
-		.depthAttachmentFormat = depthFmt,
-		.rasterizationSamples = vk::SampleCountFlagBits::e1
-	};
-
-	const vk::CommandBufferInheritanceInfo inheritInfo {
-		.pNext = &dynamicInheritance // <--- LINK HERE
-	};
-
-	// 2. Begin (Simultaneous Use allows resubmission if we were truly baked)
-	cmd.reset(); // Resetting because we update PushConstants every frame
-	cmd.begin({
-		.flags = vk::CommandBufferUsageFlagBits::eRenderPassContinue | vk::CommandBufferUsageFlagBits::eSimultaneousUse,
-		.pInheritanceInfo = &inheritInfo
-	});
-
-	// 3. Record Draw Commands
 	cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, *m_meshPipeline.getPipeline());
-
-	// Viewport/Scissor (Must be set in secondary if dynamic)
-	const auto extent = m_swapchain.getExtent();
-	const vk::Viewport vp { .width = (float)extent.width, .height = (float)extent.height, .maxDepth = 1.0f };
-	cmd.setViewport(0, vp);
-	const vk::Rect2D scissor { .extent = extent };
-	cmd.setScissor(0, scissor);
 
 	// Push Constants
 	m_pc.viewProj = PackedHalfMat4(m_proj * view);
 	m_pc.model = model; 
 	cmd.pushConstants<CameraPushConstants>(*m_meshPipeline.getLayout(), vk::ShaderStageFlagBits::eVertex, 0, m_pc);
 
+	// Bind Geometry & Draw
 	cmd.bindVertexBuffers(0, {*mesh.getVertexBuffer()}, {0});
 	cmd.bindIndexBuffer(*mesh.getIndexBuffer(), 0, vk::IndexType::eUint32);
 	cmd.drawIndexed(static_cast<uint32_t>(mesh.indices.size()), 1, 0, 0, 0);
-
-	cmd.end();
 }
 
 // --- NEW: Bake Satellite (Secondary) ---
-void Renderer::bakeSatelliteTask(uint32_t currentFrame, const SatelliteNetwork& satNet, const glm::mat4& view)
+void Renderer::bakeSatelliteTask(const vk::raii::CommandBuffer& cmd, const SatelliteNetwork& satNet, const glm::mat4& view)
 {
-	auto& cmd = m_satelliteTask->get(currentFrame);
-
-	const vk::Format colorFmt = m_swapchain.getImageFormat();
-	const vk::Format depthFmt = m_depthFormat;
-
-	const vk::CommandBufferInheritanceRenderingInfo dynamicInheritance {
-		.colorAttachmentCount = 1,
-		.pColorAttachmentFormats = &colorFmt,
-		.depthAttachmentFormat = depthFmt,
-		.rasterizationSamples = vk::SampleCountFlagBits::e1
-	};
-
-	const vk::CommandBufferInheritanceInfo inheritInfo { .pNext = &dynamicInheritance };
-
-	cmd.reset();
-	cmd.begin({
-		.flags = vk::CommandBufferUsageFlagBits::eRenderPassContinue | vk::CommandBufferUsageFlagBits::eSimultaneousUse,
-		.pInheritanceInfo = &inheritInfo
-	});
-
 	cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, *m_satellitePipeline.getPipeline());
-
-	// Viewport/Scissor
-	const auto extent = m_swapchain.getExtent();
-	const vk::Viewport vp { .width = (float)extent.width, .height = (float)extent.height, .maxDepth = 1.0f };
-	cmd.setViewport(0, vp);
-	const vk::Rect2D scissor { .extent = extent };
-	cmd.setScissor(0, scissor);
 
 	// Push Constants
 	m_pc.viewProj = PackedHalfMat4(m_proj * view);
 	cmd.pushConstants<PackedHalfMat4>(*m_satellitePipeline.getLayout(), vk::ShaderStageFlagBits::eVertex, 0, m_pc.viewProj);
 
+	// Bind Descriptors & Draw
 	cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *m_satellitePipeline.getLayout(), 0, {*m_satelliteDescriptors[0]}, nullptr);
-
 	cmd.draw(32, static_cast<uint32_t>(satNet.satellites.size()), 0, 0);
-
-	cmd.end();
 }
 
 void Renderer::draw( const Mesh& mesh,
@@ -308,16 +241,12 @@ void Renderer::draw( const Mesh& mesh,
 	// We must reset it before submission.
 	m_device.device().resetFences({fence});
 
-	// 3. Record
+	// 3.1 Record
 	const auto& cmd = m_command.getBuffer(currentFrame);
 	const auto& swapchainImageView = m_swapchain.getImageViews()[imageIndex];
 	const auto& swapchainImage = m_swapchain.getImages()[imageIndex];
 
-	// --- 1. Update Modules (Ideally done only when changed) ---
-	bakeMeshTask(currentFrame, mesh, modelMatrix, viewMatrix);
-	bakeSatelliteTask(currentFrame, satNet, viewMatrix);
-
-	// --- 2. Record Primary (The Glue) ---
+	// --- 3.2. Record Primary (The Glue) ---
 	cmd.reset();
 	cmd.begin({ .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
 
@@ -372,7 +301,6 @@ void Renderer::draw( const Mesh& mesh,
 	};
 	
 	const vk::RenderingInfo renderInfo {
-		.flags = vk::RenderingFlagBits::eContentsSecondaryCommandBuffers, // <--- CRITICAL FIX
 		.renderArea = { .extent = extent },
 		.layerCount = 1,
 		.colorAttachmentCount = 1,
@@ -380,16 +308,21 @@ void Renderer::draw( const Mesh& mesh,
 		.pDepthAttachment = &depthAttachment
 	};
 
-	// --- 2. START RENDERING ---
+	// --- 4.1. START RENDERING ---
 	cmd.beginRendering(renderInfo);
 
-	// --- EXECUTE MODULES ---
-	// This is the magic line.
-	cmd.executeCommands({ 
-		*m_meshTask->get(currentFrame), 
-		*m_satelliteTask->get(currentFrame) 
-	});
+	// --- 4.2. SET GLOBAL DYNAMIC STATE ONCE ---
+	const vk::Viewport vp { .width = (float)extent.width, .height = (float)extent.height, .maxDepth = 1.0f };
+	cmd.setViewport(0, vp);
 
+	const vk::Rect2D scissor { .extent = extent };
+	cmd.setScissor(0, scissor);
+
+	// --- 4.3. EXECUTE INLINE ---
+	bakeMeshTask(cmd, mesh, modelMatrix, viewMatrix);
+	bakeSatelliteTask(cmd, satNet, viewMatrix);
+
+	// --- 4.4. END RENDERING ---
 	cmd.endRendering();
 
 	// --- BARRIER (PRESENT) ---
@@ -415,7 +348,7 @@ void Renderer::draw( const Mesh& mesh,
 
 	cmd.end();
 
-	// 4. Submit
+	// 5. Submit
 	// Signals 'renderSem' when rendering finishes, so Present can start.
 	vk::Semaphore renderSem = *m_renderFinishedSemaphores[imageIndex]; // extract handle
 
@@ -442,7 +375,7 @@ void Renderer::draw( const Mesh& mesh,
 	// - Signals 'fence' when ALL work is done (for CPU sync)
 	m_device.graphicsQueue().submit(submitInfo, fence);
 
-	// 5. Present
+	// 6. Present
 	try {
 		const auto result = m_device.presentQueue().presentKHR({
 			// COMMENT: Wait for Rendering to finish before showing image

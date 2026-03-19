@@ -5,39 +5,11 @@
 
 #include "PushConstants.hpp"
 
-#include <optional>
-
 class VulkanDevice;
 class VulkanWindow;
 
 class Mesh;
 class SatelliteNetwork;
-
-class DrawTask {
-private:
-	vk::raii::CommandPool pool;
-	std::vector<vk::raii::CommandBuffer> cmds; 
-public:
-	DrawTask(const VulkanDevice& device, uint32_t queueFamily) 
-	: pool(device.device(), { 
-		// FIX 1: Add eResetCommandBuffer
-		.flags = vk::CommandPoolCreateFlagBits::eTransient | vk::CommandPoolCreateFlagBits::eResetCommandBuffer, 
-		.queueFamilyIndex = queueFamily 
-	})
-	{
-		// FIX 3: Allocate 2 buffers (MAX_FRAMES_IN_FLIGHT)
-		vk::CommandBufferAllocateInfo allocInfo {
-			.commandPool = *pool,
-			.level = vk::CommandBufferLevel::eSecondary,
-			.commandBufferCount = MAX_FRAMES_IN_FLIGHT
-		};
-		// allocateCommandBuffers returns a vector, so we just move it.
-		cmds = vk::raii::CommandBuffers(device.device(), allocInfo);
-	}
-
-	// Helper to get the current frame's buffer
-	inline const vk::raii::CommandBuffer& get(uint32_t frame) { return cmds[frame]; }
-};
 
 class Renderer
 {
@@ -75,14 +47,9 @@ private:
 	// Main primary command
 	VulkanCommand m_command;
 
-	// --- NEW: The Modules ---
-	// These replace the monolithic recording logic
-	std::optional<DrawTask> m_meshTask;
-	std::optional<DrawTask> m_satelliteTask;
-
 	// Recording functions for the modules
-	void bakeMeshTask(uint32_t, const Mesh& mesh, const glm::mat4& model, const glm::mat4& view);
-	void bakeSatelliteTask(uint32_t, const SatelliteNetwork& satNet, const glm::mat4& view);
+	void bakeMeshTask(const vk::raii::CommandBuffer& cmd, const Mesh& mesh, const glm::mat4& model, const glm::mat4& view);
+	void bakeSatelliteTask(const vk::raii::CommandBuffer& cmd, const SatelliteNetwork& satNet, const glm::mat4& view);
 		
 	VulkanSwapchain m_swapchain;
 	void recreateSwapchain();
