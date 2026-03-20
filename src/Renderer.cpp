@@ -131,14 +131,6 @@ void Renderer::remakeRenderFinishedSemaphores()
 	}
 }
 
-void Renderer::recreateSwapchain()
-{
-	m_swapchain.recreate();
-	remakeRenderFinishedSemaphores();
-	createDepthBuffer();
-	updateProjectionMatrix();
-}
-
 void Renderer::updateProjectionMatrix()
 {
 	const auto extent = m_swapchain.getExtent();
@@ -233,17 +225,17 @@ void Renderer::draw( const Mesh& mesh,
 	// 1. Acquire Image
 	// Waits for 'imgSem' to be signaled when the presentation engine releases an image
 	const auto& imgSem = m_imageAvailableSemaphores[currentFrame];
-	uint32_t imageIndex;
-	try {
-		const auto result = m_device.device().acquireNextImage2KHR({
-			.swapchain = *m_swapchain.getSwapchain(),
-			.timeout = UINT64_MAX,
-			.semaphore = *imgSem,
-			.deviceMask = 1
-		});
-		imageIndex = result.second;
-	} catch (const vk::OutOfDateKHRError&)
-		{ recreateSwapchain(); submitDummy(fence, waitSemaphore); return; }
+	
+	// The swapchain handles all the OutOfDate/Suboptimal logic internally
+	const auto sliceOpt = m_swapchain.acquireNextImage(*imgSem);
+	if (!sliceOpt)
+	{ 
+		createDepthBuffer();
+		updateProjectionMatrix();
+		submitDummy(fence, waitSemaphore);
+		return;
+	}
+	const SwapchainSlice& slice = sliceOpt.value();
 
 	// 2. Reset Fence
 	// We are about to submit work that will signal the fence.
@@ -252,8 +244,8 @@ void Renderer::draw( const Mesh& mesh,
 
 	// 3.1 Record
 	const auto& cmd = m_command.getBuffer(currentFrame);
-	const auto& swapchainImage = m_swapchain.getImages()[imageIndex];
-	const auto& swapchainImageView = m_swapchain.getImageViews()[imageIndex];
+	//const auto& swapchainImage = m_swapchain.getImages()[imageIndex];
+	//const auto& swapchainImageView = m_swapchain.getImageViews()[imageIndex];
 
 	// --- 3.2. Record Primary (The Glue) ---
 	cmd.reset();
@@ -271,7 +263,7 @@ void Renderer::draw( const Mesh& mesh,
 			.newLayout = vk::ImageLayout::eColorAttachmentOptimal,
 			.srcQueueFamilyIndex = vk::QueueFamilyIgnored,
 			.dstQueueFamilyIndex = vk::QueueFamilyIgnored,
-			.image = swapchainImage,
+			.image = slice.image,
 			.subresourceRange = { .aspectMask = vk::ImageAspectFlagBits::eColor,
 				.baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1 }
 		},
@@ -294,7 +286,7 @@ void Renderer::draw( const Mesh& mesh,
 	// Color Attachment
 	constexpr vk::ClearValue clearColor { .color = { backgroundColor } };
 	const vk::RenderingAttachmentInfo colorAttachment {
-		.imageView = swapchainImageView,
+		.imageView = slice.imageView,
 		.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
 		.loadOp = vk::AttachmentLoadOp::eClear,
 		.storeOp = vk::AttachmentStoreOp::eStore,
@@ -349,7 +341,7 @@ void Renderer::draw( const Mesh& mesh,
 		.newLayout = vk::ImageLayout::ePresentSrcKHR,
 		.srcQueueFamilyIndex = vk::QueueFamilyIgnored,
 		.dstQueueFamilyIndex = vk::QueueFamilyIgnored,
-		.image = swapchainImage,
+		.image = slice.image,
 		.subresourceRange = { .aspectMask = vk::ImageAspectFlagBits::eColor, 
 			.baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1 }
 	};
@@ -358,8 +350,6 @@ void Renderer::draw( const Mesh& mesh,
 	cmd.end();
 
 	// 5. Submit (Modern Vulkan 1.3)
-	// Signals 'renderSem' when rendering finishes, so Present can start.
-	vk::Semaphore renderSem = *m_renderFinishedSemaphores[imageIndex]; // extract handle
 
 	// A. Wait Semaphores (Stack Allocated Array)
 	// Index 0: Always the Swapchain Image
@@ -379,9 +369,8 @@ void Renderer::draw( const Mesh& mesh,
 	const vk::CommandBufferSubmitInfo cmdInfo { .commandBuffer = *cmd };
 
 	// C. Signal Semaphore
-	// - Signals 'renderSem'
 	const vk::SemaphoreSubmitInfo signalInfo {
-		.semaphore = renderSem,
+		.semaphore = slice.renderFinishedSemaphore,
 		.stageMask = vk::PipelineStageFlagBits2::eAllGraphics
 	};
 
@@ -401,14 +390,10 @@ void Renderer::draw( const Mesh& mesh,
 	m_device.graphicsQueue().submit2(submitInfo, fence);
 
 	// 6. Present
-	try {
-		const auto result = m_device.presentQueue().presentKHR({
-			// COMMENT: Wait for Rendering to finish before showing image
-			.waitSemaphoreCount = 1, .pWaitSemaphores = &renderSem,
-			.swapchainCount = 1, .pSwapchains = &*m_swapchain.getSwapchain(),
-			.pImageIndices = &imageIndex
-		});
-		if (result == vk::Result::eSuboptimalKHR) { recreateSwapchain(); }
-	} catch (const vk::OutOfDateKHRError&)
-		{ recreateSwapchain(); }
+	// Explicit reaction to a suboptimal presentation
+	if (!m_swapchain.present(m_device.presentQueue(), slice))
+	{ 
+		createDepthBuffer();
+		updateProjectionMatrix();
+	}
 }

@@ -45,13 +45,70 @@ VulkanSwapchain::VulkanSwapchain(const VulkanDevice& device, const VulkanWindow&
 	m_window(window),
 	m_swapchain(nullptr)
 {
-	createSwapchain();
-	createImageViews();
+	recreate();
 	LOG_DEBUG("VulkanSwapchain instance created");
 }
 
 VulkanSwapchain::~VulkanSwapchain()
 	{ LOG_DEBUG("VulkanSwapchain instance destroyed"); }
+
+void VulkanSwapchain::createSyncObjects()
+{
+	// Recreate semaphores to perfectly match the new image count
+	m_renderFinishedSemaphores.clear();
+	constexpr vk::SemaphoreCreateInfo semaphoreInfo{};
+	for (size_t i = 0; i < m_images.size(); ++i)
+		{ m_renderFinishedSemaphores.emplace_back(m_device.device(), semaphoreInfo); }
+}
+
+// --- Acquire Logic ---
+std::optional<SwapchainSlice> VulkanSwapchain::acquireNextImage(vk::Semaphore imageAvailableSemaphore)
+{
+	try {
+		const auto result = m_device.device().acquireNextImage2KHR({
+			.swapchain = *m_swapchain,
+			.timeout = UINT64_MAX,
+			.semaphore = imageAvailableSemaphore,
+			.deviceMask = 1
+		});
+		
+		const uint32_t idx = result.second;
+		
+		return SwapchainSlice {
+			.imageIndex = idx,
+			.image = m_images[idx],
+			.imageView = *m_imageViews[idx],
+			.renderFinishedSemaphore = *m_renderFinishedSemaphores[idx]
+		};
+	} 
+	// Cleanly signal to the caller that acquisition failed
+	catch (const vk::OutOfDateKHRError&)
+	{
+		recreate();
+		return std::nullopt;
+	}
+}
+
+// --- NEW: PRESENT ---
+bool VulkanSwapchain::present(const vk::raii::Queue& presentQueue, const SwapchainSlice& slice)
+{
+	try {
+		const auto result = presentQueue.presentKHR({
+			.waitSemaphoreCount = 1,
+			.pWaitSemaphores = &slice.renderFinishedSemaphore,
+			.swapchainCount = 1,
+			.pSwapchains = &*m_swapchain,
+			.pImageIndices = &slice.imageIndex
+		});
+
+		// Return true if perfectly optimal, false if the window shifted
+		return (result != vk::Result::eSuboptimalKHR);
+	} 
+	catch (const vk::OutOfDateKHRError&) {
+		recreate();
+		return false;
+	}
+}
 
 void VulkanSwapchain::recreate()
 {
@@ -71,6 +128,7 @@ void VulkanSwapchain::recreate()
 	// RAII handles destruction of old m_swapchain and m_imageViews here
 	createSwapchain();
 	createImageViews();
+	createSyncObjects();
 	LOG_DEBUG("Swapchain recreated");
 }
 

@@ -60,6 +60,7 @@ target_precompile_headers(simplevk PRIVATE
 	<cmath>          # NEW: For sin/cos
 	<cstddef>        # NEW: For offsetof
 	<cassert>
+	<optional>
 
 	# Third Party
 	<vulkan/vulkan_raii.hpp>
