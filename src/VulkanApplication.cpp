@@ -271,7 +271,7 @@ int VulkanApplication::run()
 			satelliteNetwork.upload(currentFrame, vulkanLoader, *uploadSem);
 
 			// --- Update Model matrix ---
-			constexpr auto rotSpeed = 0.05f;
+			constexpr auto rotSpeed = 0.08f;
 			const auto cos_time = std::cos(m_simTime * rotSpeed);
 			const auto sin_time = std::sin(m_simTime * rotSpeed);
 			

@@ -96,9 +96,7 @@ void VulkanLoader::uploadAsync(
 		const vk::raii::Buffer& src, vk::DeviceSize srcOffset,
 		const vk::raii::Buffer& dst, vk::DeviceSize dstOffset,
 		vk::DeviceSize size,
-		vk::Semaphore signalSemaphore,
-    		vk::PipelineStageFlags2 dstStage,
-		vk::AccessFlags2 dstAccess )
+		vk::Semaphore signalSemaphore)
 {
 	// 1. Get a Command Buffer for this frame
 	const auto& cmd = m_command.getBuffer(currentFrame);
@@ -113,31 +111,9 @@ void VulkanLoader::uploadAsync(
 		.size = size
 	};
 	cmd.copyBuffer(*src, *dst, region);
-
-	// 3. Barrier: Ensure transfer write is available/visible
-	// (Though Semaphores handle execution dependency, a barrier is good practice
-	// to flush caches before the semaphore signals).
-	const vk::BufferMemoryBarrier2 barrier {
-		.srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
-		.srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
-		.dstStageMask = dstStage,
-		.dstAccessMask = dstAccess,	
-		.srcQueueFamilyIndex = vk::QueueFamilyIgnored, // Concurrent sharing used
-		.dstQueueFamilyIndex = vk::QueueFamilyIgnored,
-		.buffer = *dst,
-		.offset = dstOffset,
-		.size = size
-	};
-
-	const vk::DependencyInfo depInfo {
-		.bufferMemoryBarrierCount = 1,
-		.pBufferMemoryBarriers = &barrier
-	};
-	cmd.pipelineBarrier2(depInfo);
-
 	cmd.end();
 
-	// 4. Submit with Signal
+	// 3. Submit with Signal
 	const vk::CommandBufferSubmitInfo cmdInfo { .commandBuffer = *cmd };
 
 	const vk::SemaphoreSubmitInfo signalInfo {
