@@ -20,16 +20,12 @@ Renderer::Renderer(const VulkanDevice& device, const VulkanWindow& window, const
 	m_meshPipeline(device, m_swapchain.getImageFormat(), m_depthFormat),
 	m_satellitePipeline(device, m_swapchain.getImageFormat(), m_depthFormat)
 {
-	// 1. Create Per-Frame Sync Objects (Image Available)
+	// Create Per-Frame Sync Objects (Image Available)
 	constexpr vk::SemaphoreCreateInfo semaphoreInfo{};
 
 	for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
 		{ m_imageAvailableSemaphores.emplace_back(m_device.device(), semaphoreInfo); }
 
-	// 2. Create Per-Image Sync Objects (Render Finished)
-	m_renderFinishedSemaphores.reserve(m_swapchain.getImages().size());
-	remakeRenderFinishedSemaphores();
-	
 	createDepthBuffer();
 
 	updateProjectionMatrix();
@@ -75,8 +71,17 @@ void Renderer::createDescriptors(const SatelliteNetwork& satNet)
 	m_device.device().updateDescriptorSets(write, nullptr);
 }
 
+void Renderer::recreateSwapchain()
+{
+	m_swapchain.recreate(); // <-- This safely halts the GPU (waitIdle) and rebuilds the OS canvas
+	createDepthBuffer();    // <-- Now it is safe to destroy and rebuild the old depth images
+	updateProjectionMatrix();
+}
+
 void Renderer::createDepthBuffer()
 {
+	m_device.device().waitIdle(); 
+
 	// Clear old ones on recreate
 	m_depthImages.clear();
 	m_depthMemories.clear();
@@ -115,19 +120,6 @@ void Renderer::createDepthBuffer()
 			}
 		};
 		m_depthViews.emplace_back(m_device.device(), viewInfo);
-	}
-}
-
-void Renderer::remakeRenderFinishedSemaphores()
-{
-	const uint32_t imageCount = m_swapchain.getImages().size();
-	// Re-create semaphores if image count changed
-	if (m_renderFinishedSemaphores.size() != imageCount)
-	{
-		m_renderFinishedSemaphores.clear();
-		constexpr vk::SemaphoreCreateInfo semaphoreInfo{};
-		for (uint32_t i = 0; i < imageCount; ++i)
-			{ m_renderFinishedSemaphores.emplace_back(m_device.device(), semaphoreInfo); }
 	}
 }
 
@@ -230,8 +222,7 @@ void Renderer::draw( const Mesh& mesh,
 	const auto sliceOpt = m_swapchain.acquireNextImage(*imgSem);
 	if (!sliceOpt)
 	{ 
-		createDepthBuffer();
-		updateProjectionMatrix();
+		recreateSwapchain();
 		submitDummy(fence, waitSemaphore);
 		return;
 	}
@@ -244,8 +235,6 @@ void Renderer::draw( const Mesh& mesh,
 
 	// 3.1 Record
 	const auto& cmd = m_command.getBuffer(currentFrame);
-	//const auto& swapchainImage = m_swapchain.getImages()[imageIndex];
-	//const auto& swapchainImageView = m_swapchain.getImageViews()[imageIndex];
 
 	// --- 3.2. Record Primary (The Glue) ---
 	cmd.reset();
@@ -392,8 +381,5 @@ void Renderer::draw( const Mesh& mesh,
 	// 6. Present
 	// Explicit reaction to a suboptimal presentation
 	if (!m_swapchain.present(m_device.presentQueue(), slice))
-	{ 
-		createDepthBuffer();
-		updateProjectionMatrix();
-	}
+		{ recreateSwapchain(); }
 }

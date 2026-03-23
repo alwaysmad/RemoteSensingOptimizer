@@ -73,9 +73,6 @@ private:
 	// Sync
 	// Fixed size [MAX_FRAMES_IN_FLIGHT]
 	std::vector<vk::raii::Semaphore> m_imageAvailableSemaphores;
-	// This one must match Swapchain Image Count
-	std::vector<vk::raii::Semaphore> m_renderFinishedSemaphores;
-	void remakeRenderFinishedSemaphores();
 	
 	void submitDummy(vk::Fence fence, vk::Semaphore waitSemaphore);
 

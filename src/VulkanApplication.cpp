@@ -11,16 +11,14 @@ VulkanApplication::VulkanApplication(const std::string& AppName, const std::stri
 	computer(vulkanDevice),
 	renderer(vulkanDevice, vulkanWindow, satelliteNetwork)
 {
-	// Create Fences (Signaled so we don't wait on first frame)
-	constexpr vk::FenceCreateInfo fenceInfo{ .flags = vk::FenceCreateFlagBits::eSignaled };
-
 	for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
-		{ m_inFlightFences.emplace_back(vulkanDevice.device(), fenceInfo); }
-
-	// Create Semaphores
-	constexpr vk::SemaphoreCreateInfo semInfo{};
-	for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
-	{
+	{	
+		// Create Fences (Signaled so we don't wait on first frame)
+		constexpr vk::FenceCreateInfo fenceInfo{ .flags = vk::FenceCreateFlagBits::eSignaled };
+		m_inFlightFences.emplace_back(vulkanDevice.device(), fenceInfo);
+		
+		// Create Semaphores
+		constexpr vk::SemaphoreCreateInfo semInfo{};
 		m_computeFinishedSemaphores.emplace_back(vulkanDevice.device(), semInfo);
 		m_uploadFinishedSemaphores.emplace_back(vulkanDevice.device(), semInfo);
 	}

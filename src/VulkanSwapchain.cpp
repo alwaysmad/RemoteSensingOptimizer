@@ -81,10 +81,9 @@ std::optional<SwapchainSlice> VulkanSwapchain::acquireNextImage(vk::Semaphore im
 			.renderFinishedSemaphore = *m_renderFinishedSemaphores[idx]
 		};
 	} 
-	// Cleanly signal to the caller that acquisition failed
 	catch (const vk::OutOfDateKHRError&)
 	{
-		recreate();
+		// NO MORE recreate() HERE! Just report failure.
 		return std::nullopt;
 	}
 }
@@ -101,11 +100,10 @@ bool VulkanSwapchain::present(const vk::raii::Queue& presentQueue, const Swapcha
 			.pImageIndices = &slice.imageIndex
 		});
 
-		// Return true if perfectly optimal, false if the window shifted
 		return (result != vk::Result::eSuboptimalKHR);
 	} 
 	catch (const vk::OutOfDateKHRError&) {
-		recreate();
+		// NO MORE recreate() HERE! Just report failure.
 		return false;
 	}
 }
@@ -221,7 +219,8 @@ void VulkanSwapchain::createSwapchain()
 		.imageColorSpace = surfaceFormat.colorSpace,
 		.imageExtent = extent,
 		.imageArrayLayers = 1,
-		.imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst, // Added TransferDst just in case (e.g. clearing)
+		.imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
+		// we may want | vk::ImageUsageFlagBits::eTransferDst for postprocessing
 		.imageSharingMode = sharingMode,
 		.queueFamilyIndexCount = static_cast<uint32_t>(queueFamilyIndices.size()),
 		.pQueueFamilyIndices = queueFamilyIndices.data(),

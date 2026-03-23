@@ -18,7 +18,10 @@ class VulkanSwapchain
 public:
 	VulkanSwapchain(const VulkanDevice&, const VulkanWindow&);
 	~VulkanSwapchain();
-
+	
+	// Called when window is resized
+	void recreate();
+	
 	// --- Presentation API ---
 	// Returns nullopt if the swapchain is out of date and needs recreation
 	std::optional<SwapchainSlice> acquireNextImage(vk::Semaphore imageAvailableSemaphore);
@@ -26,11 +29,8 @@ public:
 	// Returns false if the swapchain became suboptimal or out of date during present
 	bool present(const vk::raii::Queue& presentQueue, const SwapchainSlice& slice);
 
-	inline const vk::raii::SwapchainKHR& getSwapchain() const { return m_swapchain; }
 	inline vk::Format getImageFormat() const { return m_imageFormat; }
 	inline vk::Extent2D getExtent() const { return m_extent; }
-	inline const std::vector<vk::raii::ImageView>& getImageViews() const { return m_imageViews; }
-	inline const std::vector<vk::Image>& getImages() const { return m_images; }
 private:
 	// We keep references to dependencies so we can recreate() later
 	const VulkanDevice& m_device;
@@ -50,6 +50,4 @@ private:
 	void createSwapchain();
 	void createImageViews();
 	void createSyncObjects();
-	// Called when window is resized
-	void recreate();
 };
