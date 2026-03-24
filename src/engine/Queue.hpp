@@ -46,9 +46,8 @@ public:
 
     inline void dummySubmit(vk::Fence fence, vk::Semaphore waitSemaphore = nullptr) 
     {
-        if (fence) {
-            m_device.resetFences({fence}); // Safely using the reference!
-        }
+        if (fence) // Safely using the reference!
+            { m_device.resetFences({fence}); }
 
         const vk::SemaphoreSubmitInfo waitInfo {
             .semaphore = waitSemaphore,

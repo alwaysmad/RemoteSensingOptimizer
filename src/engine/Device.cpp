@@ -254,7 +254,6 @@ void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKH
     // Build queue-family -> slot mapping and initialize each slot once.
     // --- Queue Mapping ---
     uint32_t currentSlot = 0;
-    
     // Iterate over the std::set we already built earlier in the function
     for (const uint32_t family : uniqueQueueFamilies)
     {
@@ -281,7 +280,6 @@ void Device::waitIdle()
         m_queues[2].m_mutex, 
         m_queues[3].m_mutex
     );
-    
     m_device.waitIdle();
 }
 

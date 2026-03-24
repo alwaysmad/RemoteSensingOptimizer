@@ -5,6 +5,7 @@
 #include <utility> // std::move for move assignment
 
 #include "Settings.hpp"
+#include "engine/Device.hpp"
 #include "engine/Instance.hpp"
 #include "engine/Logger.hpp"
 #include "engine/window/Window.hpp"
@@ -18,6 +19,7 @@ private:
 	svk::WindowContext m_windowContext;
 	svk::Instance m_instance;
 	svk::Window m_window;
+	svk::Device m_device;
 
 public:
 	EngineInstance(const EngineInstance&) = delete;
@@ -25,13 +27,7 @@ public:
 	EngineInstance(EngineInstance&&) = delete;
 	EngineInstance& operator=(EngineInstance&& other) = delete;
 
-	EngineInstance(Settings& settings, Logger& logger)
-		: m_settings(settings),
-		  m_logger(logger),
-		  m_windowContext(),
-		  m_instance(std::string(Settings::appName), m_windowContext.getRequiredInstanceExtensions(), m_logger),
-		  m_window(m_windowContext, m_instance.getInstance(), m_settings.windowWidth, m_settings.windowHeight, std::string(Settings::appName))
-	{}
+	EngineInstance(Settings& settings, Logger& logger);
 
 	void tick();
 	[[nodiscard]] bool shouldClose() const;
