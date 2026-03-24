@@ -6,13 +6,17 @@ add_executable(rso main.cpp)
 target_sources(rso PRIVATE
 	Application.cpp
 	EngineInstance.cpp
+	engine/Device.cpp
+	engine/Device.hpp
 	engine/Instance.cpp
 	engine/Instance.hpp
 	engine/Logger.hpp
+	engine/Queue.hpp
 	Application.hpp
 	EngineInstance.hpp
 	Settings.hpp
 	engine/window/WindowContext.hpp
+	engine/window/Window.hpp
 )
 
 # 3. Compile Definitions
@@ -41,22 +45,22 @@ target_link_libraries(rso PRIVATE
 # 6. Precompiled Headers (PCH)
 target_precompile_headers(rso PRIVATE
 	# STL
-	<vector>
-	<array>
-	<string>
-	<stdexcept>
-	<exception>
-	<fstream>
-	<iostream>
-	<mutex>
-	<string_view>
-	<format>
-	<optional>
-	<cstdlib>
-	<utility>
-	<algorithm>
-	<cstring>
-	<filesystem>
+	<vector>      # dynamic arrays (extensions, layer lists, etc.)
+	<array>       # fixed-size math/vertex helper arrays
+	<string>      # owning text (paths, names, titles)
+	<stdexcept>   # runtime_error and standard exceptions
+	<exception>   # base exception types for catch clauses
+	<fstream>     # file-based logger output
+	<iostream>    # console logging streams
+	<mutex>       # logger synchronization primitives
+	<string_view> # non-owning string constants/views
+	<format>      # type-safe formatting in logger methods
+	<optional>    # optional singleton application instance
+	<cstdlib>     # EXIT_SUCCESS / EXIT_FAILURE constants
+	<utility>     # std::move / forwarding helpers
+	<algorithm>   # ranges algorithms and utilities
+	<cstring>     # C string interop (strcmp)
+	<filesystem>  # temporary path and filesystem helpers
 
 	# Third Party
 	<vulkan/vulkan_raii.hpp>
@@ -69,9 +73,11 @@ target_precompile_headers(rso PRIVATE
 	"Settings.hpp"
 	"engine/Logger.hpp"
 	"Application.hpp"
-	#"EngineInstance.hpp"
-	"engine/Instance.hpp"
 	"engine/window/WindowContext.hpp"
+	"engine/window/Window.hpp"
+	"engine/Device.hpp"
+	"engine/Queue.hpp"
+	"engine/Instance.hpp"
 	#"Frames.hpp"
 )
 

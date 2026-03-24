@@ -1,11 +1,13 @@
 // src/EngineInstance.cpp
-#include <cstdlib>
+
+#include <string> // std::string
 
 #include "EngineInstance.hpp"
 
-int EngineInstance::run()
+void EngineInstance::tick()
 {
-
-	// Placeholder run loop while the rest of legacy VulkanApplication is being migrated.
-	return EXIT_SUCCESS;
+	m_window.pollEvents();
+	m_window.updateFPS(std::string(Settings::appName));
 }
+
+bool EngineInstance::shouldClose() const { return m_window.shouldClose(); }

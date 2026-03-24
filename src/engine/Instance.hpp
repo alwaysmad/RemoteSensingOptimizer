@@ -1,8 +1,8 @@
 // src/engine/Instance.hpp
 #pragma once
 
-#include <string>
-#include <vector>
+#include <string> // std::string for app name
+#include <vector> // std::vector for required extensions
 #include <vulkan/vulkan_raii.hpp>
 
 class Logger;

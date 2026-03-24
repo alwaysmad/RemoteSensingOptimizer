@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vector>
-#include <stdexcept>
+#include <vector>    // std::vector for required Vulkan extensions
+#include <stdexcept> // std::runtime_error on GLFW init failure
 #include <GLFW/glfw3.h>
 
 namespace svk

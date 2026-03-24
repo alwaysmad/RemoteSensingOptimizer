@@ -1,6 +1,6 @@
 // src/Application.cpp
-#include <cstdlib>
-#include <filesystem> // for std::filesystem::temp_directory_path
+#include <cstdlib>    // EXIT_SUCCESS
+#include <filesystem> // std::filesystem::temp_directory_path
 
 #include "Application.hpp"
 #include "EngineInstance.hpp"
@@ -29,8 +29,11 @@ int Application::launch()
 	// Declare start of the reign
 	m_logger.cInfo("Application name is {}", Settings::appName);
 
-    // test the file output
-	m_logger.fInfo("blah blah in file");
+	EngineInstance engine(m_settings, m_logger);
+	while (!engine.shouldClose())
+	{
+		engine.tick();
+	}
 
-	return EngineInstance(m_settings, m_logger).run();
+	return EXIT_SUCCESS;
 }

@@ -1,8 +1,8 @@
 // src/main.cpp
 
-#include <cstdlib>
-#include <exception>
-#include <iostream>
+#include <cstdlib>   // EXIT_FAILURE
+#include <exception> // std::exception in catch
+#include <iostream>  // std::cerr output
 
 #include "Application.hpp"
 #include "engine/Logger.hpp"

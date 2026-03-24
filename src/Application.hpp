@@ -1,8 +1,8 @@
 // src/Application.hpp
 #pragma once
 
-#include <optional>
-#include <utility>
+#include <optional> // std::optional for singleton storage
+#include <utility>  // std::move in constructor
 
 #include "Settings.hpp"
 #include "engine/Logger.hpp"
