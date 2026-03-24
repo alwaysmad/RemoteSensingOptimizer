@@ -38,13 +38,13 @@ public:
     [[nodiscard]] inline uint32_t getFamilyIndex() const { return m_queueFamilyIndex; }
 
     // --- Thread-Safe Operations ---
-    inline void submit(const vk::SubmitInfo2& submitInfo, vk::Fence fence = nullptr) 
+    inline void submit(const vk::SubmitInfo2& submitInfo, const vk::Fence fence = nullptr) const
     {
         const std::lock_guard<std::mutex> lock(m_mutex);
         m_queue.submit2(submitInfo, fence);
     }
 
-    inline void dummySubmit(vk::Fence fence, vk::Semaphore waitSemaphore = nullptr) 
+    inline void dummySubmit(const vk::Fence fence, const vk::Semaphore waitSemaphore = nullptr) const
     {
         if (fence) // Safely using the reference!
             { m_device.resetFences({fence}); }
@@ -63,13 +63,13 @@ public:
         m_queue.submit2(submitInfo, fence);
     }
 
-    inline vk::Result present(const vk::PresentInfoKHR& presentInfo) 
+    inline vk::Result present(const vk::PresentInfoKHR& presentInfo) const
     {
         const std::lock_guard<std::mutex> lock(m_mutex);
         return m_queue.presentKHR(presentInfo);
     }
 
-    inline void waitIdle() 
+    inline void waitIdle() const
     {
         const std::lock_guard<std::mutex> lock(m_mutex);
         m_queue.waitIdle();
