@@ -1,5 +1,14 @@
-// src/core/Settings.hpp
+// src/Settings.hpp
 #pragma once
+
+#include <string>
+#include <string_view>
+
+#ifdef NDEBUG
+inline constexpr bool enableValidationLayers = false;
+#else
+inline constexpr bool enableValidationLayers = true;
+#endif
 
 struct Settings
 {
@@ -7,6 +16,7 @@ public:
 	// Emperor's rulebook
 	static constexpr std::string_view appName = "RSO";
 	std::string logPath = "rso.log";
+	std::string deviceName = "Intel(R) Iris(R) Xe Graphics (ADL GT2)";
 
 	Settings() noexcept = default;
 	~Settings() noexcept = default;

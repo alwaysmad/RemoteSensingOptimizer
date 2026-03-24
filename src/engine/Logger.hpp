@@ -1,5 +1,12 @@
-// src/core/Logger.hpp
 #pragma once
+
+#include <fstream>
+#include <iostream>
+#include <mutex>
+#include <string>
+#include <string_view>
+#include <format>
+#include <utility>
 
 class Logger
 {

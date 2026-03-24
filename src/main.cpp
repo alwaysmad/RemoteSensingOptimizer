@@ -1,5 +1,12 @@
 // src/main.cpp
 
+#include <cstdlib>
+#include <exception>
+#include <iostream>
+
+#include "Application.hpp"
+#include "engine/Logger.hpp"
+
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 {
 	try

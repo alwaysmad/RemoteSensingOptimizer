@@ -4,7 +4,15 @@ add_executable(rso main.cpp)
 
 # 2. Add sources
 target_sources(rso PRIVATE
-	core/Application.cpp
+	Application.cpp
+	EngineInstance.cpp
+	engine/Instance.cpp
+	engine/Instance.hpp
+	engine/Logger.hpp
+	Application.hpp
+	EngineInstance.hpp
+	Settings.hpp
+	engine/window/WindowContext.hpp
 )
 
 # 3. Compile Definitions
@@ -33,37 +41,37 @@ target_link_libraries(rso PRIVATE
 # 6. Precompiled Headers (PCH)
 target_precompile_headers(rso PRIVATE
 	# STL
-	#<vector>
-	#<array>
+	<vector>
+	<array>
+	<string>
 	<stdexcept>
+	<exception>
 	<fstream>
 	<iostream>
 	<mutex>
 	<string_view>
 	<format>
 	<optional>
-	#<cstdlib>
-	#<set>
-	#<fstream>
-	#<limits>
-	#<algorithm>
-	#<cstring>
-	#<atomic>
-	#<cmath>          # NEW: For sin/cos
-	#<cstddef>        # NEW: For offsetof
-	#<cassert>
+	<cstdlib>
+	<utility>
+	<algorithm>
+	<cstring>
+	<filesystem>
 
 	# Third Party
-	#<vulkan/vulkan_raii.hpp>
-	#<GLFW/glfw3.h>
+	<vulkan/vulkan_raii.hpp>
+	<GLFW/glfw3.h>
 	#<glm/glm.hpp>
 	#<glm/gtc/packing.hpp>
 	#<glm/gtc/matrix_transform.hpp> # NEW: For lookAt/perspective
 
 	# Project Local
-	"core/Settings.hpp"
-	"core/Logger.hpp"
-	"core/Application.hpp"
+	"Settings.hpp"
+	"engine/Logger.hpp"
+	"Application.hpp"
+	#"EngineInstance.hpp"
+	"engine/Instance.hpp"
+	"engine/window/WindowContext.hpp"
 	#"Frames.hpp"
 )
 

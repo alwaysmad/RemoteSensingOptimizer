@@ -1,5 +1,11 @@
-// src/core/Application.hpp
+// src/Application.hpp
 #pragma once
+
+#include <optional>
+#include <utility>
+
+#include "Settings.hpp"
+#include "engine/Logger.hpp"
 
 class Application
 {
@@ -37,27 +43,18 @@ public:
 	// 'crown emperor and start his reign'
 	static int run(/*TODO parse cli args*/)
 	{
-		// Crown a new emperor with a 'empty' crown and a new rulebook
+		// Crown a new emperor with a (empty) crown and a new rulebook
 		s_instance.emplace(PassKey(), configure(/*TODO args */));
-		
+
 		// emperor reigns
 		int result = s_instance->launch();
 
 		// end the reign gracefully
 		s_instance.reset();
-	
-		// Report success
+
+		// Report back
 		return result;
 	}
-
-	// Access the instance / An audience
-	[[nodiscard]] inline static const std::optional<Application>& get() { return s_instance; }
-
-	// Access logger / Emperor's Herald and Scribe
-	[[nodiscard]] inline const Logger& logger() { return m_logger; }
-
-	// Access Settings / Emperor's rulebook
-	[[nodiscard]] inline const Settings& settings() { return m_settings; }
 
 	// Public so std::optional can create and destroy
 	// Since only 'run()' can make the Key, this is effectively private.
