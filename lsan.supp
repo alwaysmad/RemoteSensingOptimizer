@@ -1,0 +1,3 @@
+# lsan.supp
+leak:_XimOpenIM
+leak:libX11
