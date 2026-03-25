@@ -1,3 +1,4 @@
+// src/engine/Queue.hpp
 #pragma once
 
 #include <cstdint>  // uint32_t, UINT32_MAX
@@ -21,11 +22,6 @@ class Queue
 {
     friend class Device;
 public:
-    // 1. Construct with the Reference
-    explicit Queue(const vk::raii::Device& device)
-        : m_device(device) 
-    {}
-
     // Ironclad Constraints
     Queue(const Queue&) = delete;
     Queue& operator=(const Queue&) = delete;
@@ -76,6 +72,11 @@ public:
     }
 
 private:
+    // 1. Construct with the Reference
+    // only the svk::Device can create Queues
+    explicit Queue(const vk::raii::Device& device)
+        : m_device(device) 
+    {}
     // 2. The Binder (Two-Stage)
     inline void init(vk::raii::Queue queue, uint32_t familyIndex)
     {

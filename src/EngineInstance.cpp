@@ -11,7 +11,7 @@ EngineInstance::EngineInstance(Settings& settings, Logger& logger)
 	  m_instance(std::string(Settings::appName), m_windowContext.getRequiredInstanceExtensions(), m_logger),
 	  m_window(m_windowContext, m_instance.getInstance(), m_settings.windowWidth, m_settings.windowHeight, std::string(Settings::appName)),
 	  m_device([this]() {
-		if constexpr (enableValidationLayers)
+		if constexpr (svk::enableValidationLayers)
 		{
 			m_logger.cInfo("Available physical devices:");
 			for (const auto& physicalDevice : m_instance.getInstance().enumeratePhysicalDevices())
@@ -30,7 +30,7 @@ EngineInstance::EngineInstance(Settings& settings, Logger& logger)
 		return svk::Device(m_instance, m_window.getSurface(), m_settings.deviceName);
 	}())
 {
-	if constexpr (enableValidationLayers)
+	if constexpr (svk::enableValidationLayers)
 	{
 		const auto selectedDeviceName = std::string(m_device.physicalDevice().getProperties().deviceName);
 		m_logger.cInfo("Device created: '{}'", selectedDeviceName);

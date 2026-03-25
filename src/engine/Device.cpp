@@ -7,7 +7,7 @@
 #include <stdexcept> // std::runtime_error
 #include <vector>    // queue create infos
 
-#include "Settings.hpp"
+#include "engine/Flags.hpp"
 #include "engine/Device.hpp"
 #include "engine/Instance.hpp"
 
@@ -34,7 +34,7 @@ inline void selectPhysicalDevice(
 
     if (*outPhysicalDevice == nullptr)
     { // If not found, pick the first one
-        if constexpr (enableValidationLayers)
+        if constexpr (svk::enableValidationLayers)
             { outPhysicalDevice = devices.front(); }
         else // or throw an error
             { throw std::runtime_error(std::format("Could not find requested device: '{}'", requestedDeviceName)); }

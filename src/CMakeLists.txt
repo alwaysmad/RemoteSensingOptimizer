@@ -71,8 +71,8 @@ target_precompile_headers(rso PRIVATE
 
 	# Project Local
 	"Settings.hpp"
+	"engine/Flags.hpp"
 	"engine/Logger.hpp"
-	"Application.hpp"
 	"engine/window/WindowContext.hpp"
 	"engine/window/Window.hpp"
 	"engine/Device.hpp"

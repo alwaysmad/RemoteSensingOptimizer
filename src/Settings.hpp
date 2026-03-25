@@ -5,12 +5,6 @@
 #include <string>      // std::string for paths and device names
 #include <string_view> // std::string_view for static app name
 
-#ifdef NDEBUG
-inline constexpr bool enableValidationLayers = false;
-#else
-inline constexpr bool enableValidationLayers = true;
-#endif
-
 struct Settings
 {
 public:

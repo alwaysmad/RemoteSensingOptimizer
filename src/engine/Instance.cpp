@@ -7,7 +7,7 @@
 #include <vector>     // std::vector
 #include<format>
 
-#include "Settings.hpp"
+#include "engine/Flags.hpp"
 #include "engine/Instance.hpp"
 #include "engine/Logger.hpp"
 
@@ -43,12 +43,12 @@ Instance::Instance(const std::string& appName, const std::vector<const char*>& e
 	};
 
 	std::vector<const char*> requiredExtensions = extensions;
-	if constexpr (enableValidationLayers)
+	if constexpr (svk::enableValidationLayers)
 		{ requiredExtensions.push_back(vk::EXTDebugUtilsExtensionName); }
 
 	const auto extensionProperties = m_context.enumerateInstanceExtensionProperties();
 
-	if constexpr (enableValidationLayers)
+	if constexpr (svk::enableValidationLayers)
 	{
 		m_logger.cDebug("Available Vulkan extensions ({}) :", extensionProperties.size());
 		for ([[maybe_unused]] const auto& i : extensionProperties)
@@ -70,12 +70,12 @@ Instance::Instance(const std::string& appName, const std::vector<const char*>& e
 	}
 
 	std::vector<const char*> requiredLayers;
-	if constexpr (enableValidationLayers)
+	if constexpr (svk::enableValidationLayers)
 		{ requiredLayers.push_back(validationLayersName); }
 
 	const auto layerProperties = m_context.enumerateInstanceLayerProperties();
 
-	if constexpr (enableValidationLayers)
+	if constexpr (svk::enableValidationLayers)
 	{
 		m_logger.cDebug("Available layers ({}) :", layerProperties.size());
 		for ([[maybe_unused]] const auto& i : layerProperties)
@@ -104,7 +104,7 @@ Instance::Instance(const std::string& appName, const std::vector<const char*>& e
 	};
 
 	const vk::InstanceCreateInfo createInfo {
-		.pNext = (enableValidationLayers) ? &debugUtilsMessengerCreateInfoEXT : nullptr,
+		.pNext = (svk::enableValidationLayers) ? &debugUtilsMessengerCreateInfoEXT : nullptr,
 		.pApplicationInfo = &appInfo,
 		.enabledLayerCount = static_cast<uint32_t>(requiredLayers.size()),
 		.ppEnabledLayerNames = requiredLayers.data(),
@@ -115,7 +115,7 @@ Instance::Instance(const std::string& appName, const std::vector<const char*>& e
 	m_instance = vk::raii::Instance(m_context, createInfo);
 	m_logger.cDebug("Vulkan instance created successfully");
 
-	if constexpr (enableValidationLayers)
+	if constexpr (svk::enableValidationLayers)
 	{
 		m_debugMessenger = m_instance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfoEXT);
 		m_logger.cDebug("Debug callback set up successfully");
@@ -140,8 +140,10 @@ VKAPI_ATTR vk::Bool32 VKAPI_CALL Instance::debugCallback(
 		{ logger->cError("{} {}", typeStr, pCallbackData->pMessage); }
 	else if (severity >= vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning)
 		{ logger->cWarn("{} {}", typeStr, pCallbackData->pMessage); }
+	else if (severity >= vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo)
+		{ logger->fInfo("{} {}", typeStr, pCallbackData->pMessage); }
 	else
-	{ logger->fInfo("{} {}", typeStr, pCallbackData->pMessage); }
+	{ logger->fDebug("{} {}", typeStr, pCallbackData->pMessage); }
 
 	return vk::False;
 }
