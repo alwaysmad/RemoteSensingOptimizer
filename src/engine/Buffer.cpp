@@ -35,52 +35,17 @@ BufferMap::~BufferMap()
 }
 
 Buffer::Buffer(const vk::raii::Device& device,
-               const vk::raii::PhysicalDevice& physicalDevice,
-               vk::DeviceSize size,
-               vk::BufferUsageFlags usage,
-               vk::MemoryPropertyFlags properties,
-               const std::vector<uint32_t>& uniqueQueueFamilies,
-               std::atomic<uint32_t>& allocCounter)
+                vk::raii::Buffer&& buffer,
+                const vk::MemoryRequirements& memoryRequirements,
+                uint32_t memoryTypeIndex,
+                vk::DeviceSize size,
+                vk::BufferUsageFlags usage,
+                std::atomic<uint32_t>& allocCounter)
     : m_allocCounter(&allocCounter),
       m_size(size),
-      m_usage(usage)
+      m_usage(usage),
+      m_buffer(std::move(buffer))
 {
-    vk::SharingMode sharingMode = vk::SharingMode::eExclusive;
-    uint32_t queueFamilyIndexCount = 0;
-    const uint32_t* queueFamilyIndices = nullptr;
-
-    if (uniqueQueueFamilies.size() > 1)
-    {
-        sharingMode = vk::SharingMode::eConcurrent;
-        queueFamilyIndexCount = static_cast<uint32_t>(uniqueQueueFamilies.size());
-        queueFamilyIndices = uniqueQueueFamilies.data();
-    }
-
-    const vk::BufferCreateInfo bufferInfo {
-        .size = m_size,
-        .usage = m_usage,
-        .sharingMode = sharingMode,
-        .queueFamilyIndexCount = queueFamilyIndexCount,
-        .pQueueFamilyIndices = queueFamilyIndices,
-    };
-
-    m_buffer = vk::raii::Buffer(device, bufferInfo);
-
-    const vk::MemoryRequirements memoryRequirements = m_buffer.getMemoryRequirements();
-    const vk::PhysicalDeviceMemoryProperties memoryProperties = physicalDevice.getMemoryProperties();
-
-    uint32_t memoryTypeIndex = UINT32_MAX;
-    for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i)
-    {
-        const bool typeMatches = (memoryRequirements.memoryTypeBits & (1u << i)) != 0u;
-        const bool propertyMatches = (memoryProperties.memoryTypes[i].propertyFlags & properties) == properties;
-        if (typeMatches && propertyMatches)
-            { memoryTypeIndex = i; break; }
-    }
-
-    if (memoryTypeIndex == UINT32_MAX)
-        { throw std::runtime_error("Failed to find suitable memory type for buffer"); }
-
     const vk::MemoryAllocateInfo allocInfo {
         .allocationSize = memoryRequirements.size,
         .memoryTypeIndex = memoryTypeIndex,

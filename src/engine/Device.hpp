@@ -9,6 +9,7 @@
 #include <vulkan/vulkan_raii.hpp>
 
 #include "engine/Buffer.hpp"
+#include "engine/Image.hpp"
 #include "engine/Queue.hpp"
 
 namespace svk
@@ -55,7 +56,10 @@ public:
     [[nodiscard]] svk::Buffer createBuffer(vk::DeviceSize size,
                                            vk::BufferUsageFlags usage,
                                            vk::MemoryPropertyFlags properties,
-                                           const std::vector<QueueType>& targetQueues);
+                                           const std::vector<QueueType>& targetQueues);            
+    [[nodiscard]] svk::Image createImage(const vk::ImageCreateInfo& imageInfo,
+                                         vk::MemoryPropertyFlags properties,
+                                         vk::ImageAspectFlags aspectFlags);
     inline void waitIdle() const
     {
         // Unconditionally lock all 4 laboratories instantly to prevent deadlocks. 

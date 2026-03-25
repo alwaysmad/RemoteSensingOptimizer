@@ -8,7 +8,12 @@ namespace svk
 {
 
 class Device;
+class Buffer;
 
+// =========================================================================
+//  "Reading Session"
+//  RAII wrapper for mapped device memory. Unmaps automatically on destruction.
+// =========================================================================
 class BufferMap
 {
 public:
@@ -31,6 +36,20 @@ private:
     void* m_mapped = nullptr;
 };
 
+// =========================================================================
+//  "The Reading Desk Assignment"
+//  Lightweight wrapper to pair a specific Buffer with a Shader Binding slot.
+// =========================================================================
+struct BufferBinding 
+{
+    const svk::Buffer* buffer
+    uint32_t binding;
+};
+
+// =========================================================================
+//  "A book in the institute"
+//  RAII wrapper for a Vulkan Buffer and its backing Device Memory.
+// =========================================================================
 class Buffer
 {
 public:
@@ -51,12 +70,12 @@ private:
     friend class Device;
 
     Buffer(const vk::raii::Device& device,
-           const vk::raii::PhysicalDevice& physicalDevice,
-           vk::DeviceSize size,
-           vk::BufferUsageFlags usage,
-           vk::MemoryPropertyFlags properties,
-           const std::vector<uint32_t>& uniqueQueueFamilies,
-           std::atomic<uint32_t>& allocCounter);
+            vk::raii::Buffer&& buffer,
+            const vk::MemoryRequirements& memoryRequirements,
+            uint32_t memoryTypeIndex,
+            vk::DeviceSize size,
+            vk::BufferUsageFlags usage,
+            std::atomic<uint32_t>& allocCounter);
 
     std::atomic<uint32_t>* m_allocCounter = nullptr;
     vk::DeviceSize m_size = 0;

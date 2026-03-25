@@ -10,6 +10,8 @@ target_sources(rso PRIVATE
 	engine/Buffer.hpp
 	engine/Device.cpp
 	engine/Device.hpp
+	engine/Image.cpp
+	engine/Image.hpp
 	engine/Instance.cpp
 	engine/Instance.hpp
 	engine/Logger.hpp
@@ -83,6 +85,7 @@ target_precompile_headers(rso PRIVATE
 	"engine/Queue.hpp"
 	"engine/Buffer.hpp"
 	"engine/Device.hpp"
+	"engine/Image.hpp"
 	"engine/Swapchain.hpp"
 	"engine/Instance.hpp"
 	#"Frames.hpp"
