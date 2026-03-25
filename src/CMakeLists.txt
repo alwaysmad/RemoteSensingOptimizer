@@ -12,6 +12,8 @@ target_sources(rso PRIVATE
 	engine/Instance.hpp
 	engine/Logger.hpp
 	engine/Queue.hpp
+	engine/Swapchain.cpp
+	engine/Swapchain.hpp
 	Application.hpp
 	EngineInstance.hpp
 	Settings.hpp
@@ -61,6 +63,7 @@ target_precompile_headers(rso PRIVATE
 	<algorithm>   # ranges algorithms and utilities
 	<cstring>     # C string interop (strcmp)
 	<filesystem>  # temporary path and filesystem helpers
+	<limits>
 
 	# Third Party
 	<vulkan/vulkan_raii.hpp>
@@ -77,6 +80,7 @@ target_precompile_headers(rso PRIVATE
 	"engine/window/Window.hpp"
 	"engine/Device.hpp"
 	"engine/Queue.hpp"
+	"engine/Swapchain.hpp"
 	"engine/Instance.hpp"
 	#"Frames.hpp"
 )

@@ -8,6 +8,7 @@
 #include "engine/Device.hpp"
 #include "engine/Instance.hpp"
 #include "engine/Logger.hpp"
+#include "engine/Swapchain.hpp"
 #include "engine/window/Window.hpp"
 #include "engine/window/WindowContext.hpp"
 
@@ -20,6 +21,7 @@ private:
 	svk::Instance m_instance;
 	svk::Window m_window;
 	svk::Device m_device;
+	svk::Swapchain m_swapchain;
 
 public:
 	EngineInstance(const EngineInstance&) = delete;

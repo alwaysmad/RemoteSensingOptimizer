@@ -36,14 +36,25 @@ public:
     [[nodiscard]] inline const vk::raii::Device& device() const { return m_device; }
 
     // The Laboratories
-    [[nodiscard]] inline svk::Queue& transferQueue() { return m_queues[m_queueMapping[TRANSFER]]; }
-    [[nodiscard]] inline svk::Queue& computeQueue() { return m_queues[m_queueMapping[COMPUTE]]; }
-    [[nodiscard]] inline svk::Queue& graphicsQueue() { return m_queues[m_queueMapping[GRAPHICS]]; }
-    [[nodiscard]] inline svk::Queue& presentQueue() { return m_queues[m_queueMapping[PRESENT]]; }
+    [[nodiscard]] inline const svk::Queue& transferQueue() const { return m_queues[m_queueMapping[TRANSFER]]; }
+    [[nodiscard]] inline const svk::Queue& computeQueue() const { return m_queues[m_queueMapping[COMPUTE]]; }
+    [[nodiscard]] inline const svk::Queue& graphicsQueue() const { return m_queues[m_queueMapping[GRAPHICS]]; }
+    [[nodiscard]] inline const svk::Queue& presentQueue() const { return m_queues[m_queueMapping[PRESENT]]; }
 
     // Global Sync & State
     std::atomic<uint32_t> allocationCount { 0 };
-    void waitIdle();
+    inline void waitIdle() const
+    {
+        // Unconditionally lock all 4 laboratories instantly to prevent deadlocks. 
+        // This ensures no thread is mid-submission before we halt the GPU.
+        std::scoped_lock lock(
+            m_queues[0].m_mutex, 
+            m_queues[1].m_mutex, 
+            m_queues[2].m_mutex, 
+            m_queues[3].m_mutex
+        );
+        m_device.waitIdle();
+    }
 
 private:
     void initialize(const svk::Instance& instance, const vk::raii::SurfaceKHR* surface, const std::string& deviceName);

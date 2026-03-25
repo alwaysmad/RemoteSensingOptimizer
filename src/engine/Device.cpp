@@ -270,17 +270,4 @@ void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKH
     }
 }
 
-void Device::waitIdle()
-{
-    // Unconditionally lock all 4 laboratories instantly to prevent deadlocks. 
-    // This ensures no thread is mid-submission before we halt the GPU.
-    std::scoped_lock lock(
-        m_queues[0].m_mutex, 
-        m_queues[1].m_mutex, 
-        m_queues[2].m_mutex, 
-        m_queues[3].m_mutex
-    );
-    m_device.waitIdle();
-}
-
 } // namespace svk

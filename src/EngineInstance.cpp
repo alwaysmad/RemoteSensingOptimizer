@@ -28,7 +28,8 @@ EngineInstance::EngineInstance(Settings& settings, Logger& logger)
 			m_logger.cInfo("Creating device '{}'", m_settings.deviceName);
 		}
 		return svk::Device(m_instance, m_window.getSurface(), m_settings.deviceName);
-	}())
+	}()),
+	  m_swapchain(m_device, m_window)
 {
 	if constexpr (svk::enableValidationLayers)
 	{
