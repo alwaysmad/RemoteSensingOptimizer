@@ -56,7 +56,8 @@ public:
     [[nodiscard]] svk::Buffer createBuffer(vk::DeviceSize size,
                                            vk::BufferUsageFlags usage,
                                            vk::MemoryPropertyFlags properties,
-                                           const std::vector<QueueType>& targetQueues);            
+                                           const std::vector<QueueType>& targetQueues);
+    
     [[nodiscard]] svk::Image createImage(const vk::ImageCreateInfo& imageInfo,
                                          vk::MemoryPropertyFlags properties,
                                          vk::ImageAspectFlags aspectFlags);
@@ -75,6 +76,9 @@ public:
 
 private:
     void initialize(const svk::Instance& instance, const vk::raii::SurfaceKHR* surface, const std::string& deviceName);
+
+    // private helper functions
+    [[nodiscard]] uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const;
 
     vk::raii::PhysicalDevice m_physicalDevice = nullptr;
     vk::raii::Device m_device = nullptr;

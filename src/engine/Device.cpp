@@ -184,29 +184,16 @@ svk::Buffer Device::createBuffer(vk::DeviceSize size,
     };
 
     vk::raii::Buffer buffer(m_device, bufferInfo);
-    const vk::MemoryRequirements memoryRequirements = buffer.getMemoryRequirements();
-    const vk::PhysicalDeviceMemoryProperties memoryProperties = m_physicalDevice.getMemoryProperties();
+    const auto memReq = buffer.getMemoryRequirements();
+    const uint32_t memType = findMemoryType(memReq.memoryTypeBits, properties);
 
-    uint32_t memoryTypeIndex = UINT32_MAX;
-    for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i)
-    {
-        const bool typeMatches = (memoryRequirements.memoryTypeBits & (1u << i)) != 0u;
-        const bool propertyMatches = (memoryProperties.memoryTypes[i].propertyFlags & properties) == properties;
-        if (typeMatches && propertyMatches)
-            { memoryTypeIndex = i; break; }
-    }
+    const vk::MemoryAllocateInfo allocInfo{         
+        .allocationSize = memReq.size, 
+        .memoryTypeIndex = memType              
+    };                                              
+    vk::raii::DeviceMemory memory(m_device, allocInfo);
 
-    if (memoryTypeIndex == UINT32_MAX)
-        { throw std::runtime_error("Failed to find suitable memory type for buffer"); }
-
-    return svk::Buffer(
-        m_device,
-        std::move(buffer),
-        memoryRequirements,
-        memoryTypeIndex,
-        size,
-        usage,
-        allocationCount);
+    return svk::Buffer(std::move(buffer), std::move(memory), size, usage, allocationCount);
 }
 
 svk::Image Device::createImage(const vk::ImageCreateInfo& imageInfo,
@@ -214,22 +201,33 @@ svk::Image Device::createImage(const vk::ImageCreateInfo& imageInfo,
                               vk::ImageAspectFlags aspectFlags)
 {
     vk::raii::Image image(m_device, imageInfo);
-    const vk::MemoryRequirements memoryRequirements = image.getMemoryRequirements();
-    const vk::PhysicalDeviceMemoryProperties memoryProperties = m_physicalDevice.getMemoryProperties();
+    const auto memReq = image.getMemoryRequirements();
+    const uint32_t memType = findMemoryType(memReq.memoryTypeBits, properties);
 
-    uint32_t memoryTypeIndex = UINT32_MAX;
-    for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i)
-    {
-        const bool typeMatches = (memoryRequirements.memoryTypeBits & (1u << i)) != 0u;
-        const bool propertyMatches = (memoryProperties.memoryTypes[i].propertyFlags & properties) == properties;
-        if (typeMatches && propertyMatches)
-            { memoryTypeIndex = i; break; }
+    const vk::MemoryAllocateInfo allocInfo{         
+        .allocationSize = memReq.size, 
+        .memoryTypeIndex = memType              
+    };
+    vk::raii::DeviceMemory memory(m_device, allocInfo);
+
+    return svk::Image(
+        m_device,
+        std::move(image),
+        std::move(memory),
+        imageInfo.format,
+        imageInfo.extent,
+        imageInfo.usage,
+        aspectFlags,
+        allocationCount);
+}
+
+uint32_t Device::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const {
+    const auto memProperties = m_physicalDevice.getMemoryProperties();
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+            { return i; }
     }
-
-    if (memoryTypeIndex == UINT32_MAX)
-        { throw std::runtime_error("Failed to find suitable memory type for image"); }
-
-    return svk::Image(m_device, std::move(image), imageInfo, memoryTypeIndex, aspectFlags, allocationCount);
+    throw std::runtime_error("Failed to find suitable memory type");
 }
 
 void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKHR* surface, const std::string& deviceName)

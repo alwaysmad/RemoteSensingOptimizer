@@ -6,11 +6,9 @@ add_executable(rso main.cpp)
 target_sources(rso PRIVATE
 	Application.cpp
 	EngineInstance.cpp
-	engine/Buffer.cpp
 	engine/Buffer.hpp
 	engine/Device.cpp
 	engine/Device.hpp
-	engine/Image.cpp
 	engine/Image.hpp
 	engine/Instance.cpp
 	engine/Instance.hpp
