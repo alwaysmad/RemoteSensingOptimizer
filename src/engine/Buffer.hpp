@@ -21,48 +21,36 @@ public:
     BufferMap(const BufferMap&) = delete;
     BufferMap& operator=(const BufferMap&) = delete;
 
-    BufferMap(BufferMap&& other) noexcept;
-    BufferMap& operator=(BufferMap&& other) noexcept;
+    inline BufferMap::BufferMap(BufferMap&& other) noexcept
+        : m_memory(std::exchange(other.m_memory, nullptr)), m_mapped(std::exchange(other.m_mapped, nullptr)) {}
 
-    ~BufferMap();
+    inline BufferMap& BufferMap::operator=(BufferMap&& other) noexcept
+    {
+        if (this != &other)
+        {
+            m_memory = std::exchange(other.m_memory, nullptr);
+            m_mapped = std::exchange(other.m_mapped, nullptr);
+        }
+        return *this;
+    }
+
+    inline BufferMap::~BufferMap()
+    {
+        if (m_memory != nullptr && m_mapped != nullptr)
+            { m_memory->unmapMemory(); }
+    }
 
     [[nodiscard]] inline void* get() const { return m_mapped; }
 
 private:
     friend class Buffer;
 
-    BufferMap(const vk::raii::DeviceMemory& memory, vk::DeviceSize offset, vk::DeviceSize size);
+    inline BufferMap(const vk::raii::DeviceMemory& memory, vk::DeviceSize offset, vk::DeviceSize size)
+        : m_memory(&memory), m_mapped(memory.mapMemory(offset, size)) {}
 
     const vk::raii::DeviceMemory* m_memory = nullptr;
     void* m_mapped = nullptr;
 };
-
-inline BufferMap::BufferMap(const vk::raii::DeviceMemory& memory, vk::DeviceSize offset, vk::DeviceSize size)
-    : m_memory(&memory), m_mapped(memory.mapMemory(offset, size))
-{}
-
-inline BufferMap::BufferMap(BufferMap&& other) noexcept
-    : m_memory(std::exchange(other.m_memory, nullptr)),
-      m_mapped(std::exchange(other.m_mapped, nullptr))
-{}
-
-inline BufferMap& BufferMap::operator=(BufferMap&& other) noexcept
-{
-    if (this != &other)
-    {
-        if (m_memory != nullptr && m_mapped != nullptr)
-            { m_memory->unmapMemory(); }
-        m_memory = std::exchange(other.m_memory, nullptr);
-        m_mapped = std::exchange(other.m_mapped, nullptr);
-    }
-    return *this;
-}
-
-inline BufferMap::~BufferMap()
-{
-    if (m_memory != nullptr && m_mapped != nullptr)
-        { m_memory->unmapMemory(); }
-}
 
 // =========================================================================
 //  "The Reading Desk Assignment"
