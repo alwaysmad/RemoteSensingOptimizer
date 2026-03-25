@@ -6,6 +6,8 @@ add_executable(rso main.cpp)
 target_sources(rso PRIVATE
 	Application.cpp
 	EngineInstance.cpp
+	engine/Buffer.cpp
+	engine/Buffer.hpp
 	engine/Device.cpp
 	engine/Device.hpp
 	engine/Instance.cpp
@@ -78,8 +80,9 @@ target_precompile_headers(rso PRIVATE
 	"engine/Logger.hpp"
 	"engine/window/WindowContext.hpp"
 	"engine/window/Window.hpp"
-	"engine/Device.hpp"
 	"engine/Queue.hpp"
+	"engine/Buffer.hpp"
+	"engine/Device.hpp"
 	"engine/Swapchain.hpp"
 	"engine/Instance.hpp"
 	#"Frames.hpp"

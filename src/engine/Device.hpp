@@ -5,8 +5,10 @@
 #include <atomic>
 #include <cstdint>
 #include <string>
+#include <vector>
 #include <vulkan/vulkan_raii.hpp>
 
+#include "engine/Buffer.hpp"
 #include "engine/Queue.hpp"
 
 namespace svk
@@ -17,6 +19,13 @@ class Instance;
 class Device
 {
 public:
+    enum QueueType : uint32_t {
+        TRANSFER = 0,
+        COMPUTE = 1,
+        GRAPHICS = 2,
+        PRESENT = 3
+    };
+
     // 1. Headless Mode (Compute & Transfer Only)
     Device(const svk::Instance& instance, const std::string& deviceName);
 
@@ -43,6 +52,10 @@ public:
 
     // Global Sync & State
     std::atomic<uint32_t> allocationCount { 0 };
+    [[nodiscard]] svk::Buffer createBuffer(vk::DeviceSize size,
+                                           vk::BufferUsageFlags usage,
+                                           vk::MemoryPropertyFlags properties,
+                                           const std::vector<QueueType>& targetQueues);
     inline void waitIdle() const
     {
         // Unconditionally lock all 4 laboratories instantly to prevent deadlocks. 
@@ -61,13 +74,6 @@ private:
 
     vk::raii::PhysicalDevice m_physicalDevice = nullptr;
     vk::raii::Device m_device = nullptr;
-
-    enum QueueType : uint32_t {
-        TRANSFER = 0,
-        COMPUTE = 1,
-        GRAPHICS = 2,
-        PRESENT = 3
-    };
 
     std::array<uint32_t, 4> m_queueMapping { 0, 0, 0, 0 };
     std::array<svk::Queue, 4> m_queues;

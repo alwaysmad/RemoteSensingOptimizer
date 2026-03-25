@@ -156,14 +156,34 @@ namespace svk
 
 Device::Device(const svk::Instance& instance, const std::string& deviceName)
     : m_queues { svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device) }
-{
-    initialize(instance, nullptr, deviceName);
-}
+    { initialize(instance, nullptr, deviceName); }
 
 Device::Device(const svk::Instance& instance, const vk::raii::SurfaceKHR& surface, const std::string& deviceName)
     : m_queues { svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device) }
+    { initialize(instance, &surface, deviceName); }
+
+svk::Buffer Device::createBuffer(vk::DeviceSize size,
+                                 vk::BufferUsageFlags usage,
+                                 vk::MemoryPropertyFlags properties,
+                                 const std::vector<QueueType>& targetQueues)
 {
-    initialize(instance, &surface, deviceName);
+    std::set<uint32_t> uniqueFamilies;
+    for (const QueueType queue : targetQueues)
+    {
+        const uint32_t queueSlot = m_queueMapping[queue];
+        uniqueFamilies.insert(m_queues[queueSlot].getFamilyIndex());
+    }
+
+    const std::vector<uint32_t> uniqueFamiliesVector(uniqueFamilies.begin(), uniqueFamilies.end());
+
+    return svk::Buffer(
+        m_device,
+        m_physicalDevice,
+        size,
+        usage,
+        properties,
+        uniqueFamiliesVector,
+        allocationCount);
 }
 
 void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKHR* surface, const std::string& deviceName)
