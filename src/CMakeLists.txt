@@ -7,6 +7,7 @@ target_sources(rso PRIVATE
 	Application.cpp
 	EngineInstance.cpp
 	engine/Buffer.hpp
+	engine/Command.hpp
 	engine/Device.cpp
 	engine/Device.hpp
 	engine/Image.hpp
@@ -82,6 +83,7 @@ target_precompile_headers(rso PRIVATE
 	"engine/window/Window.hpp"
 	"engine/Queue.hpp"
 	"engine/Buffer.hpp"
+	"engine/Command.hpp"
 	"engine/Device.hpp"
 	"engine/Image.hpp"
 	"engine/Swapchain.hpp"

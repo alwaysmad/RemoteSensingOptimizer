@@ -21,20 +21,22 @@ public:
     BufferMap(const BufferMap&) = delete;
     BufferMap& operator=(const BufferMap&) = delete;
 
-    inline BufferMap::BufferMap(BufferMap&& other) noexcept
+    inline BufferMap(BufferMap&& other) noexcept
         : m_memory(std::exchange(other.m_memory, nullptr)), m_mapped(std::exchange(other.m_mapped, nullptr)) {}
 
-    inline BufferMap& BufferMap::operator=(BufferMap&& other) noexcept
+    inline BufferMap& operator=(BufferMap&& other) noexcept
     {
         if (this != &other)
         {
+            if (m_memory != nullptr && m_mapped != nullptr)
+                { m_memory->unmapMemory(); }
             m_memory = std::exchange(other.m_memory, nullptr);
             m_mapped = std::exchange(other.m_mapped, nullptr);
         }
         return *this;
     }
 
-    inline BufferMap::~BufferMap()
+    inline ~BufferMap()
     {
         if (m_memory != nullptr && m_mapped != nullptr)
             { m_memory->unmapMemory(); }
@@ -51,6 +53,7 @@ private:
     const vk::raii::DeviceMemory* m_memory = nullptr;
     void* m_mapped = nullptr;
 };
+
 
 // =========================================================================
 //  "The Reading Desk Assignment"

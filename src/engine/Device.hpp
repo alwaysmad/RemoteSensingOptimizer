@@ -9,6 +9,7 @@
 #include <vulkan/vulkan_raii.hpp>
 
 #include "engine/Buffer.hpp"
+#include "engine/Command.hpp"
 #include "engine/Image.hpp"
 #include "engine/Queue.hpp"
 
@@ -61,6 +62,7 @@ public:
     [[nodiscard]] svk::Image createImage(const vk::ImageCreateInfo& imageInfo,
                                          vk::MemoryPropertyFlags properties,
                                          vk::ImageAspectFlags aspectFlags);
+    [[nodiscard]] svk::Command createCommand(QueueType queueType, uint32_t count, vk::CommandPoolCreateFlags flags = {});
     inline void waitIdle() const
     {
         // Unconditionally lock all 4 laboratories instantly to prevent deadlocks. 

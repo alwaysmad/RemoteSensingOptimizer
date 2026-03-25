@@ -221,6 +221,12 @@ svk::Image Device::createImage(const vk::ImageCreateInfo& imageInfo,
         allocationCount);
 }
 
+svk::Command Device::createCommand(QueueType queueType, uint32_t count, vk::CommandPoolCreateFlags flags)
+{
+    const uint32_t familyIndex = m_queueMapping[queueType];
+    return svk::Command(m_device, familyIndex, count, flags);
+}
+
 uint32_t Device::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const {
     const auto memProperties = m_physicalDevice.getMemoryProperties();
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
