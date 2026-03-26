@@ -8,8 +8,6 @@
 namespace svk 
 {
 
-class Device; // Forward declaration
-
 // =========================================================================
 //  "A Contract with the GPU Shader-Demon"
 //  RAII wrapper for the Graphics Pipeline, its Layout, and Descriptor bindings.

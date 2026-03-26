@@ -15,11 +15,11 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 	}
 	catch ( const std::exception& e )
 	{
-		std::cerr << Logger::COLOR_RED << "Error: " << e.what() << Logger::COLOR_RESET << std::endl;
+		std::cerr << svk::Logger::COLOR_RED << "Error: " << e.what() << svk::Logger::COLOR_RESET << std::endl;
 	}
 	catch ( ... )
 	{
-		std::cerr << Logger::COLOR_RED << "An unknown error occurred." << Logger::COLOR_RESET << std::endl;
+		std::cerr << svk::Logger::COLOR_RED << "An unknown error occurred." << svk::Logger::COLOR_RESET << std::endl;
 	}
 	return EXIT_FAILURE; // If error occured 
 }

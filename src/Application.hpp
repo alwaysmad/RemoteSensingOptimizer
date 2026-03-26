@@ -23,7 +23,7 @@ private:
 	// The privy council
 	static std::optional<Application> s_instance; // The throne
 	Settings m_settings; // Rulebook
-	Logger m_logger; // Herald and Scribe
+	svk::Logger m_logger; // Herald and Scribe
 
 	// The Imperial court
 	// TODO more

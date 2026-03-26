@@ -16,7 +16,7 @@ class EngineInstance
 {
 private:
 	Settings& m_settings;
-	Logger& m_logger;
+	svk::Logger& m_logger;
 	svk::WindowContext m_windowContext;
 	svk::Instance m_instance;
 	svk::Window m_window;
@@ -29,7 +29,7 @@ public:
 	EngineInstance(EngineInstance&&) = delete;
 	EngineInstance& operator=(EngineInstance&& other) = delete;
 
-	EngineInstance(Settings& settings, Logger& logger);
+	EngineInstance(Settings& settings, svk::Logger& logger);
 
 	void tick();
 	[[nodiscard]] bool shouldClose() const;

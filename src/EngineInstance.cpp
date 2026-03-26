@@ -4,7 +4,7 @@
 
 #include "EngineInstance.hpp"
 
-EngineInstance::EngineInstance(Settings& settings, Logger& logger)
+EngineInstance::EngineInstance(Settings& settings, svk::Logger& logger)
 	: m_settings(settings),
 	  m_logger(logger),
 	  m_windowContext(),

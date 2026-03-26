@@ -9,6 +9,9 @@
 #include <format>
 #include <utility>
 
+namespace svk
+{
+
 class Logger
 {
 	// Owned by Application - console (Herald) and file (Scribe) logging
@@ -82,3 +85,5 @@ private:
 	mutable std::ofstream m_file;
 	mutable std::mutex m_mutex;
 };
+
+} // namespace svk

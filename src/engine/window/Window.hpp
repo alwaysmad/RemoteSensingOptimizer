@@ -31,11 +31,7 @@ public:
 		m_lastTime = glfwGetTime();
 	}
 
-	~Window()
-	{
-		if (m_window)
-		    { glfwDestroyWindow(m_window); }
-	}
+	~Window() { if (m_window) { glfwDestroyWindow(m_window); } }
 
 	Window(const Window&) = delete;
 	Window& operator=(const Window&) = delete;

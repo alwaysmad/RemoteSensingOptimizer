@@ -17,18 +17,13 @@ public:
 	WindowContext()
 	{
 		if (glfwInit() != GLFW_TRUE)
-		{
-			throw std::runtime_error("Failed to initialize GLFW");
-		}
+			{ throw std::runtime_error("Failed to initialize GLFW"); }
 
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 	}
 
-	~WindowContext()
-	{
-		glfwTerminate();
-	}
+	~WindowContext() { glfwTerminate(); }
 
 	[[nodiscard]] inline std::vector<const char*> getRequiredInstanceExtensions() const
 	{
