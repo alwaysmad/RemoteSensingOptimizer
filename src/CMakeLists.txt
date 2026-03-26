@@ -11,6 +11,8 @@ target_sources(rso PRIVATE
 	engine/Device.cpp
 	engine/Device.hpp
 	engine/GraphicsPipeline.cpp
+	engine/RenderTask.cpp
+	engine/RenderTask.hpp
 	engine/Image.hpp
 	engine/Instance.cpp
 	engine/Instance.hpp

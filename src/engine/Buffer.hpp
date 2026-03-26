@@ -55,17 +55,6 @@ private:
     void* m_mapped = nullptr;
 };
 
-
-// =========================================================================
-//  "The Reading Desk Assignment"
-//  Lightweight wrapper to pair a specific Buffer with a Shader Binding slot.
-// =========================================================================
-struct BufferBinding 
-{
-    const svk::Buffer* buffer;
-    uint32_t binding;
-};
-
 // =========================================================================
 //  "A book in the institute"
 //  RAII wrapper for a Vulkan Buffer and its backing Device Memory.
@@ -81,7 +70,6 @@ public:
     ~Buffer();
 
     [[nodiscard]] svk::BufferMap map(vk::DeviceSize offset = 0, vk::DeviceSize size = VK_WHOLE_SIZE) const;
-    [[nodiscard]] vk::DescriptorType deduceDescriptorType() const;
 
     [[nodiscard]] inline vk::BufferUsageFlags getUsage() const { return m_usage; }
     [[nodiscard]] inline vk::DeviceSize getSize() const { return m_size; }
@@ -153,15 +141,32 @@ inline Buffer::~Buffer()
 inline svk::BufferMap Buffer::map(vk::DeviceSize offset, vk::DeviceSize size) const
     { return svk::BufferMap(m_memory, offset, size); }
 
-inline vk::DescriptorType Buffer::deduceDescriptorType() const
+// =========================================================================
+//  "The Reading Desk Assignment"
+//  Lightweight wrapper containing the raw Vulkan handles needed for binding.
+// =========================================================================
+struct BufferBinding 
 {
-    if (m_usage & vk::BufferUsageFlagBits::eUniformBuffer)
-        { return vk::DescriptorType::eUniformBuffer; }
+    vk::Buffer buffer = nullptr;
+    uint32_t binding = 0;
+    vk::BufferUsageFlags usage; // Required to deduce DescriptorType dynamically
 
-    if (m_usage & vk::BufferUsageFlagBits::eStorageBuffer)
-        { return vk::DescriptorType::eStorageBuffer; }
+    BufferBinding() = default;
 
-    throw std::runtime_error("Buffer usage cannot be mapped to a DescriptorType");
-}
+    // Instantly extracts the raw handle and flags from the RAII wrapper
+    inline BufferBinding(const svk::Buffer& b, uint32_t bindingSlot)
+    : buffer(*b.getBuffer()), binding(bindingSlot), usage(b.getUsage()) {}
+
+    inline vk::DescriptorType deduceDescriptorType() const
+    {
+        if (usage & vk::BufferUsageFlagBits::eUniformBuffer)
+            { return vk::DescriptorType::eUniformBuffer; }
+
+        if (usage & vk::BufferUsageFlagBits::eStorageBuffer)
+            { return vk::DescriptorType::eStorageBuffer; }
+
+        throw std::runtime_error("Buffer usage cannot be mapped to a DescriptorType");
+    }
+};
 
 } // namespace svk
