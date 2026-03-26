@@ -31,7 +31,7 @@ namespace svk
 
         if (!merged)
         {
-            poolSizes.push_back(vk::DescriptorPoolSize {
+            poolSizes.emplace_back(vk::DescriptorPoolSize {
                 .type = binding.descriptorType,
                 .descriptorCount = binding.descriptorCount,
             });

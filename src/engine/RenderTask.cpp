@@ -28,7 +28,7 @@ RenderTask::RenderTask(
     std::vector<vk::DescriptorPoolSize> poolSizes = svk::deduceDescriptorPoolSizes(descriptorBindings);
     if (poolSizes.empty())
     {
-        poolSizes.push_back(vk::DescriptorPoolSize {
+        poolSizes.emplace_back(vk::DescriptorPoolSize {
             .type = vk::DescriptorType::eUniformBuffer,
             .descriptorCount = 1,
         });
@@ -95,8 +95,8 @@ void RenderTask::recordCommands(const vk::raii::CommandBuffer& cmd) const
 
         for (const svk::BufferBinding& binding : m_vertexBufferBindings)
         {
-            vertexBuffers.push_back(binding.buffer);
-            offsets.push_back(0);
+            vertexBuffers.emplace_back(binding.buffer);
+            offsets.emplace_back(0);
         }
 
         cmd.bindVertexBuffers(0, vertexBuffers, offsets);

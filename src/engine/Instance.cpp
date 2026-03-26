@@ -44,7 +44,7 @@ Instance::Instance(const std::string& appName, const std::vector<const char*>& e
 
 	std::vector<const char*> requiredExtensions = extensions;
 	if constexpr (svk::enableValidationLayers)
-		{ requiredExtensions.push_back(vk::EXTDebugUtilsExtensionName); }
+		{ requiredExtensions.emplace_back(vk::EXTDebugUtilsExtensionName); }
 
 	const auto extensionProperties = m_context.enumerateInstanceExtensionProperties();
 
@@ -71,7 +71,7 @@ Instance::Instance(const std::string& appName, const std::vector<const char*>& e
 
 	std::vector<const char*> requiredLayers;
 	if constexpr (svk::enableValidationLayers)
-		{ requiredLayers.push_back(validationLayersName); }
+		{ requiredLayers.emplace_back(validationLayersName); }
 
 	const auto layerProperties = m_context.enumerateInstanceLayerProperties();
 

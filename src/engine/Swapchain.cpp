@@ -53,12 +53,12 @@ void Swapchain::determineSharingMode()
     const uint32_t graphicsFamily = m_device.graphicsQueue().getFamilyIndex();
     const uint32_t presentFamily = m_presentQueue.getFamilyIndex();
 
-    m_sharingQueueFamilyIndices.push_back(graphicsFamily);
+    m_sharingQueueFamilyIndices.emplace_back(graphicsFamily);
 
     if (graphicsFamily != presentFamily)
     {
         m_sharingMode = vk::SharingMode::eConcurrent;
-        m_sharingQueueFamilyIndices.push_back(presentFamily);
+        m_sharingQueueFamilyIndices.emplace_back(presentFamily);
     }
 }
 
