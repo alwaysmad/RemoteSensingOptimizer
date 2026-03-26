@@ -86,21 +86,8 @@ void RenderTask::recordCommands(const vk::raii::CommandBuffer& cmd) const
 
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, *m_pipeline.getPipeline());
 
-    if (!m_vertexBufferBindings.empty())
-    {
-        std::vector<vk::Buffer> vertexBuffers;
-        std::vector<vk::DeviceSize> offsets;
-        vertexBuffers.reserve(m_vertexBufferBindings.size());
-        offsets.reserve(m_vertexBufferBindings.size());
-
-        for (const svk::BufferBinding& binding : m_vertexBufferBindings)
-        {
-            vertexBuffers.emplace_back(binding.buffer);
-            offsets.emplace_back(0);
-        }
-
-        cmd.bindVertexBuffers(0, vertexBuffers, offsets);
-    }
+    if (!m_vertexBuffers.empty())
+        { cmd.bindVertexBuffers(0, m_vertexBuffers, m_vertexOffsets); }
 
     if (m_indexBufferBinding.has_value())
         { cmd.bindIndexBuffer(m_indexBufferBinding->buffer, 0, vk::IndexType::eUint32); }

@@ -50,13 +50,24 @@ public:
         uint32_t count,
         uint32_t instanceCount = 1)
     {
-        // Deep copy or move relying on std::forward
-        m_vertexBufferBindings = std::forward<V>(vertexBindings);
+        // 1. Unpack and cache the Vulkan handles and offsets ONCE.
+        m_vertexBuffers.clear();
+        m_vertexOffsets.clear();
+        m_vertexBuffers.reserve(vertexBindings.size());
+        m_vertexOffsets.reserve(vertexBindings.size());
+        
+        for (const auto& binding : vertexBindings)
+        {
+            m_vertexBuffers.emplace_back(binding.buffer);
+            m_vertexOffsets.emplace_back(0); // Offset is explicitly cached
+        }
+
+        // 2. Save the index binding and draw counts
         m_indexBufferBinding = std::forward<I>(indexBinding);
         m_count = count;
         m_instanceCount = instanceCount;
 
-        // Delegate the Vulkan API logic to the .cpp file
+        // 3. Delegate Descriptor logic to .cpp
         updateDescriptors(descriptorBindings);
     }
 
@@ -74,7 +85,8 @@ private:
     vk::raii::DescriptorSets m_descriptorSets = nullptr; // Vector-like RAII container
 
     // Binding State
-    std::vector<svk::BufferBinding> m_vertexBufferBindings;
+    std::vector<vk::Buffer> m_vertexBuffers;
+    std::vector<vk::DeviceSize> m_vertexOffsets;
     std::optional<svk::BufferBinding> m_indexBufferBinding;
     
     uint32_t m_count = 0;
