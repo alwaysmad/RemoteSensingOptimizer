@@ -10,6 +10,7 @@ target_sources(rso PRIVATE
 	engine/Command.hpp
 	engine/Device.cpp
 	engine/Device.hpp
+	engine/GraphicsPipeline.cpp
 	engine/Image.hpp
 	engine/Instance.cpp
 	engine/Instance.hpp
@@ -67,6 +68,7 @@ target_precompile_headers(rso PRIVATE
 	<cstring>     # C string interop (strcmp)
 	<filesystem>  # temporary path and filesystem helpers
 	<limits>
+	<cstddef>
 
 	# Third Party
 	<vulkan/vulkan_raii.hpp>
@@ -85,6 +87,7 @@ target_precompile_headers(rso PRIVATE
 	"engine/Buffer.hpp"
 	"engine/Command.hpp"
 	"engine/Device.hpp"
+	"engine/GraphicsPipeline.hpp"
 	"engine/Image.hpp"
 	"engine/Swapchain.hpp"
 	"engine/Instance.hpp"

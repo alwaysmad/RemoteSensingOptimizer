@@ -1,6 +1,5 @@
 // src/engine/Device.cpp
 #include <algorithm> // std::ranges::none_of
-#include <array>     // required extension list
 #include <cstring>   // std::strcmp
 #include <format>    // std::format
 #include <set>       // queue family dedupe
@@ -54,10 +53,7 @@ inline void pickQueueFamilies(
 {
     const auto queueFamilies = physicalDevice.getQueueFamilyProperties();
 
-    outGraphics = UINT32_MAX;
-    outPresent = UINT32_MAX;
-    outCompute = UINT32_MAX;
-    outTransfer = UINT32_MAX;
+    outGraphics = outPresent = outCompute = outTransfer = UINT32_MAX;
 
     if (surface != nullptr)
     {
@@ -154,14 +150,6 @@ inline void pickQueueFamilies(
 namespace svk
 {
 
-Device::Device(const svk::Instance& instance, const std::string& deviceName)
-    : m_queues { svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device) }
-    { initialize(instance, nullptr, deviceName); }
-
-Device::Device(const svk::Instance& instance, const vk::raii::SurfaceKHR& surface, const std::string& deviceName)
-    : m_queues { svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device) }
-    { initialize(instance, &surface, deviceName); }
-
 svk::Buffer Device::createBuffer(vk::DeviceSize size,
                                  vk::BufferUsageFlags usage,
                                  vk::MemoryPropertyFlags properties,
@@ -178,9 +166,9 @@ svk::Buffer Device::createBuffer(vk::DeviceSize size,
     const vk::BufferCreateInfo bufferInfo {
         .size = size,
         .usage = usage,
-        .sharingMode = uniqueFamiliesVector.size() > 1 ? vk::SharingMode::eConcurrent : vk::SharingMode::eExclusive,
-        .queueFamilyIndexCount = static_cast<uint32_t>(uniqueFamiliesVector.size() > 1 ? uniqueFamiliesVector.size() : 0),
-        .pQueueFamilyIndices = uniqueFamiliesVector.size() > 1 ? uniqueFamiliesVector.data() : nullptr,
+        .sharingMode = (uniqueFamiliesVector.size() > 1) ? vk::SharingMode::eConcurrent : vk::SharingMode::eExclusive,
+        .queueFamilyIndexCount = static_cast<uint32_t>( (uniqueFamiliesVector.size() > 1) ? uniqueFamiliesVector.size() : 0),
+        .pQueueFamilyIndices = (uniqueFamiliesVector.size() > 1) ? uniqueFamiliesVector.data() : nullptr,
     };
 
     vk::raii::Buffer buffer(m_device, bufferInfo);
@@ -218,13 +206,7 @@ svk::Image Device::createImage(const vk::ImageCreateInfo& imageInfo,
         imageInfo.extent,
         imageInfo.usage,
         aspectFlags,
-        allocationCount);
-}
-
-svk::Command Device::createCommand(QueueType queueType, uint32_t count, vk::CommandPoolCreateFlags flags)
-{
-    const uint32_t familyIndex = m_queueMapping[queueType];
-    return svk::Command(m_device, familyIndex, count, flags);
+        allocationCount );
 }
 
 uint32_t Device::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const {
@@ -240,25 +222,13 @@ void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKH
 {
     selectPhysicalDevice(instance.getInstance(), deviceName, m_physicalDevice);
 
-    uint32_t graphicsQueueIndex = UINT32_MAX;
-    uint32_t presentQueueIndex = UINT32_MAX;
-    uint32_t computeQueueIndex = UINT32_MAX;
-    uint32_t transferQueueIndex = UINT32_MAX;
+    uint32_t graphicsQueueIndex, presentQueueIndex, computeQueueIndex, transferQueueIndex;
 
-    pickQueueFamilies(
-        m_physicalDevice,
-        surface,
-        graphicsQueueIndex,
-        presentQueueIndex,
-        computeQueueIndex,
-        transferQueueIndex);
+    pickQueueFamilies( m_physicalDevice, surface,
+        graphicsQueueIndex, presentQueueIndex, computeQueueIndex, transferQueueIndex );
 
     std::set<uint32_t> uniqueQueueFamilies {
-        transferQueueIndex,
-        computeQueueIndex,
-        graphicsQueueIndex,
-        presentQueueIndex
-    };
+        transferQueueIndex, computeQueueIndex, graphicsQueueIndex, presentQueueIndex };
 
     std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
     queueCreateInfos.reserve(uniqueQueueFamilies.size());

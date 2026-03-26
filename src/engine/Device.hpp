@@ -29,10 +29,14 @@ public:
     };
 
     // 1. Headless Mode (Compute & Transfer Only)
-    Device(const svk::Instance& instance, const std::string& deviceName);
+    Device(const svk::Instance& instance, const std::string& deviceName)
+        : m_queues { svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device) }
+        { initialize(instance, nullptr, deviceName); }
 
     // 2. Surfaced Mode (Graphics & Present Enabled)
-    Device(const svk::Instance& instance, const vk::raii::SurfaceKHR& surface, const std::string& deviceName);
+    Device(const svk::Instance& instance, const vk::raii::SurfaceKHR& surface, const std::string& deviceName)
+        : m_queues { svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device) }
+        { initialize(instance, &surface, deviceName); }
 
     // Ironclad Constraints
     Device(const Device&) = delete;
@@ -52,8 +56,7 @@ public:
     [[nodiscard]] inline const svk::Queue& graphicsQueue() const { return m_queues[m_queueMapping[GRAPHICS]]; }
     [[nodiscard]] inline const svk::Queue& presentQueue() const { return m_queues[m_queueMapping[PRESENT]]; }
 
-    // Global Sync & State
-    std::atomic<uint32_t> allocationCount { 0 };
+    // Factory Methods
     [[nodiscard]] svk::Buffer createBuffer(vk::DeviceSize size,
                                            vk::BufferUsageFlags usage,
                                            vk::MemoryPropertyFlags properties,
@@ -62,7 +65,9 @@ public:
     [[nodiscard]] svk::Image createImage(const vk::ImageCreateInfo& imageInfo,
                                          vk::MemoryPropertyFlags properties,
                                          vk::ImageAspectFlags aspectFlags);
-    [[nodiscard]] svk::Command createCommand(QueueType queueType, uint32_t count, vk::CommandPoolCreateFlags flags = {});
+
+    [[nodiscard]] inline svk::Command createCommand(QueueType queueType, uint32_t count, vk::CommandPoolCreateFlags flags)
+        { return svk::Command(m_device, m_queueMapping[queueType], count, flags); }
     
     inline void waitIdle() const
     {
@@ -88,6 +93,8 @@ private:
 
     std::array<uint32_t, 4> m_queueMapping { 0, 0, 0, 0 };
     std::array<svk::Queue, 4> m_queues;
+
+    std::atomic<uint32_t> allocationCount { 0 };
 };
 
 } // namespace svk
