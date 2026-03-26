@@ -6,7 +6,7 @@ namespace svk
 {
 
 RenderTask::RenderTask(
-    const svk::Device& device,
+    const vk::raii::Device& device,
     const std::vector<vk::PipelineShaderStageCreateInfo>& shaderStages,
     const vk::PipelineVertexInputStateCreateInfo& vertexInput,
     vk::PrimitiveTopology topology,
@@ -14,9 +14,9 @@ RenderTask::RenderTask(
     const std::vector<vk::DescriptorSetLayoutBinding>& descriptorBindings,
     vk::Format colorFormat,
     vk::Format depthFormat)
-    : m_device(&device),
+        : m_device(&device),
       m_pipeline(
-            device.device(),
+            device,
             shaderStages,
             vertexInput,
             topology,
@@ -39,7 +39,7 @@ RenderTask::RenderTask(
         .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
         .pPoolSizes = poolSizes.data(),
     };
-    m_descriptorPool = vk::raii::DescriptorPool(device.device(), poolInfo);
+    m_descriptorPool = vk::raii::DescriptorPool(device, poolInfo);
 
     const vk::DescriptorSetLayout layout = *m_pipeline.getDescriptorSetLayout();
     const vk::DescriptorSetAllocateInfo allocInfo {
@@ -47,7 +47,7 @@ RenderTask::RenderTask(
         .descriptorSetCount = 1,
         .pSetLayouts = &layout,
     };
-    m_descriptorSets = vk::raii::DescriptorSets(device.device(), allocInfo);
+    m_descriptorSets = vk::raii::DescriptorSets(device, allocInfo);
 }
 
 void RenderTask::updateDescriptors(const std::vector<svk::BufferBinding>& descriptorBindings)
@@ -76,7 +76,7 @@ void RenderTask::updateDescriptors(const std::vector<svk::BufferBinding>& descri
         };
     }
 
-    m_device->device().updateDescriptorSets(writes, nullptr);
+    m_device->updateDescriptorSets(writes, nullptr);
 }
 
 void RenderTask::recordCommands(const vk::raii::CommandBuffer& cmd) const

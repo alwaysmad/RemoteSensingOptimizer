@@ -7,7 +7,6 @@
 #include <vulkan/vulkan_raii.hpp>
 
 #include "engine/Buffer.hpp"
-#include "engine/Device.hpp"
 #include "engine/GraphicsPipeline.hpp"
 
 namespace svk 
@@ -21,7 +20,7 @@ class RenderTask
 public:
     // Takes ownership of the pipeline and allocates the required Descriptor Pools
     RenderTask(
-        const svk::Device& device,
+        const vk::raii::Device& device,
         const std::vector<vk::PipelineShaderStageCreateInfo>& shaderStages,
         const vk::PipelineVertexInputStateCreateInfo& vertexInput,
         vk::PrimitiveTopology topology,
@@ -67,9 +66,8 @@ public:
 
 private:
 
-    void updateDescriptors(const std::vector<svk::BufferBinding>& descriptorBindings)
-;
-    const svk::Device* m_device = nullptr; // Retained to update descriptor sets later
+    void updateDescriptors(const std::vector<svk::BufferBinding>& descriptorBindings);
+    const vk::raii::Device* m_device = nullptr; // Retained to update descriptor sets later
     
     // Contract and GPU Memory
     svk::GraphicsPipeline m_pipeline;
