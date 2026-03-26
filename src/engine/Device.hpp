@@ -57,16 +57,16 @@ public:
     [[nodiscard]] inline const svk::Queue& presentQueue() const { return m_queues[m_queueMapping[PRESENT]]; }
 
     // Factory Methods
-    [[nodiscard]] svk::Buffer createBuffer(vk::DeviceSize size,
-                                           vk::BufferUsageFlags usage,
-                                           vk::MemoryPropertyFlags properties,
-                                           const std::vector<QueueType>& targetQueues);
+    [[nodiscard]] svk::Buffer createBuffer( vk::DeviceSize size,
+                                            vk::BufferUsageFlags usage,
+                                            vk::MemoryPropertyFlags properties,
+                                            const std::vector<QueueType>& targetQueues) const;
     
     [[nodiscard]] svk::Image createImage(const vk::ImageCreateInfo& imageInfo,
-                                         vk::MemoryPropertyFlags properties,
-                                         vk::ImageAspectFlags aspectFlags);
+                                        vk::MemoryPropertyFlags properties,
+                                        vk::ImageAspectFlags aspectFlags) const;
 
-    [[nodiscard]] inline svk::Command createCommand(QueueType queueType, uint32_t count, vk::CommandPoolCreateFlags flags)
+    [[nodiscard]] inline svk::Command createCommand(QueueType queueType, uint32_t count, vk::CommandPoolCreateFlags flags) const
         { return svk::Command(m_device, m_queueMapping[queueType], count, flags); }
     
     inline void waitIdle() const
@@ -94,7 +94,7 @@ private:
     std::array<uint32_t, 4> m_queueMapping { 0, 0, 0, 0 };
     std::array<svk::Queue, 4> m_queues;
 
-    std::atomic<uint32_t> allocationCount { 0 };
+    mutable std::atomic<uint32_t> allocationCount { 0 };
 };
 
 } // namespace svk

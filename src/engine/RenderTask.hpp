@@ -39,8 +39,7 @@ public:
     ~RenderTask() = default;
 
     // --- State Management ---
-    inline void setActive(bool active) { m_active = active; }
-    [[nodiscard]] inline bool isActive() const { return m_active; }
+    bool m_active = false;
 
     // --- Buffer Registration (Perfect Forwarding) ---
     template <typename V, typename I>
@@ -80,7 +79,6 @@ private:
     
     uint32_t m_count = 0;
     uint32_t m_instanceCount = 1;
-    bool m_active = false;
 };
 
 } // namespace svk

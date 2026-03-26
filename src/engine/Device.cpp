@@ -153,7 +153,7 @@ namespace svk
 svk::Buffer Device::createBuffer(vk::DeviceSize size,
                                  vk::BufferUsageFlags usage,
                                  vk::MemoryPropertyFlags properties,
-                                 const std::vector<QueueType>& targetQueues)
+                                 const std::vector<QueueType>& targetQueues) const
 {
     std::set<uint32_t> uniqueFamilies;
     for (const QueueType queue : targetQueues)
@@ -186,7 +186,7 @@ svk::Buffer Device::createBuffer(vk::DeviceSize size,
 
 svk::Image Device::createImage(const vk::ImageCreateInfo& imageInfo,
                               vk::MemoryPropertyFlags properties,
-                              vk::ImageAspectFlags aspectFlags)
+                              vk::ImageAspectFlags aspectFlags) const
 {
     vk::raii::Image image(m_device, imageInfo);
     const auto memReq = image.getMemoryRequirements();

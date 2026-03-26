@@ -91,10 +91,11 @@ void Swapchain::buildSwapchain()
         m_extent.height = std::clamp(windowExtent.height, caps.minImageExtent.height, caps.maxImageExtent.height);
     }
     
-    // Determine image count
-    uint32_t imageCount = caps.minImageCount + 1;
-    if (caps.maxImageCount > 0)
-        { imageCount = std::clamp(imageCount, caps.minImageCount, caps.maxImageCount); }
+    // Determine image count: Aim for triple buffering (3) for Mailbox mode
+    const uint32_t maxImages = (caps.maxImageCount == 0) 
+                             ? std::numeric_limits<uint32_t>::max() 
+                             : caps.maxImageCount;
+    uint32_t imageCount = std::clamp(3u, caps.minImageCount, maxImages);
     
     // Create info - reuse old swapchain if it exists
     const vk::SwapchainCreateInfoKHR createInfo{
