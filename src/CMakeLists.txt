@@ -91,6 +91,7 @@ target_precompile_headers(rso PRIVATE
 	"engine/Image.hpp"
 	"engine/Swapchain.hpp"
 	"engine/Instance.hpp"
+	"engine/VulkanHelpers.hpp"
 	#"Frames.hpp"
 )
 

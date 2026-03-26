@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
@@ -80,6 +81,7 @@ public:
     ~Buffer();
 
     [[nodiscard]] svk::BufferMap map(vk::DeviceSize offset = 0, vk::DeviceSize size = VK_WHOLE_SIZE) const;
+    [[nodiscard]] vk::DescriptorType deduceDescriptorType() const;
 
     [[nodiscard]] inline vk::BufferUsageFlags getUsage() const { return m_usage; }
     [[nodiscard]] inline vk::DeviceSize getSize() const { return m_size; }
@@ -150,5 +152,16 @@ inline Buffer::~Buffer()
 
 inline svk::BufferMap Buffer::map(vk::DeviceSize offset, vk::DeviceSize size) const
     { return svk::BufferMap(m_memory, offset, size); }
+
+inline vk::DescriptorType Buffer::deduceDescriptorType() const
+{
+    if (m_usage & vk::BufferUsageFlagBits::eUniformBuffer)
+        { return vk::DescriptorType::eUniformBuffer; }
+
+    if (m_usage & vk::BufferUsageFlagBits::eStorageBuffer)
+        { return vk::DescriptorType::eStorageBuffer; }
+
+    throw std::runtime_error("Buffer usage cannot be mapped to a DescriptorType");
+}
 
 } // namespace svk
