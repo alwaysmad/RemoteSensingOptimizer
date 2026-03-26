@@ -63,6 +63,7 @@ public:
                                          vk::MemoryPropertyFlags properties,
                                          vk::ImageAspectFlags aspectFlags);
     [[nodiscard]] svk::Command createCommand(QueueType queueType, uint32_t count, vk::CommandPoolCreateFlags flags = {});
+    
     inline void waitIdle() const
     {
         // Unconditionally lock all 4 laboratories instantly to prevent deadlocks. 

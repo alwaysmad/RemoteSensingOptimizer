@@ -8,6 +8,12 @@ namespace svk
 
 class Device;
 
+// =========================================================================
+//  "A Spellbook where spells are written"
+//  RAII wrapper for a Vulkan Command Pool and its Command Buffers.
+//  CRITICAL: Command Pools are NOT thread-safe. This object must be 
+//  thread-isolated (one per thread per queue family).
+// =========================================================================
 class Command
 {
 public:
@@ -19,7 +25,6 @@ public:
 
     ~Command() = default;
 
-    [[nodiscard]] inline const vk::raii::CommandBuffers& getBuffers() const { return m_buffers; }
     [[nodiscard]] inline const vk::raii::CommandBuffer& operator[](size_t index) const { return m_buffers[index]; }
 
 private:
