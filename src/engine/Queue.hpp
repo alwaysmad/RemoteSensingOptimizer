@@ -42,9 +42,6 @@ public:
 
     inline void dummySubmit(const vk::Fence fence, const vk::Semaphore waitSemaphore = nullptr) const
     {
-        if (fence) // Safely using the reference!
-            { m_device.resetFences({fence}); }
-
         const vk::SemaphoreSubmitInfo waitInfo {
             .semaphore = waitSemaphore,
             .stageMask = vk::PipelineStageFlagBits2::eAllCommands

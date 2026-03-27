@@ -8,13 +8,14 @@ target_sources(rso PRIVATE
 	EngineInstance.cpp
 	engine/Buffer.hpp
 	engine/Command.hpp
-	engine/DepthResources.cpp
 	engine/DepthResources.hpp
 	engine/Device.cpp
 	engine/Device.hpp
 	engine/GraphicsPipeline.cpp
 	engine/RenderTask.cpp
 	engine/RenderTask.hpp
+	engine/RenderRoutine.cpp
+	engine/RenderRoutine.hpp
 	engine/Image.hpp
 	engine/Instance.cpp
 	engine/Instance.hpp

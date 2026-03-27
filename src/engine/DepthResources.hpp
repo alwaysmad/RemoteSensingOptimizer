@@ -17,7 +17,16 @@ class DepthResources
 {
 public:
     // Takes ownership of the depth format and initializes the memory.
-    DepthResources(const svk::Device& device, vk::Format depthFormat, vk::Extent2D initialExtent, uint32_t imageCount);
+    DepthResources(
+        const svk::Device& device,
+        vk::Format depthFormat,
+        vk::Extent2D initialExtent,
+        uint32_t imageCount)
+        : m_device(&device),
+        m_depthFormat(depthFormat),
+        m_imageCount(imageCount),
+        m_currentExtent(initialExtent)
+        { m_images.reserve(m_imageCount); buildImages(); }
 
     // Ironclad Constraints: Non-Copyable
     DepthResources(const DepthResources&) = delete;
@@ -32,13 +41,17 @@ public:
     // Accessors
     [[nodiscard]] inline const svk::Image& operator[](uint32_t currentFrame) const { return m_images[currentFrame]; }
     [[nodiscard]] inline vk::Format getFormat() const { return m_depthFormat; }
+    [[nodiscard]] inline vk::Extent2D getExtent() const { return m_currentExtent; }
 
     // Destroys old depth images and provisions new ones matching the window.
-    void recreate(vk::Extent2D newExtent);
+    void inline recreate(vk::Extent2D newExtent)
+    {
+        m_currentExtent = newExtent;
+        m_images.clear();
+        buildImages();
+    }
 
 private:
-    void buildImages();
-
     const svk::Device* m_device = nullptr;
     const vk::Format m_depthFormat;
     const uint32_t m_imageCount;
@@ -46,6 +59,31 @@ private:
     vk::Extent2D m_currentExtent;
     
     std::vector<svk::Image> m_images;
+
+    inline void buildImages()
+    {
+        const vk::ImageCreateInfo imageInfo {
+            .imageType = vk::ImageType::e2D,
+            .format = m_depthFormat,
+            .extent = vk::Extent3D { m_currentExtent.width, m_currentExtent.height, 1 },
+            .mipLevels = 1,
+            .arrayLayers = 1,
+            .samples = vk::SampleCountFlagBits::e1,
+            .tiling = vk::ImageTiling::eOptimal,
+            .usage = vk::ImageUsageFlagBits::eDepthStencilAttachment,
+            .sharingMode = vk::SharingMode::eExclusive,
+            .initialLayout = vk::ImageLayout::eUndefined,
+        };
+
+        for (uint32_t i = 0; i < m_imageCount; ++i)
+        {
+            m_images.emplace_back(
+                m_device->createImage(
+                    imageInfo,
+                    vk::MemoryPropertyFlagBits::eDeviceLocal,
+                    vk::ImageAspectFlagBits::eDepth));
+        }
+    }
 };
 
 } // namespace svk
