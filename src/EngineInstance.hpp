@@ -2,12 +2,14 @@
 #pragma once
 
 #include <cassert> // assert for invariant checks in move operations
+#include <vector>
 #include <utility> // std::move for move assignment
 
 #include "Settings.hpp"
 #include "engine/Device.hpp"
 #include "engine/Instance.hpp"
 #include "engine/Logger.hpp"
+#include "engine/RenderRoutine.hpp"
 #include "engine/Swapchain.hpp"
 #include "engine/window/Window.hpp"
 #include "engine/window/WindowContext.hpp"
@@ -22,6 +24,10 @@ private:
 	svk::Window m_window;
 	svk::Device m_device;
 	svk::Swapchain m_swapchain;
+	svk::RenderRoutine m_renderRoutine;
+
+	std::vector<vk::raii::Fence> m_inFlightFences;
+	uint32_t m_currentFrame = 0;
 
 public:
 	EngineInstance(const EngineInstance&) = delete;

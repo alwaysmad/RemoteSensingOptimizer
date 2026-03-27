@@ -44,6 +44,7 @@ target_compile_definitions(rso PRIVATE
 target_include_directories(rso PRIVATE
 	${vulkan-hpp_BINARY_DIR}
 	${CMAKE_CURRENT_SOURCE_DIR}
+	${CMAKE_CURRENT_BINARY_DIR}
 )
 
 # 5. Link Libraries
@@ -100,5 +101,10 @@ target_precompile_headers(rso PRIVATE
 	#"Frames.hpp"
 )
 
+add_slang_shader_target(CompileTriangle
+	SOURCES ${CMAKE_SOURCE_DIR}/shaders/triangle.slang
+	ENTRIES vertMain fragMain
+)
+
 # 8. Add dependencies so they build before the executable
-#add_dependencies(rso CompileMesh CompileSatellite CompileSolver)
+add_dependencies(rso CompileTriangle)

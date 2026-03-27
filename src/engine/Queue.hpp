@@ -75,7 +75,7 @@ private:
         : m_device(device) 
     {}
     // 2. The Binder (Two-Stage)
-    inline void init(vk::raii::Queue queue, uint32_t familyIndex)
+    inline void init(vk::raii::Queue&& queue, uint32_t familyIndex)
     {
         m_queue = std::move(queue); 
         m_queueFamilyIndex = familyIndex;

@@ -1,6 +1,8 @@
 // src/engine/DepthResources.hpp
 #pragma once
 
+#include <array>
+#include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
 
@@ -9,6 +11,25 @@
 
 namespace svk 
 {
+
+[[nodiscard]] inline vk::Format pickDepthFormat(const vk::raii::PhysicalDevice& physicalDevice)
+{
+    static constexpr std::array<vk::Format, 3> depthCandidates = {
+        vk::Format::eD32Sfloat,
+        vk::Format::eD32SfloatS8Uint,
+        vk::Format::eD24UnormS8Uint,
+    };
+
+    for (const vk::Format candidate : depthCandidates)
+    {
+        const vk::FormatProperties props = physicalDevice.getFormatProperties(candidate);
+        if (props.optimalTilingFeatures & vk::FormatFeatureFlagBits::eDepthStencilAttachment)
+            { return candidate; }
+    }
+
+    throw std::runtime_error("No supported depth format found for depth resources");
+}
+
 // =========================================================================
 // 
 //  Manages the lifecycle of depth buffers across window resizes and frames.
@@ -19,11 +40,10 @@ public:
     // Takes ownership of the depth format and initializes the memory.
     DepthResources(
         const svk::Device& device,
-        vk::Format depthFormat,
         vk::Extent2D initialExtent,
         uint32_t imageCount)
         : m_device(&device),
-        m_depthFormat(depthFormat),
+        m_depthFormat(svk::pickDepthFormat(device.physicalDevice())),
         m_imageCount(imageCount),
         m_currentExtent(initialExtent)
         { m_images.reserve(m_imageCount); buildImages(); }

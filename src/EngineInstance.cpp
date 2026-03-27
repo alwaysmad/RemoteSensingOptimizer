@@ -3,6 +3,8 @@
 #include <string> // std::string
 
 #include "EngineInstance.hpp"
+#include "engine/Frames.hpp"
+#include "triangle.hpp"
 
 EngineInstance::EngineInstance(Settings& settings, svk::Logger& logger)
 	: m_settings(settings),
@@ -29,8 +31,46 @@ EngineInstance::EngineInstance(Settings& settings, svk::Logger& logger)
 		}
 		return svk::Device(m_instance, m_window.getSurface(), m_settings.deviceName);
 	}()),
-	  m_swapchain(m_device, m_window)
+	  m_swapchain(m_device, m_window),
+	  m_renderRoutine(m_device, m_swapchain, m_device.graphicsQueue(), svk::MAX_FRAMES_IN_FLIGHT)
 {
+	for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
+		{ m_inFlightFences.emplace_back(m_device.device(), vk::FenceCreateInfo {.flags = vk::FenceCreateFlagBits::eSignaled}); }
+
+	{
+	const vk::raii::ShaderModule triangleModule(m_device.device(), triangle::smci);
+	const std::vector<vk::PipelineShaderStageCreateInfo> shaderStages = {
+		vk::PipelineShaderStageCreateInfo {
+			.stage = vk::ShaderStageFlagBits::eVertex,
+			.module = *triangleModule,
+			.pName = "vertMain",
+		},
+		vk::PipelineShaderStageCreateInfo {
+			.stage = vk::ShaderStageFlagBits::eFragment,
+			.module = *triangleModule,
+			.pName = "fragMain",
+		},
+	};
+
+	const vk::PipelineVertexInputStateCreateInfo vertexInput {};
+	auto& triangleTask = m_renderRoutine.m_tasks.emplace_back(
+		m_device.device(),
+		shaderStages,
+		vertexInput,
+		vk::PrimitiveTopology::eTriangleList,
+		vk::CullModeFlagBits::eNone,
+		std::vector<vk::DescriptorSetLayoutBinding> {},
+		m_swapchain.getFormat(),
+		m_renderRoutine.getDepthFormat());
+
+	triangleTask.m_active = true;
+	triangleTask.registerBuffers(
+		std::vector<svk::BufferBinding> {},
+		std::vector<svk::BufferBinding> {},
+		std::optional<svk::BufferBinding> {},
+		3,
+		1);
+	}
 	if constexpr (svk::enableValidationLayers)
 	{
 		m_logger.cInfo(
@@ -65,6 +105,14 @@ void EngineInstance::tick()
 {
 	m_window.pollEvents();
 	m_window.updateFPS(std::string(Settings::appName));
+
+	const vk::Fence fence = *m_inFlightFences[m_currentFrame];
+	if (m_device.device().waitForFences({fence}, vk::True, UINT64_MAX) != vk::Result::eSuccess)
+		{ throw std::runtime_error("Fence wait failed"); }
+	m_device.device().resetFences({fence});
+
+	m_renderRoutine.draw(m_currentFrame, fence, nullptr);
+	m_currentFrame = svk::advanceFrame(m_currentFrame);
 }
 
 bool EngineInstance::shouldClose() const { return m_window.shouldClose(); }

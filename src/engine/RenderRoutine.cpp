@@ -6,11 +6,11 @@ namespace svk
 RenderRoutine::RenderRoutine(
     svk::Device& device,
     svk::Swapchain& swapchain,
-    svk::Queue& graphicsQueue,
+        const svk::Queue& graphicsQueue,
     uint32_t bufferCount)
     : m_swapchain(&swapchain),
       m_graphicsQueue(&graphicsQueue),
-      m_depthResources(device, swapchain.getFormat(), swapchain.getExtent(), bufferCount),
+      m_depthResources(device, swapchain.getExtent(), bufferCount),
       m_command(device.createCommand(svk::Device::GRAPHICS, bufferCount, vk::CommandPoolCreateFlagBits::eResetCommandBuffer))
 {
     // Create image-available semaphores (one per frame)

@@ -28,17 +28,19 @@ public:
     RenderRoutine(RenderRoutine&&) = default;
     RenderRoutine& operator=(RenderRoutine&&) = default;
 
-    RenderRoutine(svk::Device& device, svk::Swapchain& swapchain, svk::Queue& graphicsQueue, uint32_t bufferCount);
+    RenderRoutine(svk::Device& device, svk::Swapchain& swapchain, const svk::Queue& graphicsQueue, uint32_t bufferCount);
 
     // Temporary Public Access
     std::vector<svk::RenderTask> m_tasks;
+
+    [[nodiscard]] inline vk::Format getDepthFormat() const { return m_depthResources.getFormat(); }
 
     // The Master Spell: Executes the frame
     void draw(uint32_t currentFrame, vk::Fence fence, vk::Semaphore waitSemaphore = nullptr);
 
 private:
     svk::Swapchain* m_swapchain;
-    svk::Queue* m_graphicsQueue;
+    const svk::Queue* m_graphicsQueue;
 
     // The ArchWizard's Arsenal
     svk::DepthResources m_depthResources;
