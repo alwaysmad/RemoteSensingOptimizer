@@ -36,6 +36,7 @@ public:
 	EngineInstance& operator=(EngineInstance&& other) = delete;
 
 	EngineInstance(Settings& settings, svk::Logger& logger);
+	~EngineInstance();
 
 	void tick();
 	[[nodiscard]] bool shouldClose() const;

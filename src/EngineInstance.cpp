@@ -116,3 +116,8 @@ void EngineInstance::tick()
 }
 
 bool EngineInstance::shouldClose() const { return m_window.shouldClose(); }
+
+EngineInstance::~EngineInstance()
+{
+	m_device.waitIdle();
+}

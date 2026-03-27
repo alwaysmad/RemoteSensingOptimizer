@@ -34,7 +34,8 @@ RenderTask::RenderTask(
         });
     }
 
-    vk::DescriptorPoolCreateInfo poolInfo {
+    const vk::DescriptorPoolCreateInfo poolInfo {
+        .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
         .maxSets = 1,
         .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
         .pPoolSizes = poolSizes.data(),

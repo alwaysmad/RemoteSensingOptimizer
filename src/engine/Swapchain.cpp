@@ -156,7 +156,12 @@ const std::optional<svk::SwapchainFrame> Swapchain::acquireNextImage(vk::Semapho
 {
     try
     {
-        const auto result = m_swapchain.acquireNextImage(UINT64_MAX, imageAvailableSemaphore, nullptr);
+        const auto result = m_device.device().acquireNextImage2KHR({
+			.swapchain = *m_swapchain,
+			.timeout = UINT64_MAX,
+			.semaphore = imageAvailableSemaphore,
+			.deviceMask = 1
+		});
         const uint32_t imageIndex = result.second;
         
         return svk::SwapchainFrame{

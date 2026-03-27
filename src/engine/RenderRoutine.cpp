@@ -44,7 +44,22 @@ void RenderRoutine::draw(uint32_t currentFrame, vk::Fence fence, vk::Semaphore w
     const auto& depthImage = m_depthResources[currentFrame];
     if (extent != m_depthResources.getExtent())
     {
-        m_graphicsQueue->dummySubmit(fence, waitSemaphore);
+        const std::array<vk::SemaphoreSubmitInfo, 2> waitInfos = {
+            vk::SemaphoreSubmitInfo{
+                .semaphore = *m_imageAvailableSemaphores[currentFrame],
+                .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput
+            },
+            vk::SemaphoreSubmitInfo{
+                .semaphore = waitSemaphore,
+                .stageMask = vk::PipelineStageFlagBits2::eAllCommands
+            }
+        };
+        const vk::SubmitInfo2 dummyInfo{
+            .waitSemaphoreInfoCount = waitSemaphore ? 2u : 1u,
+            .pWaitSemaphoreInfos = waitInfos.data()
+        };
+        // Submit empty command, consume all semaphores, and signal the fence
+        m_graphicsQueue->submit(dummyInfo, fence);
         m_graphicsQueue->waitIdle();
         m_depthResources.recreate(extent);
         return;
