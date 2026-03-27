@@ -15,7 +15,7 @@ RenderTask::RenderTask(
     vk::Format colorFormat,
     vk::Format depthFormat)
         : m_device(&device),
-      m_pipeline(
+          m_pipeline(
             device,
             shaderStages,
             vertexInput,

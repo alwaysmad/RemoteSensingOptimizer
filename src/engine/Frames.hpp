@@ -4,5 +4,5 @@ namespace svk
 {
     constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
-    inline uint32_t advanceFrame(uint32_t currentFrame) { return currentFrame ^ 1u; }
+    inline uint32_t advanceFrame(uint32_t currentFrame) { return (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT; }
 } // namespace svk

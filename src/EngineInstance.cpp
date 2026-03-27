@@ -1,9 +1,11 @@
 // src/EngineInstance.cpp
 
+#include <cstring>
 #include <string> // std::string
 
 #include "EngineInstance.hpp"
 #include "engine/Frames.hpp"
+
 #include "triangle.hpp"
 
 EngineInstance::EngineInstance(Settings& settings, svk::Logger& logger)
@@ -32,10 +34,90 @@ EngineInstance::EngineInstance(Settings& settings, svk::Logger& logger)
 		return svk::Device(m_instance, m_window.getSurface(), m_settings.deviceName);
 	}()),
 	  m_swapchain(m_device, m_window),
-	  m_renderRoutine(m_device, m_swapchain, m_device.graphicsQueue(), svk::MAX_FRAMES_IN_FLIGHT)
+	  m_renderRoutine(m_device, m_swapchain, svk::MAX_FRAMES_IN_FLIGHT),
+	  m_transferRoutine(m_device, 1)
 {
 	for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
 		{ m_inFlightFences.emplace_back(m_device.device(), vk::FenceCreateInfo {.flags = vk::FenceCreateFlagBits::eSignaled}); }
+
+	std::vector<VertexCoords> vertices;
+	vertices.reserve(8);
+	vertices.emplace_back(std::array<float, 4>{-0.5f, -0.5f, -0.5f, 0.15f});
+	vertices.emplace_back(std::array<float, 4>{ 0.5f, -0.5f, -0.5f, 0.30f});
+	vertices.emplace_back(std::array<float, 4>{ 0.5f,  0.5f, -0.5f, 0.45f});
+	vertices.emplace_back(std::array<float, 4>{-0.5f,  0.5f, -0.5f, 0.60f});
+	vertices.emplace_back(std::array<float, 4>{-0.5f, -0.5f,  0.5f, 0.35f});
+	vertices.emplace_back(std::array<float, 4>{ 0.5f, -0.5f,  0.5f, 0.55f});
+	vertices.emplace_back(std::array<float, 4>{ 0.5f,  0.5f,  0.5f, 0.75f});
+	vertices.emplace_back(std::array<float, 4>{-0.5f,  0.5f,  0.5f, 1.00f});
+
+	alignas(16) std::vector<uint32_t> indices {
+		0, 1, 2, 2, 3, 0,
+		1, 5, 6, 6, 2, 1,
+		5, 4, 7, 7, 6, 5,
+		4, 0, 3, 3, 7, 4,
+		3, 2, 6, 6, 7, 3,
+		4, 5, 1, 1, 0, 4,
+	};
+
+	const vk::DeviceSize vertexBytes = static_cast<vk::DeviceSize>(sizeof(VertexCoords) * vertices.size());
+	const vk::DeviceSize indexBytes = static_cast<vk::DeviceSize>(sizeof(uint32_t) * indices.size());
+
+	auto vertexStaging = m_device.createBuffer(
+		vertexBytes,
+		vk::BufferUsageFlagBits::eTransferSrc,
+		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+		{svk::Device::TRANSFER});
+
+	m_vertexBuffer.emplace(m_device.createBuffer(
+		vertexBytes,
+		vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
+		vk::MemoryPropertyFlagBits::eDeviceLocal,
+		{svk::Device::TRANSFER, svk::Device::GRAPHICS}));
+
+	{
+		auto map = vertexStaging.map(0, vertexBytes);
+		std::memcpy(map.get(), vertices.data(), static_cast<size_t>(vertexBytes));
+	}
+
+	m_transferRoutine.bakeCommands(
+		0,
+		vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+		vertexStaging,
+		*m_vertexBuffer,
+		0,
+		0,
+		vertexBytes);
+	m_transferRoutine.submitCommands(0);
+	m_device.transferQueue().waitIdle();
+
+	auto indexStaging = m_device.createBuffer(
+		indexBytes,
+		vk::BufferUsageFlagBits::eTransferSrc,
+		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+		{svk::Device::TRANSFER});
+
+	m_indexBuffer.emplace(m_device.createBuffer(
+		indexBytes,
+		vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
+		vk::MemoryPropertyFlagBits::eDeviceLocal,
+		{svk::Device::TRANSFER, svk::Device::GRAPHICS}));
+
+	{
+		auto map = indexStaging.map(0, indexBytes);
+		std::memcpy(map.get(), indices.data(), static_cast<size_t>(indexBytes));
+	}
+
+	m_transferRoutine.bakeCommands(
+		0,
+		vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+		indexStaging,
+		*m_indexBuffer,
+		0,
+		0,
+		indexBytes);
+	m_transferRoutine.submitCommands(0);
+	m_device.transferQueue().waitIdle();
 
 	{
 	const vk::raii::ShaderModule triangleModule(m_device.device(), triangle::smci);
@@ -52,7 +134,12 @@ EngineInstance::EngineInstance(Settings& settings, svk::Logger& logger)
 		},
 	};
 
-	const vk::PipelineVertexInputStateCreateInfo vertexInput {};
+	const vk::PipelineVertexInputStateCreateInfo vertexInput {
+		.vertexBindingDescriptionCount = static_cast<uint32_t>(kVertexCoordsBindingDescriptions.size()),
+		.pVertexBindingDescriptions = kVertexCoordsBindingDescriptions.data(),
+		.vertexAttributeDescriptionCount = static_cast<uint32_t>(kVertexCoordsAttributeDescriptions.size()),
+		.pVertexAttributeDescriptions = kVertexCoordsAttributeDescriptions.data(),
+	};
 	auto& triangleTask = m_renderRoutine.m_tasks.emplace_back(
 		m_device.device(),
 		shaderStages,
@@ -66,9 +153,9 @@ EngineInstance::EngineInstance(Settings& settings, svk::Logger& logger)
 	triangleTask.m_active = true;
 	triangleTask.registerBuffers(
 		std::vector<svk::BufferBinding> {},
-		std::vector<svk::BufferBinding> {},
-		std::optional<svk::BufferBinding> {},
-		3,
+		std::vector<svk::BufferBinding> { svk::BufferBinding(*m_vertexBuffer, 0) },
+		std::optional<svk::BufferBinding> { svk::BufferBinding(*m_indexBuffer, 0) },
+		static_cast<uint32_t>(indices.size()),
 		1);
 	}
 	if constexpr (svk::enableValidationLayers)

@@ -4,12 +4,11 @@ namespace svk
 {
 
 RenderRoutine::RenderRoutine(
-    svk::Device& device,
+    const svk::Device& device,
     svk::Swapchain& swapchain,
-        const svk::Queue& graphicsQueue,
     uint32_t bufferCount)
     : m_swapchain(&swapchain),
-      m_graphicsQueue(&graphicsQueue),
+      m_graphicsQueue(&device.graphicsQueue()),
       m_depthResources(device, swapchain.getExtent(), bufferCount),
       m_command(device.createCommand(svk::Device::GRAPHICS, bufferCount, vk::CommandPoolCreateFlagBits::eResetCommandBuffer))
 {
@@ -118,7 +117,7 @@ void RenderRoutine::draw(uint32_t currentFrame, vk::Fence fence, vk::Semaphore w
     });
 
     // 7. Attachments & Rendering Info
-    const vk::ClearValue clearColor{.color = m_backgroundColor};
+    constexpr vk::ClearValue clearColor{.color = m_backgroundColor};
     const vk::RenderingAttachmentInfo colorAttachment{
         .imageView = frame.imageView,
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,

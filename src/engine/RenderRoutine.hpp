@@ -28,7 +28,7 @@ public:
     RenderRoutine(RenderRoutine&&) = default;
     RenderRoutine& operator=(RenderRoutine&&) = default;
 
-    RenderRoutine(svk::Device& device, svk::Swapchain& swapchain, const svk::Queue& graphicsQueue, uint32_t bufferCount);
+    RenderRoutine(const svk::Device& device, svk::Swapchain& swapchain, uint32_t bufferCount);
 
     // Temporary Public Access
     std::vector<svk::RenderTask> m_tasks;

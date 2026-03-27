@@ -12,8 +12,8 @@ public:
 	static constexpr std::string_view appName = "RSO";
 	std::string logPath = "rso.log";
 	std::string deviceName = "Intel(R) Iris(R) Xe Graphics (ADL GT2)";
-	uint32_t windowWidth = 1280;
-	uint32_t windowHeight = 720;
+	uint32_t windowWidth = 800;
+	uint32_t windowHeight = 600;
 
 	Settings() noexcept = default;
 	~Settings() noexcept = default;

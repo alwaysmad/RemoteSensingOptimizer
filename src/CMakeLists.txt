@@ -4,8 +4,8 @@ add_executable(rso main.cpp)
 
 # 2. Add sources
 target_sources(rso PRIVATE
-	Application.cpp
-	EngineInstance.cpp
+	engine/window/WindowContext.hpp
+	engine/window/Window.hpp
 	engine/Buffer.hpp
 	engine/Command.hpp
 	engine/DepthResources.hpp
@@ -16,6 +16,8 @@ target_sources(rso PRIVATE
 	engine/RenderTask.hpp
 	engine/RenderRoutine.cpp
 	engine/RenderRoutine.hpp
+	engine/TransferRoutine.cpp
+	engine/TransferRoutine.hpp
 	engine/Image.hpp
 	engine/Instance.cpp
 	engine/Instance.hpp
@@ -23,11 +25,12 @@ target_sources(rso PRIVATE
 	engine/Queue.hpp
 	engine/Swapchain.cpp
 	engine/Swapchain.hpp
-	Application.hpp
-	EngineInstance.hpp
 	Settings.hpp
-	engine/window/WindowContext.hpp
-	engine/window/Window.hpp
+	BufferStructs.hpp
+	Application.hpp
+	Application.cpp
+	EngineInstance.hpp
+	EngineInstance.cpp
 )
 
 # 3. Compile Definitions
