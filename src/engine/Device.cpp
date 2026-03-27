@@ -9,6 +9,7 @@
 #include "engine/Flags.hpp"
 #include "engine/Device.hpp"
 #include "engine/Instance.hpp"
+#include "engine/Logger.hpp"
 
 namespace
 {
@@ -41,6 +42,7 @@ inline void selectPhysicalDevice(
 
     if (outPhysicalDevice.getProperties().apiVersion < vk::ApiVersion13)
         { throw std::runtime_error("Selected device does not support Vulkan 1.3"); }
+
 }
 
 inline void pickQueueFamilies(
@@ -221,6 +223,15 @@ uint32_t Device::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags pro
 void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKHR* surface, const std::string& deviceName)
 {
     selectPhysicalDevice(instance.getInstance(), deviceName, m_physicalDevice);
+
+    const auto props = m_physicalDevice.getProperties();
+    if (props.deviceType != vk::PhysicalDeviceType::eDiscreteGpu)
+    {
+        std::cerr << Logger::COLOR_YELLOW
+            << "[WARNING] Selected device '" << deviceName
+            << "' is NOT a discrete GPU."
+            << Logger::COLOR_RESET << std::endl;
+    }
 
     uint32_t graphicsQueueIndex, presentQueueIndex, computeQueueIndex, transferQueueIndex;
 

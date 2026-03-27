@@ -42,6 +42,8 @@ public:
     bool m_active = false;
 
     // --- Buffer Registration (Perfect Forwarding) ---
+    // MUST NO NOT BE EXECUTED DURING RENDERING
+    // In-Flight Frame Synchronization!!!
     template <typename V, typename I>
     void registerBuffers(
         const std::vector<svk::BufferBinding>& descriptorBindings,

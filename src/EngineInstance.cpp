@@ -33,9 +33,6 @@ EngineInstance::EngineInstance(Settings& settings, svk::Logger& logger)
 {
 	if constexpr (svk::enableValidationLayers)
 	{
-		const auto selectedDeviceName = std::string(m_device.physicalDevice().getProperties().deviceName);
-		m_logger.cInfo("Device created: '{}'", selectedDeviceName);
-
 		m_logger.cInfo(
 			"Queue binding: transfer={}, compute={}, graphics={}, present={}",
 			m_device.transferQueue().getFamilyIndex(),
