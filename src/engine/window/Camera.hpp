@@ -10,7 +10,6 @@ struct GLFWwindow;
 
 namespace svk 
 {
-
 // =========================================================================
 //  
 //  Holds all mathematical state for the Arcball Camera.
@@ -42,16 +41,17 @@ struct CameraState
 	static constexpr float near = 0.05f;
 
 	static constexpr glm::mat4 proj_unscaled = {
-		f,	  0.0f,	0.0f,	0.0f,	// Col 0 (Right)
-		0.0f,	  -f,	0.0f,	0.0f,	// Col 1 (Up-ish)
+		f,        0.0f,	 0.0f,	 0.0f,	// Col 0 (Right)
+		0.0f,     -f,	 0.0f,	 0.0f,	// Col 1 (Up-ish)
 		0.0f,	  0.0f,	-1.0f,	-1.0f,	// Col 2 (Forward-ish)
-		0.0f,     0.0f,	-near,	0.0f	// Col 3 (Translation)
+		0.0f,     0.0f,	-near,	 0.0f	// Col 3 (Translation)
 	};
     glm::mat4 viewProj = glm::mat4(1.0f);
 };
 // =========================================================================
 // Because GLFW only has one user pointer
 // creating a second camera will incvalidate the callbacks of the first one.
+// =========================================================================
 class Camera 
 {
 public:

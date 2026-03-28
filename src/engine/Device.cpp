@@ -14,17 +14,53 @@
 namespace
 {
 constexpr float queuePriority = 1.0f;
+constexpr uint32_t kVulkanRecommendedMaxAllocations = 4096;
+constexpr uint32_t kAllocationHardWarning = 4086;
+constexpr uint32_t kAllocationNearWarning = 4000;
+
+inline void logAllocationPressure(const svk::Logger& logger, uint32_t currentCount)
+{
+    if (currentCount >= kAllocationHardWarning)
+    {
+        logger.cWarn(
+            "[WARNING] Device allocation count is {} (very close to Vulkan limit {}).",
+            currentCount,
+            kVulkanRecommendedMaxAllocations);
+    }
+    else if (currentCount >= kAllocationNearWarning)
+    {
+        logger.cWarn(
+            "[WARNING] Device allocation count is {} (nearing Vulkan limit {}).",
+            currentCount,
+            kVulkanRecommendedMaxAllocations);
+    }
+}
 
 inline void selectPhysicalDevice(
     const vk::raii::Instance& instance,
     const std::string& requestedDeviceName,
-    vk::raii::PhysicalDevice& outPhysicalDevice)
+    vk::raii::PhysicalDevice& outPhysicalDevice,
+    const svk::Logger& logger)
 {
     // Find and pick physical device based on name and Vulkan 1.3 support
     const auto devices = instance.enumeratePhysicalDevices();
 
     if (devices.empty())
         { throw std::runtime_error("Failed to find any device with Vulkan support"); }
+
+    if constexpr (svk::enableValidationLayers)
+    {
+        logger.cDebug("Available physical devices ({}):", devices.size());
+        for (const auto& device : devices)
+        {
+            const auto props = device.getProperties();
+            logger.cDebug("  - {} (api {}.{}.{})",
+                std::string(props.deviceName),
+                VK_API_VERSION_MAJOR(props.apiVersion),
+                VK_API_VERSION_MINOR(props.apiVersion),
+                VK_API_VERSION_PATCH(props.apiVersion));
+        }
+    }
 
     for (const auto& device : devices)
     { // Grab device with the provided name
@@ -35,10 +71,18 @@ inline void selectPhysicalDevice(
     if (*outPhysicalDevice == nullptr)
     { // If not found, pick the first one
         if constexpr (svk::enableValidationLayers)
-            { outPhysicalDevice = devices.front(); }
+        {
+            outPhysicalDevice = devices.front();
+            logger.cWarn("Requested device '{}' was not found; falling back to '{}'.",
+                requestedDeviceName,
+                std::string(outPhysicalDevice.getProperties().deviceName));
+        }
         else // or throw an error
             { throw std::runtime_error(std::format("Could not find requested device: '{}'", requestedDeviceName)); }
     }
+
+    if constexpr (svk::enableValidationLayers)
+        { logger.cInfo("Selected device: '{}'", std::string(outPhysicalDevice.getProperties().deviceName)); }
 
     if (outPhysicalDevice.getProperties().apiVersion < vk::ApiVersion13)
         { throw std::runtime_error("Selected device does not support Vulkan 1.3"); }
@@ -157,6 +201,8 @@ svk::Buffer Device::createBuffer(vk::DeviceSize size,
                                  vk::MemoryPropertyFlags properties,
                                  const std::vector<QueueType>& targetQueues) const
 {
+    logAllocationPressure(m_logger, allocationCount.load(std::memory_order_relaxed));
+
     if ((usage & vk::BufferUsageFlagBits::eUniformBuffer) != vk::BufferUsageFlags {})
     {
         constexpr vk::DeviceSize kConventionalUboLimit = 64ull * 1024ull; // 64 KB
@@ -211,6 +257,8 @@ svk::Image Device::createImage(const vk::ImageCreateInfo& imageInfo,
                               vk::MemoryPropertyFlags properties,
                               vk::ImageAspectFlags aspectFlags) const
 {
+    logAllocationPressure(m_logger, allocationCount.load(std::memory_order_relaxed));
+
     vk::raii::Image image(m_device, imageInfo);
     const auto memReq = image.getMemoryRequirements();
     const uint32_t memType = findMemoryType(memReq.memoryTypeBits, properties);
@@ -243,7 +291,7 @@ uint32_t Device::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags pro
 
 void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKHR* surface, const std::string& deviceName)
 {
-    selectPhysicalDevice(instance.getInstance(), deviceName, m_physicalDevice);
+    selectPhysicalDevice(instance.getInstance(), deviceName, m_physicalDevice, m_logger);
 
     const auto props = m_physicalDevice.getProperties();
     if (props.deviceType != vk::PhysicalDeviceType::eDiscreteGpu)
@@ -279,6 +327,13 @@ void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKH
         { requiredDeviceExtensions.push_back(vk::KHRSwapchainExtensionName); }
 
     const auto availableExtensions = m_physicalDevice.enumerateDeviceExtensionProperties();
+    if constexpr (svk::enableValidationLayers)
+    {
+        m_logger.cDebug("Available device extensions ({}):", availableExtensions.size());
+        for (const auto& ext : availableExtensions)
+            { m_logger.cDebug("  - {}", std::string(ext.extensionName)); }
+    }
+
     for (const auto requiredExtension : requiredDeviceExtensions) {
         if (std::ranges::none_of(
                 availableExtensions,
@@ -339,6 +394,16 @@ void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKH
         if (family == presentQueueIndex)  { m_queueMapping[PRESENT]  = currentSlot; }
 
         currentSlot++;
+    }
+
+    if constexpr (svk::enableValidationLayers)
+    {
+        m_logger.cInfo(
+            "Queue mapping (slot->family): transfer={} compute={} graphics={} present={}",
+            m_queues[m_queueMapping[TRANSFER]].getFamilyIndex(),
+            m_queues[m_queueMapping[COMPUTE]].getFamilyIndex(),
+            m_queues[m_queueMapping[GRAPHICS]].getFamilyIndex(),
+            m_queues[m_queueMapping[PRESENT]].getFamilyIndex());
     }
 }
 

@@ -31,8 +31,7 @@ namespace
 
 namespace svk
 {
-Instance::Instance(const std::string& appName, const std::vector<const char*>& extensions, Logger& logger)
-	: m_logger(logger), m_debugMessenger(nullptr)
+Instance::Instance(const std::string& appName, const std::vector<const char*>& extensions, const Logger& logger)
 {
 	const vk::ApplicationInfo appInfo {
 		.pApplicationName = appName.c_str(),
@@ -50,13 +49,13 @@ Instance::Instance(const std::string& appName, const std::vector<const char*>& e
 
 	if constexpr (svk::enableValidationLayers)
 	{
-		m_logger.cDebug("Available Vulkan extensions ({}) :", extensionProperties.size());
+		logger.cDebug("Available Vulkan extensions ({}) :", extensionProperties.size());
 		for ([[maybe_unused]] const auto& i : extensionProperties)
-			{ m_logger.cDebug("\t{}", std::string_view(i.extensionName.data())); }
+			{ logger.cDebug("\t{}", std::string_view(i.extensionName.data())); }
 
-		m_logger.cDebug("Required extensions ({}) :", requiredExtensions.size());
+		logger.cDebug("Required extensions ({}) :", requiredExtensions.size());
 		for ([[maybe_unused]] const auto& name : requiredExtensions)
-			{ m_logger.cDebug("\t{}", name); }
+			{ logger.cDebug("\t{}", name); }
 	}
 
 	for (const auto& requiredExtension : requiredExtensions)
@@ -77,13 +76,13 @@ Instance::Instance(const std::string& appName, const std::vector<const char*>& e
 
 	if constexpr (svk::enableValidationLayers)
 	{
-		m_logger.cDebug("Available layers ({}) :", layerProperties.size());
+		logger.cDebug("Available layers ({}) :", layerProperties.size());
 		for ([[maybe_unused]] const auto& i : layerProperties)
-			{ m_logger.cDebug("\t{}", std::string_view(i.layerName.data())); }
+			{ logger.cDebug("\t{}", std::string_view(i.layerName.data())); }
 
-		m_logger.cDebug("Required layers ({}) :", requiredLayers.size());
+		logger.cDebug("Required layers ({}) :", requiredLayers.size());
 		for ([[maybe_unused]] const auto& name : requiredLayers)
-			{ m_logger.cDebug("\t{}", name); }
+			{ logger.cDebug("\t{}", name); }
 	}
 
 	for (const auto& requiredLayer : requiredLayers)
@@ -100,7 +99,7 @@ Instance::Instance(const std::string& appName, const std::vector<const char*>& e
 		.messageSeverity = severityFlags,
 		.messageType = messageTypeFlags,
 		.pfnUserCallback = &debugCallback,
-		.pUserData = &m_logger
+		.pUserData = static_cast<void*>(const_cast<Logger*>(&logger))
 	};
 
 	const vk::InstanceCreateInfo createInfo {
@@ -116,9 +115,9 @@ Instance::Instance(const std::string& appName, const std::vector<const char*>& e
 
 	if constexpr (svk::enableValidationLayers)
 	{
-		m_logger.cDebug("Vulkan instance created successfully");
+		logger.cDebug("Vulkan instance created successfully");
 		m_debugMessenger = m_instance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfoEXT);
-		m_logger.cDebug("Debug callback set up successfully");
+		logger.cDebug("Debug callback set up successfully");
 	}
 }
 
@@ -128,7 +127,7 @@ VKAPI_ATTR vk::Bool32 VKAPI_CALL Instance::debugCallback(
 	const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void* pUserData)
 {
-	const Logger* logger = static_cast<Logger*>(pUserData);
+	const Logger* logger = static_cast<const Logger*>(pUserData);
 	const std::string typeStr = vk::to_string(type);
 	if (severity >= vk::DebugUtilsMessageSeverityFlagBitsEXT::eError)
 		{ logger->cError("{} {}", typeStr, pCallbackData->pMessage); }

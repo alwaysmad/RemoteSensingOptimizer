@@ -4,6 +4,14 @@ struct VertexInput
     float4 coords;
 };
 
+struct UBO
+{
+    float4x4 viewProj;
+};
+
+[[vk::binding(0, 0)]]
+ConstantBuffer<UBO> g_ubo;
+
 struct VertexOutput
 {
     float3 color;
@@ -14,7 +22,7 @@ struct VertexOutput
 VertexOutput vertMain(VertexInput inVert)
 {
     VertexOutput output;
-    output.sv_position = float4(inVert.coords.xyz, 1.0);
+    output.sv_position = mul(g_ubo.viewProj, float4(inVert.coords.xyz, 1.0));
 
     float gray = saturate(inVert.coords.w);
     output.color = float3(gray, gray, gray);

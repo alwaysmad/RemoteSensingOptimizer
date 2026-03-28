@@ -23,8 +23,8 @@
 class EngineInstance
 {
 private:
-	Settings& m_settings;
-	svk::Logger& m_logger;
+	const Settings& m_settings;
+	const svk::Logger& m_logger;
 	const Mesh& m_mesh;
 	svk::WindowContext m_windowContext;
 	svk::Instance m_instance;
@@ -38,15 +38,17 @@ private:
 	std::optional<svk::Buffer> m_vertexBuffer;
 	std::optional<svk::Buffer> m_indexBuffer;
 
+	// UBO data and buffers
 	UBO m_ubo;
 	std::optional<svk::Buffer> m_uboDeviceBuffer;
 	std::optional<svk::Buffer> m_uboStagingBuffer;
-	std::vector<svk::BufferMap> m_uboStagingMaps;
-	vk::DeviceSize m_uboFrameSize;
+	std::optional<svk::BufferMap> m_uboStagingMap;
+	std::vector<void*> m_uboStagingPtrs;
+	vk::DeviceSize m_uboFrameSize = 0;
 
 	// sync
-	std::array<vk::raii::Semaphore, svk::MAX_FRAMES_IN_FLIGHT> m_uboUpdatedSemaphores;
-	std::array<vk::raii::Fence, svk::MAX_FRAMES_IN_FLIGHT> m_inFlightFences;
+	std::vector<vk::raii::Semaphore> m_uboUpdatedSemaphores;
+	std::vector<vk::raii::Fence> m_inFlightFences;
 	uint32_t m_currentFrame = 0;
 
 public:
@@ -55,7 +57,7 @@ public:
 	EngineInstance(EngineInstance&&) = delete;
 	EngineInstance& operator=(EngineInstance&& other) = delete;
 
-	EngineInstance(Settings& settings, svk::Logger& logger, const Mesh& mesh);
+	EngineInstance(const Settings& settings, const svk::Logger& logger, const Mesh& mesh);
 	~EngineInstance();
 
 	void tick();

@@ -6,46 +6,29 @@
 #include <glm/glm.hpp>
 
 #include "EngineInstance.hpp"
-#include "engine/Frames.hpp"
 
 #include "triangle.hpp"
 
-EngineInstance::EngineInstance(Settings& settings, svk::Logger& logger, const Mesh& mesh)
+EngineInstance::EngineInstance(const Settings& settings, const svk::Logger& logger, const Mesh& mesh)
 	: m_settings(settings),
 	  m_logger(logger),
 	  m_mesh(mesh),
 	  m_windowContext(),
-	  m_instance(std::string(Settings::appName), m_windowContext.getRequiredInstanceExtensions(), m_logger),
+	  m_instance(std::string(Settings::appName), m_windowContext.getRequiredInstanceExtensions(), logger),
 	  m_window(m_windowContext, m_instance.getInstance(), m_settings.windowWidth, m_settings.windowHeight, std::string(Settings::appName)),
 	  m_camera(m_window.getGLFWwindow(), vk::Extent2D{ m_settings.windowWidth, m_settings.windowHeight }),
-	  m_device([this]() {
-		if constexpr (svk::enableValidationLayers)
-		{
-			m_logger.cInfo("Available physical devices:");
-			for (const auto& physicalDevice : m_instance.getInstance().enumeratePhysicalDevices())
-			{
-				const auto props = physicalDevice.getProperties();
-				const auto availableDeviceName = std::string(props.deviceName.data());
-				m_logger.cInfo("  - {} (api {}.{}.{})",
-					availableDeviceName,
-					VK_API_VERSION_MAJOR(props.apiVersion),
-					VK_API_VERSION_MINOR(props.apiVersion),
-					VK_API_VERSION_PATCH(props.apiVersion));
-			}
-
-			m_logger.cInfo("Creating device '{}'", m_settings.deviceName);
-		}
-		return svk::Device(m_instance, m_window.getSurface(), m_settings.deviceName);
-	}()),
+	  m_device(m_instance, m_window.getSurface(), m_settings.deviceName, logger),
 	  m_swapchain(m_device, m_window),
 	  m_renderRoutine(m_device, m_swapchain, svk::MAX_FRAMES_IN_FLIGHT),
 	  m_transferRoutine(m_device, svk::MAX_FRAMES_IN_FLIGHT)
 {
+	m_uboUpdatedSemaphores.reserve(svk::MAX_FRAMES_IN_FLIGHT);
+	m_inFlightFences.reserve(svk::MAX_FRAMES_IN_FLIGHT);
 	for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
-		{
-			m_uboUpdatedSemaphores[i] = vk::raii::Semaphore(m_device.device(), vk::SemaphoreCreateInfo {});
-			m_inFlightFences[i] = vk::raii::Fence(m_device.device(), vk::FenceCreateInfo {.flags = vk::FenceCreateFlagBits::eSignaled});
-		}
+	{
+		m_uboUpdatedSemaphores.emplace_back(m_device.device(), vk::SemaphoreCreateInfo {});
+		m_inFlightFences.emplace_back(m_device.device(), vk::FenceCreateInfo {.flags = vk::FenceCreateFlagBits::eSignaled});
+	}
 
 	const vk::DeviceSize vertexBytes = static_cast<vk::DeviceSize>(sizeof(VertexCoords) * m_mesh.vertices.size());
 	const vk::DeviceSize indexBytes = static_cast<vk::DeviceSize>(sizeof(uint32_t) * m_mesh.indices.size());
@@ -132,15 +115,26 @@ EngineInstance::EngineInstance(Settings& settings, svk::Logger& logger, const Me
 			vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
 			{svk::Device::TRANSFER}));
 
-		// Create mapped regions for each frame
-		m_uboStagingMaps.reserve(svk::MAX_FRAMES_IN_FLIGHT);
+		// Single persistent mapping + per-frame raw pointers (one map only).
+		m_uboStagingMap.emplace(m_uboStagingBuffer->map(0, stagingTotalSize));
+		m_uboStagingPtrs.resize(svk::MAX_FRAMES_IN_FLIGHT);
+		char* mappedBase = static_cast<char*>(m_uboStagingMap->get());
 		for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
 		{
 			const vk::DeviceSize offset = m_uboFrameSize * i;
-			//m_uboStagingMaps.emplace_back(m_uboStagingBuffer->map(offset, rawSize));
-		}
+			// Store offsets in pointers
+			m_uboStagingPtrs[i] = mappedBase + offset;
 
-		m_ubo.viewProj = m_camera.getViewProj();
+			// Bake frame-specific transfer command once, then reuse every tick.
+			m_transferRoutine.bakeCommands(
+				i,
+				vk::CommandBufferUsageFlagBits::eSimultaneousUse,
+				*m_uboStagingBuffer,
+				*m_uboDeviceBuffer,
+				offset,
+				0,
+				sizeof(UBO));
+		}
 	}
 
 	{ // Create shadermodule and render task for the triangle
@@ -164,50 +158,30 @@ EngineInstance::EngineInstance(Settings& settings, svk::Logger& logger, const Me
 			.vertexAttributeDescriptionCount = static_cast<uint32_t>(kVertexCoordsAttributeDescriptions.size()),
 			.pVertexAttributeDescriptions = kVertexCoordsAttributeDescriptions.data(),
 		};
+		const std::vector<vk::DescriptorSetLayoutBinding> descriptorBindings = {
+			vk::DescriptorSetLayoutBinding {
+				.binding = 0,
+				.descriptorType = vk::DescriptorType::eUniformBuffer,
+				.descriptorCount = 1,
+				.stageFlags = vk::ShaderStageFlagBits::eVertex,
+			}
+		};
 		auto& triangleTask = m_renderRoutine.m_tasks.emplace_back(
 			m_device.device(),
 			shaderStages,
 			vertexInput,
 			vk::PrimitiveTopology::eTriangleList,
 			vk::CullModeFlagBits::eNone,
-			std::vector<vk::DescriptorSetLayoutBinding> {},
+			descriptorBindings,
 			m_swapchain.getFormat(),
 			m_renderRoutine.getDepthFormat());
 		triangleTask.m_active = true;
 		triangleTask.registerBuffers(
-			std::vector<svk::BufferBinding> {},
+			std::vector<svk::BufferBinding> { svk::BufferBinding(*m_uboDeviceBuffer, 0) },
 			std::vector<svk::BufferBinding> { svk::BufferBinding(*m_vertexBuffer, 0) },
 			std::optional<svk::BufferBinding> { svk::BufferBinding(*m_indexBuffer, 0) },
 			static_cast<uint32_t>(m_mesh.indices.size()),
 			1);
-	}
-	if constexpr (svk::enableValidationLayers)
-	{
-		m_logger.cInfo(
-			"Queue binding: transfer={}, compute={}, graphics={}, present={}",
-			m_device.transferQueue().getFamilyIndex(),
-			m_device.computeQueue().getFamilyIndex(),
-			m_device.graphicsQueue().getFamilyIndex(),
-			m_device.presentQueue().getFamilyIndex());
-
-		const auto queueFamilies = m_device.physicalDevice().getQueueFamilyProperties();
-		for (uint32_t i = 0; i < queueFamilies.size(); ++i)
-		{
-			const auto flags = queueFamilies[i].queueFlags;
-			const bool supportsGraphics = (flags & vk::QueueFlagBits::eGraphics) != vk::QueueFlags {};
-			const bool supportsCompute = (flags & vk::QueueFlagBits::eCompute) != vk::QueueFlags {};
-			const bool supportsTransfer = (flags & vk::QueueFlagBits::eTransfer) != vk::QueueFlags {};
-			const bool supportsPresent = m_device.physicalDevice().getSurfaceSupportKHR(i, *m_window.getSurface());
-
-			m_logger.cInfo(
-				"Queue family {}: count={}, graphics={}, compute={}, transfer={}, present={}",
-				i,
-				queueFamilies[i].queueCount,
-				supportsGraphics,
-				supportsCompute,
-				supportsTransfer,
-				supportsPresent);
-		}
 	}
 }
 
@@ -221,7 +195,7 @@ void EngineInstance::tick()
 		{ throw std::runtime_error("Fence wait failed"); }
 	m_device.device().resetFences({fence});
 
-	//updateUBO(m_currentFrame);
+	updateUBO(m_currentFrame);
 
 	m_renderRoutine.draw(m_currentFrame, fence, *m_uboUpdatedSemaphores[m_currentFrame]);
 	m_currentFrame = svk::advanceFrame(m_currentFrame);
@@ -231,23 +205,11 @@ bool EngineInstance::shouldClose() const { return m_window.shouldClose(); }
 
 void EngineInstance::updateUBO(uint32_t currentFrame)
 {
-	// Copy UBO data to the correct staging buffer region
-	const vk::DeviceSize stagingOffset = m_uboFrameSize * currentFrame;
-	const void* src = &m_ubo;
-	void* dst = m_uboStagingMaps[currentFrame].get();
-	std::memcpy(dst, src, sizeof(UBO));
+	m_ubo.viewProj = m_camera.getViewProj();
+	// Copy UBO data to the correct precomputed frame pointer.
+	std::memcpy(m_uboStagingPtrs[currentFrame], &m_ubo, sizeof(UBO));
 
-	// Bake the transfer command from staging to device-local
-	m_transferRoutine.bakeCommands(
-		currentFrame,
-		vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
-		*m_uboStagingBuffer,
-		*m_uboDeviceBuffer,
-		stagingOffset,
-		0,
-		sizeof(UBO));
-
-	// Submit the transfer command with the UBO update semaphore
+	// Submit pre-baked transfer command with frame-specific signal semaphore.
 	m_transferRoutine.submitCommands(
 		currentFrame,
 		nullptr,
