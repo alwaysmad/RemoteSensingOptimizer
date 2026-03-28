@@ -3,6 +3,8 @@
 #include <cstring>
 #include <string> // std::string
 
+#include <glm/glm.hpp>
+
 #include "EngineInstance.hpp"
 #include "engine/Frames.hpp"
 
@@ -15,6 +17,7 @@ EngineInstance::EngineInstance(Settings& settings, svk::Logger& logger, const Me
 	  m_windowContext(),
 	  m_instance(std::string(Settings::appName), m_windowContext.getRequiredInstanceExtensions(), m_logger),
 	  m_window(m_windowContext, m_instance.getInstance(), m_settings.windowWidth, m_settings.windowHeight, std::string(Settings::appName)),
+	  m_camera(m_window.getGLFWwindow(), vk::Extent2D{ m_settings.windowWidth, m_settings.windowHeight }),
 	  m_device([this]() {
 		if constexpr (svk::enableValidationLayers)
 		{
@@ -36,10 +39,13 @@ EngineInstance::EngineInstance(Settings& settings, svk::Logger& logger, const Me
 	}()),
 	  m_swapchain(m_device, m_window),
 	  m_renderRoutine(m_device, m_swapchain, svk::MAX_FRAMES_IN_FLIGHT),
-	  m_transferRoutine(m_device, 1)
+	  m_transferRoutine(m_device, svk::MAX_FRAMES_IN_FLIGHT)
 {
 	for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
-		{ m_inFlightFences.emplace_back(m_device.device(), vk::FenceCreateInfo {.flags = vk::FenceCreateFlagBits::eSignaled}); }
+		{
+			m_uboUpdatedSemaphores[i] = vk::raii::Semaphore(m_device.device(), vk::SemaphoreCreateInfo {});
+			m_inFlightFences[i] = vk::raii::Fence(m_device.device(), vk::FenceCreateInfo {.flags = vk::FenceCreateFlagBits::eSignaled});
+		}
 
 	const vk::DeviceSize vertexBytes = static_cast<vk::DeviceSize>(sizeof(VertexCoords) * m_mesh.vertices.size());
 	const vk::DeviceSize indexBytes = static_cast<vk::DeviceSize>(sizeof(uint32_t) * m_mesh.indices.size());
@@ -102,6 +108,39 @@ EngineInstance::EngineInstance(Settings& settings, svk::Logger& logger, const Me
 			indexBytes);
 		m_transferRoutine.submitCommands(0);
 		m_device.transferQueue().waitIdle();
+	}
+
+	{ // Initialize UBO system
+		// Frame size must be aligned to minUniformBufferOffsetAlignment
+		const vk::DeviceSize rawSize = sizeof(UBO);
+		const vk::DeviceSize alignment = m_device.physicalDevice().getProperties().limits.minUniformBufferOffsetAlignment;
+		m_uboFrameSize = (rawSize + alignment - 1) / alignment * alignment;
+
+		const vk::DeviceSize stagingTotalSize = m_uboFrameSize * svk::MAX_FRAMES_IN_FLIGHT;
+
+		// Device-local UBO buffer
+		m_uboDeviceBuffer.emplace(m_device.createBuffer(
+			rawSize,
+			vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eUniformBuffer,
+			vk::MemoryPropertyFlagBits::eDeviceLocal,
+			{svk::Device::TRANSFER, svk::Device::GRAPHICS}));
+
+		// Host-visible staging ring buffer for UBO updates
+		m_uboStagingBuffer.emplace(m_device.createBuffer(
+			stagingTotalSize,
+			vk::BufferUsageFlagBits::eTransferSrc,
+			vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+			{svk::Device::TRANSFER}));
+
+		// Create mapped regions for each frame
+		m_uboStagingMaps.reserve(svk::MAX_FRAMES_IN_FLIGHT);
+		for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
+		{
+			const vk::DeviceSize offset = m_uboFrameSize * i;
+			//m_uboStagingMaps.emplace_back(m_uboStagingBuffer->map(offset, rawSize));
+		}
+
+		m_ubo.viewProj = m_camera.getViewProj();
 	}
 
 	{ // Create shadermodule and render task for the triangle
@@ -182,11 +221,38 @@ void EngineInstance::tick()
 		{ throw std::runtime_error("Fence wait failed"); }
 	m_device.device().resetFences({fence});
 
-	m_renderRoutine.draw(m_currentFrame, fence, nullptr);
+	//updateUBO(m_currentFrame);
+
+	m_renderRoutine.draw(m_currentFrame, fence, *m_uboUpdatedSemaphores[m_currentFrame]);
 	m_currentFrame = svk::advanceFrame(m_currentFrame);
 }
 
 bool EngineInstance::shouldClose() const { return m_window.shouldClose(); }
+
+void EngineInstance::updateUBO(uint32_t currentFrame)
+{
+	// Copy UBO data to the correct staging buffer region
+	const vk::DeviceSize stagingOffset = m_uboFrameSize * currentFrame;
+	const void* src = &m_ubo;
+	void* dst = m_uboStagingMaps[currentFrame].get();
+	std::memcpy(dst, src, sizeof(UBO));
+
+	// Bake the transfer command from staging to device-local
+	m_transferRoutine.bakeCommands(
+		currentFrame,
+		vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+		*m_uboStagingBuffer,
+		*m_uboDeviceBuffer,
+		stagingOffset,
+		0,
+		sizeof(UBO));
+
+	// Submit the transfer command with the UBO update semaphore
+	m_transferRoutine.submitCommands(
+		currentFrame,
+		nullptr,
+		*m_uboUpdatedSemaphores[currentFrame]);
+}
 
 EngineInstance::~EngineInstance()
 {

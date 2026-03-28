@@ -8,7 +8,13 @@
 #include <vector>
 
 #include <glm/gtc/packing.hpp>
+#include <glm/mat4x4.hpp>
 #include <vulkan/vulkan_raii.hpp>
+
+struct alignas(16) UBO
+{
+    glm::mat4 viewProj;
+};
 
 struct alignas(8) VertexCoords
 {

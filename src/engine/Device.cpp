@@ -157,6 +157,27 @@ svk::Buffer Device::createBuffer(vk::DeviceSize size,
                                  vk::MemoryPropertyFlags properties,
                                  const std::vector<QueueType>& targetQueues) const
 {
+    if ((usage & vk::BufferUsageFlagBits::eUniformBuffer) != vk::BufferUsageFlags {})
+    {
+        constexpr vk::DeviceSize kConventionalUboLimit = 64ull * 1024ull; // 64 KB
+        const vk::DeviceSize supportedLimit = m_physicalDevice.getProperties().limits.maxUniformBufferRange;
+
+        if (size > supportedLimit)
+        {
+            throw std::runtime_error(
+                std::format( "Requested UBO size ({}) exceeds device maxUniformBufferRange ({})",
+                    size, supportedLimit));
+        }
+
+        if (size > kConventionalUboLimit)
+        {
+            std::cerr << Logger::COLOR_YELLOW
+                << "[WARNING] Requested UBO size (" << size
+                << ") is larger than the conventional 64 KB budget."
+                << Logger::COLOR_RESET << std::endl;
+        }
+    }
+
     std::set<uint32_t> uniqueFamilies;
     for (const QueueType queue : targetQueues)
     {

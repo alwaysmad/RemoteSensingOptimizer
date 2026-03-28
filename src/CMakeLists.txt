@@ -4,6 +4,7 @@ add_executable(rso main.cpp)
 
 # 2. Add sources
 target_sources(rso PRIVATE
+	engine/window/Camera.cpp
 	engine/window/WindowContext.hpp
 	engine/window/Window.hpp
 	engine/Buffer.hpp
@@ -82,15 +83,17 @@ target_precompile_headers(rso PRIVATE
 	# Third Party
 	<vulkan/vulkan_raii.hpp>
 	<GLFW/glfw3.h>
-	#<glm/glm.hpp>
-	#<glm/gtc/packing.hpp>
-	#<glm/gtc/matrix_transform.hpp> # NEW: For lookAt/perspective
+	<glm/glm.hpp>
+	<glm/gtc/packing.hpp>
+	<glm/gtc/matrix_transform.hpp> # NEW: For lookAt/perspective
 
 	# Project Local
 	"engine/Flags.hpp"
+	"engine/Frames.hpp"
 	"engine/Logger.hpp"
 	"engine/window/WindowContext.hpp"
 	"engine/window/Window.hpp"
+	"engine/window/Camera.hpp"
 	"engine/Queue.hpp"
 	"engine/Buffer.hpp"
 	"engine/Command.hpp"
@@ -100,7 +103,6 @@ target_precompile_headers(rso PRIVATE
 	"engine/Swapchain.hpp"
 	"engine/Instance.hpp"
 	"engine/VulkanHelpers.hpp"
-	#"Frames.hpp"
 )
 
 add_slang_shader_target(CompileTriangle

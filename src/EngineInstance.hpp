@@ -8,6 +8,7 @@
 
 #include "BufferStructs.hpp"
 #include "Settings.hpp"
+#include "engine/Frames.hpp"
 #include "engine/Buffer.hpp"
 #include "engine/Device.hpp"
 #include "engine/Instance.hpp"
@@ -15,6 +16,7 @@
 #include "engine/RenderRoutine.hpp"
 #include "engine/Swapchain.hpp"
 #include "engine/TransferRoutine.hpp"
+#include "engine/window/Camera.hpp"
 #include "engine/window/Window.hpp"
 #include "engine/window/WindowContext.hpp"
 
@@ -27,6 +29,7 @@ private:
 	svk::WindowContext m_windowContext;
 	svk::Instance m_instance;
 	svk::Window m_window;
+	svk::Camera m_camera;
 	svk::Device m_device;
 	svk::Swapchain m_swapchain;
 	svk::RenderRoutine m_renderRoutine;
@@ -35,7 +38,15 @@ private:
 	std::optional<svk::Buffer> m_vertexBuffer;
 	std::optional<svk::Buffer> m_indexBuffer;
 
-	std::vector<vk::raii::Fence> m_inFlightFences;
+	UBO m_ubo;
+	std::optional<svk::Buffer> m_uboDeviceBuffer;
+	std::optional<svk::Buffer> m_uboStagingBuffer;
+	std::vector<svk::BufferMap> m_uboStagingMaps;
+	vk::DeviceSize m_uboFrameSize;
+
+	// sync
+	std::array<vk::raii::Semaphore, svk::MAX_FRAMES_IN_FLIGHT> m_uboUpdatedSemaphores;
+	std::array<vk::raii::Fence, svk::MAX_FRAMES_IN_FLIGHT> m_inFlightFences;
 	uint32_t m_currentFrame = 0;
 
 public:
@@ -49,4 +60,7 @@ public:
 
 	void tick();
 	[[nodiscard]] bool shouldClose() const;
+
+private:
+	void updateUBO(uint32_t currentFrame);
 };
