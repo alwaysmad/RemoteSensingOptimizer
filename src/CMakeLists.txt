@@ -9,6 +9,8 @@ target_sources(rso PRIVATE
 	engine/window/Window.hpp
 	engine/Buffer.hpp
 	engine/Command.hpp
+	engine/ComputePipeline.cpp
+	engine/ComputePipeline.hpp
 	engine/DepthResources.hpp
 	engine/Device.cpp
 	engine/Device.hpp
