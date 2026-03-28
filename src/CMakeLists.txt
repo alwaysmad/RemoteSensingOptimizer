@@ -87,7 +87,6 @@ target_precompile_headers(rso PRIVATE
 	#<glm/gtc/matrix_transform.hpp> # NEW: For lookAt/perspective
 
 	# Project Local
-	"Settings.hpp"
 	"engine/Flags.hpp"
 	"engine/Logger.hpp"
 	"engine/window/WindowContext.hpp"

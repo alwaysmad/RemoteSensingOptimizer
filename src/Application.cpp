@@ -3,6 +3,7 @@
 #include <filesystem> // std::filesystem::temp_directory_path
 
 #include "Application.hpp"
+#include "BufferStructs.hpp"
 #include "EngineInstance.hpp"
 
 // Define the static Throne
@@ -29,7 +30,10 @@ int Application::launch()
 	// Declare start of the reign
 	m_logger.cInfo("Application name is {}", Settings::appName);
 
-	EngineInstance engine(m_settings, m_logger);
+	Mesh mesh;
+	mesh.populateCube();
+
+	EngineInstance engine(m_settings, m_logger, mesh);
 	while (!engine.shouldClose())
 	{
 		engine.tick();

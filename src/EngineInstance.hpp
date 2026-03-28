@@ -23,6 +23,7 @@ class EngineInstance
 private:
 	Settings& m_settings;
 	svk::Logger& m_logger;
+	const Mesh& m_mesh;
 	svk::WindowContext m_windowContext;
 	svk::Instance m_instance;
 	svk::Window m_window;
@@ -43,7 +44,7 @@ public:
 	EngineInstance(EngineInstance&&) = delete;
 	EngineInstance& operator=(EngineInstance&& other) = delete;
 
-	EngineInstance(Settings& settings, svk::Logger& logger);
+	EngineInstance(Settings& settings, svk::Logger& logger, const Mesh& mesh);
 	~EngineInstance();
 
 	void tick();

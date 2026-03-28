@@ -113,19 +113,13 @@ Instance::Instance(const std::string& appName, const std::vector<const char*>& e
 	};
 
 	m_instance = vk::raii::Instance(m_context, createInfo);
-	m_logger.cDebug("Vulkan instance created successfully");
 
 	if constexpr (svk::enableValidationLayers)
 	{
+		m_logger.cDebug("Vulkan instance created successfully");
 		m_debugMessenger = m_instance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfoEXT);
 		m_logger.cDebug("Debug callback set up successfully");
 	}
-	m_logger.cDebug("Instance initialized");
-}
-
-Instance::~Instance()
-{
-	m_logger.cDebug("Instance destroyed");
 }
 
 VKAPI_ATTR vk::Bool32 VKAPI_CALL Instance::debugCallback(

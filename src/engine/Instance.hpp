@@ -13,7 +13,7 @@ class Instance
 {
 public:
 	Instance(const std::string& appName, const std::vector<const char*>& requiredExtensions, Logger& logger);
-	~Instance();
+	~Instance() = default;
 
 	[[nodiscard]] inline const vk::raii::Instance& getInstance() const { return m_instance; }
 
