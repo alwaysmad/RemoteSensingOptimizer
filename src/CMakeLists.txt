@@ -11,6 +11,8 @@ target_sources(rso PRIVATE
 	engine/Command.hpp
 	engine/ComputePipeline.cpp
 	engine/ComputePipeline.hpp
+	engine/ComputeRoutine.cpp
+	engine/ComputeRoutine.hpp
 	engine/DepthResources.hpp
 	engine/Device.cpp
 	engine/Device.hpp
@@ -79,6 +81,7 @@ target_precompile_headers(rso PRIVATE
 	<algorithm>   # ranges algorithms and utilities
 	<cstring>     # C string interop (strcmp)
 	<filesystem>  # temporary path and filesystem helpers
+	<chrono>      # frame time delta calculations
 	<limits>
 	<cstddef>
 
@@ -86,7 +89,9 @@ target_precompile_headers(rso PRIVATE
 	<vulkan/vulkan_raii.hpp>
 	<GLFW/glfw3.h>
 	<glm/glm.hpp>
+	<glm/mat4x4.hpp>
 	<glm/gtc/packing.hpp>
+	<glm/gtc/constants.hpp>
 	<glm/gtc/matrix_transform.hpp> # NEW: For lookAt/perspective
 
 	# Project Local
@@ -110,7 +115,14 @@ target_precompile_headers(rso PRIVATE
 add_slang_shader_target(CompileTriangle
 	SOURCES ${CMAKE_SOURCE_DIR}/shaders/triangle.slang
 	ENTRIES vertMain fragMain
+	DEPENDS ${CMAKE_SOURCE_DIR}/shaders/shared.slang
+)
+
+add_slang_shader_target(CompilePlaceholderCompute
+	SOURCES ${CMAKE_SOURCE_DIR}/shaders/placeholder_compute.slang
+	ENTRIES compMain
+	DEPENDS ${CMAKE_SOURCE_DIR}/shaders/shared.slang
 )
 
 # 8. Add dependencies so they build before the executable
-add_dependencies(rso CompileTriangle)
+add_dependencies(rso CompileTriangle CompilePlaceholderCompute)

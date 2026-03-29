@@ -1,12 +1,9 @@
+#include "shared.slang"
+
 struct VertexInput
 {
     [[vk::location(0)]]
     float4 coords;
-};
-
-struct UBO
-{
-    float4x4 viewProj;
 };
 
 [[vk::binding(0, 0)]]

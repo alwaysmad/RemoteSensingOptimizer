@@ -11,9 +11,23 @@
 #include <glm/mat4x4.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
+constexpr uint32_t MAX_AGENTS = 512;
+
+struct alignas(16) AgentData
+{
+    glm::mat4 camera;
+    float data[4];
+};
+
 struct alignas(16) UBO
 {
     glm::mat4 viewProj;
+    glm::mat4 model;
+    uint32_t vertexCount;
+    uint32_t agentCount;
+    float timeStep;
+    uint32_t _padding0;
+    AgentData agents[MAX_AGENTS];
 };
 
 struct alignas(8) VertexCoords

@@ -1,5 +1,6 @@
 // src/EngineInstance.cpp
 
+#include <algorithm>
 #include <cstring>
 #include <string> // std::string
 
@@ -7,12 +8,20 @@
 
 #include "EngineInstance.hpp"
 
+#include "placeholder_compute.hpp"
 #include "triangle.hpp"
 
-EngineInstance::EngineInstance(const Settings& settings, const svk::Logger& logger, const Mesh& mesh)
+EngineInstance::EngineInstance(
+	const Settings& settings,
+	const svk::Logger& logger,
+	const Mesh& mesh,
+	const std::vector<AgentData>& agents,
+	const glm::mat4& model)
 	: m_settings(settings),
 	  m_logger(logger),
 	  m_mesh(mesh),
+	  m_agents(agents),
+	  m_model(model),
 	  m_windowContext(),
 	  m_instance(std::string(Settings::appName), m_windowContext.getRequiredInstanceExtensions(), logger),
 	  m_window(m_windowContext, m_instance.getInstance(), m_settings.windowWidth, m_settings.windowHeight, std::string(Settings::appName)),
@@ -22,24 +31,60 @@ EngineInstance::EngineInstance(const Settings& settings, const svk::Logger& logg
 	  m_renderRoutine(m_device, m_swapchain, svk::MAX_FRAMES_IN_FLIGHT),
 	  m_transferRoutine(m_device, svk::MAX_FRAMES_IN_FLIGHT)
 {
+	const vk::raii::ShaderModule computeModule(m_device.device(), placeholder_compute::smci);
+	const vk::PipelineShaderStageCreateInfo computeStage {
+		.stage = vk::ShaderStageFlagBits::eCompute,
+		.module = *computeModule,
+		.pName = "compMain",
+	};
+	const std::vector<vk::DescriptorSetLayoutBinding> computeDescriptorBindings = {
+		vk::DescriptorSetLayoutBinding {
+			.binding = 0,
+			.descriptorType = vk::DescriptorType::eUniformBuffer,
+			.descriptorCount = 1,
+			.stageFlags = vk::ShaderStageFlagBits::eCompute,
+		},
+		vk::DescriptorSetLayoutBinding {
+			.binding = 1,
+			.descriptorType = vk::DescriptorType::eStorageBuffer,
+			.descriptorCount = 1,
+			.stageFlags = vk::ShaderStageFlagBits::eCompute,
+		},
+		vk::DescriptorSetLayoutBinding {
+			.binding = 2,
+			.descriptorType = vk::DescriptorType::eStorageBuffer,
+			.descriptorCount = 1,
+			.stageFlags = vk::ShaderStageFlagBits::eCompute,
+		},
+	};
+	m_computeRoutine.emplace(m_device, computeStage, computeDescriptorBindings, svk::MAX_FRAMES_IN_FLIGHT);
+
 	m_uboUpdatedSemaphores.reserve(svk::MAX_FRAMES_IN_FLIGHT);
+	m_computeFinishedSemaphores.reserve(svk::MAX_FRAMES_IN_FLIGHT);
 	m_inFlightFences.reserve(svk::MAX_FRAMES_IN_FLIGHT);
 	for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
 	{
 		m_uboUpdatedSemaphores.emplace_back(m_device.device(), vk::SemaphoreCreateInfo {});
+		m_computeFinishedSemaphores.emplace_back(m_device.device(), vk::SemaphoreCreateInfo {});
 		m_inFlightFences.emplace_back(m_device.device(), vk::FenceCreateInfo {.flags = vk::FenceCreateFlagBits::eSignaled});
 	}
 
 	const vk::DeviceSize vertexBytes = static_cast<vk::DeviceSize>(sizeof(VertexCoords) * m_mesh.vertices.size());
+	const vk::DeviceSize vertexDataBytes = static_cast<vk::DeviceSize>(sizeof(VertexData) * m_mesh.vertexData.size());
 	const vk::DeviceSize indexBytes = static_cast<vk::DeviceSize>(sizeof(uint32_t) * m_mesh.indices.size());
 
 	// Create final (device local) buffers
 	m_vertexBuffer.emplace(m_device.createBuffer(
 		vertexBytes,
-		vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
+		vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer,
 		vk::MemoryPropertyFlagBits::eDeviceLocal,
-		{svk::Device::TRANSFER, svk::Device::GRAPHICS}));
+		{svk::Device::TRANSFER, svk::Device::COMPUTE, svk::Device::GRAPHICS}));
 
+	m_vertexDataBuffer.emplace(m_device.createBuffer(
+		vertexDataBytes,
+		vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eStorageBuffer,
+		vk::MemoryPropertyFlagBits::eDeviceLocal,
+		{svk::Device::TRANSFER, svk::Device::COMPUTE}));
 	m_indexBuffer.emplace(m_device.createBuffer(
 		indexBytes,
 		vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
@@ -65,6 +110,30 @@ EngineInstance::EngineInstance(const Settings& settings, const svk::Logger& logg
 			0,
 			0,
 			vertexBytes);
+		m_transferRoutine.submitCommands(0);
+		m_device.transferQueue().waitIdle();
+	}
+
+	{ // Upload vertexData data via staging buffer
+		auto vertexDataStaging = m_device.createBuffer(
+			vertexDataBytes,
+			vk::BufferUsageFlagBits::eTransferSrc,
+			vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+			{svk::Device::TRANSFER});
+
+		{
+			auto map = vertexDataStaging.map(0, vertexDataBytes);
+			std::memcpy(map.get(), m_mesh.vertexData.data(), static_cast<size_t>(vertexDataBytes));
+		}
+
+		m_transferRoutine.bakeCommands(
+			0,
+			vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+			vertexDataStaging,
+			*m_vertexDataBuffer,
+			0,
+			0,
+			vertexDataBytes);
 		m_transferRoutine.submitCommands(0);
 		m_device.transferQueue().waitIdle();
 	}
@@ -106,7 +175,7 @@ EngineInstance::EngineInstance(const Settings& settings, const svk::Logger& logg
 			rawSize,
 			vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eUniformBuffer,
 			vk::MemoryPropertyFlagBits::eDeviceLocal,
-			{svk::Device::TRANSFER, svk::Device::GRAPHICS}));
+			{svk::Device::TRANSFER, svk::Device::COMPUTE, svk::Device::GRAPHICS}));
 
 		// Host-visible staging ring buffer for UBO updates
 		m_uboStagingBuffer.emplace(m_device.createBuffer(
@@ -135,6 +204,22 @@ EngineInstance::EngineInstance(const Settings& settings, const svk::Logger& logg
 				0,
 				sizeof(UBO));
 		}
+	}
+
+	for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
+	{
+		m_computeRoutine->registerBuffers(i, {
+			svk::BufferBinding(*m_uboDeviceBuffer, 0),
+			svk::BufferBinding(*m_vertexBuffer, 1),
+			svk::BufferBinding(*m_vertexDataBuffer, 2),
+		});
+
+		m_computeRoutine->bakeCommands(
+			i,
+			vk::CommandBufferUsageFlagBits::eSimultaneousUse,
+			1,
+			1,
+			1);
 	}
 
 	{ // Create shadermodule and render task for the triangle
@@ -185,7 +270,7 @@ EngineInstance::EngineInstance(const Settings& settings, const svk::Logger& logg
 	}
 }
 
-void EngineInstance::tick()
+void EngineInstance::tick(float timeStep)
 {
 	m_window.pollEvents();
 	m_window.updateFPS(std::string(Settings::appName));
@@ -195,17 +280,35 @@ void EngineInstance::tick()
 		{ throw std::runtime_error("Fence wait failed"); }
 	m_device.device().resetFences({fence});
 
-	updateUBO(m_currentFrame);
+	updateUBO(m_currentFrame, timeStep);
+	m_computeRoutine->submitCommands(
+		m_currentFrame,
+		*m_uboUpdatedSemaphores[m_currentFrame],
+		*m_computeFinishedSemaphores[m_currentFrame]);
 
-	m_renderRoutine.draw(m_currentFrame, fence, *m_uboUpdatedSemaphores[m_currentFrame]);
+	m_renderRoutine.draw(m_currentFrame, fence, *m_computeFinishedSemaphores[m_currentFrame]);
 	m_currentFrame = svk::advanceFrame(m_currentFrame);
 }
 
 bool EngineInstance::shouldClose() const { return m_window.shouldClose(); }
 
-void EngineInstance::updateUBO(uint32_t currentFrame)
+void EngineInstance::updateUBO(uint32_t currentFrame, float timeStep)
 {
+	m_ubo = UBO{};
 	m_ubo.viewProj = m_camera.getViewProj();
+	m_ubo.model = m_model;
+	m_ubo.vertexCount = static_cast<uint32_t>(m_mesh.vertices.size());
+	m_ubo.agentCount = std::min(static_cast<uint32_t>(m_agents.size()), MAX_AGENTS);
+	m_ubo.timeStep = timeStep;
+
+	if (m_ubo.agentCount > 0u)
+	{
+		std::memcpy(
+			m_ubo.agents,
+			m_agents.data(),
+			static_cast<size_t>(m_ubo.agentCount) * sizeof(AgentData));
+	}
+
 	// Copy UBO data to the correct precomputed frame pointer.
 	std::memcpy(m_uboStagingPtrs[currentFrame], &m_ubo, sizeof(UBO));
 

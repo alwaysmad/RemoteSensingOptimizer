@@ -13,6 +13,7 @@
 #include "engine/Device.hpp"
 #include "engine/Instance.hpp"
 #include "engine/Logger.hpp"
+#include "engine/ComputeRoutine.hpp"
 #include "engine/RenderRoutine.hpp"
 #include "engine/Swapchain.hpp"
 #include "engine/TransferRoutine.hpp"
@@ -26,6 +27,8 @@ private:
 	const Settings& m_settings;
 	const svk::Logger& m_logger;
 	const Mesh& m_mesh;
+	const std::vector<AgentData>& m_agents;
+	const glm::mat4& m_model;
 	svk::WindowContext m_windowContext;
 	svk::Instance m_instance;
 	svk::Window m_window;
@@ -34,8 +37,10 @@ private:
 	svk::Swapchain m_swapchain;
 	svk::RenderRoutine m_renderRoutine;
 	svk::TransferRoutine m_transferRoutine;
+	std::optional<svk::ComputeRoutine> m_computeRoutine;
 
 	std::optional<svk::Buffer> m_vertexBuffer;
+	std::optional<svk::Buffer> m_vertexDataBuffer;
 	std::optional<svk::Buffer> m_indexBuffer;
 
 	// UBO data and buffers
@@ -48,6 +53,7 @@ private:
 
 	// sync
 	std::vector<vk::raii::Semaphore> m_uboUpdatedSemaphores;
+	std::vector<vk::raii::Semaphore> m_computeFinishedSemaphores;
 	std::vector<vk::raii::Fence> m_inFlightFences;
 	uint32_t m_currentFrame = 0;
 
@@ -57,12 +63,17 @@ public:
 	EngineInstance(EngineInstance&&) = delete;
 	EngineInstance& operator=(EngineInstance&& other) = delete;
 
-	EngineInstance(const Settings& settings, const svk::Logger& logger, const Mesh& mesh);
+	EngineInstance(
+		const Settings& settings,
+		const svk::Logger& logger,
+		const Mesh& mesh,
+		const std::vector<AgentData>& agents,
+		const glm::mat4& model);
 	~EngineInstance();
 
-	void tick();
+	void tick(float timeStep);
 	[[nodiscard]] bool shouldClose() const;
 
 private:
-	void updateUBO(uint32_t currentFrame);
+	void updateUBO(uint32_t currentFrame, float timeStep);
 };

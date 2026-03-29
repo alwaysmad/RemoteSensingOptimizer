@@ -1,6 +1,11 @@
 // src/Application.hpp
 #pragma once
 
+#include <vector>
+
+#include <glm/mat4x4.hpp>
+
+#include "BufferStructs.hpp"
 #include <optional> // std::optional for singleton storage
 #include <utility>  // std::move in constructor
 
