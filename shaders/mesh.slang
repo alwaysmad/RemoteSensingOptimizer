@@ -13,6 +13,7 @@ struct VertexOutput
 {
     float3 color;
     float4 sv_position : SV_Position;
+    float pointSize : SV_PointSize;
 };
 
 [shader("vertex")]
@@ -24,6 +25,7 @@ VertexOutput vertMain(VertexInput inVert)
 
     const float gray = saturate(inVert.coords.w);
     output.color = float3(gray, gray, gray);
+    output.pointSize = 1.0;
     return output;
 }
 

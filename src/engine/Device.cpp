@@ -351,8 +351,14 @@ void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKH
         vk::PhysicalDeviceVulkan13Features,
         vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT
     > featureChain = {
-        // Core Features 1.0
-        { .features = { .samplerAnisotropy = vk::True, .shaderInt16 = vk::True } },
+        // Core Features 1.0 (vk::PhysicalDeviceFeatures2)
+        { 
+            .features = { 
+                .largePoints = vk::True,       // <-- ADDED HERE
+                .samplerAnisotropy = vk::True, 
+                .shaderInt16 = vk::True 
+            } 
+        },
         // Vulkan 1.1 Features
         {
             .storageBuffer16BitAccess = vk::True,
