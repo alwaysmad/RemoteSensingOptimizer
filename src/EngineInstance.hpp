@@ -38,9 +38,13 @@ private:
 	svk::RenderRoutine m_renderRoutine;
 	svk::TransferRoutine m_transferRoutine;
 	std::optional<svk::ComputeRoutine> m_computeRoutine;
+	std::optional<svk::ComputeRoutine> m_reduceRoutine;
 
 	std::optional<svk::Buffer> m_vertexBuffer;
 	std::optional<svk::Buffer> m_vertexDataBuffer;
+	std::optional<svk::Buffer> m_resultDeviceBuffer;
+	std::optional<svk::Buffer> m_resultStagingBuffer;
+	std::optional<svk::BufferMap> m_resultMap;
 
 	// UBO data and buffers
 	UBO m_ubo;
@@ -53,8 +57,12 @@ private:
 	// sync
 	std::vector<vk::raii::Semaphore> m_uboUpdatedSemaphores;
 	std::vector<vk::raii::Semaphore> m_computeFinishedSemaphores;
+	std::vector<vk::raii::Semaphore> m_reduceFinishedSemaphores;
+	std::vector<vk::raii::Semaphore> m_resultTransferredSemaphores;
 	std::vector<vk::raii::Fence> m_inFlightFences;
 	uint32_t m_currentFrame = 0;
+
+	static constexpr uint32_t kResultReadbackTransferCmd = svk::MAX_FRAMES_IN_FLIGHT;
 
 public:
 	EngineInstance(const EngineInstance&) = delete;

@@ -1,6 +1,7 @@
 // src/EngineInstance.cpp
 
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <string> // std::string
 
@@ -10,6 +11,7 @@
 
 #include "compute_alpha.hpp"
 #include "mesh.hpp"
+#include "reduce.hpp"
 #include "satellite.hpp"
 
 EngineInstance::EngineInstance(
@@ -30,15 +32,19 @@ EngineInstance::EngineInstance(
 	  m_device(m_instance, m_window.getSurface(), m_settings.deviceName, logger),
 	  m_swapchain(m_device, m_window),
 	  m_renderRoutine(m_device, m_swapchain, svk::MAX_FRAMES_IN_FLIGHT),
-	  m_transferRoutine(m_device, svk::MAX_FRAMES_IN_FLIGHT)
+	  m_transferRoutine(m_device, svk::MAX_FRAMES_IN_FLIGHT + 1)
 {
 	m_uboUpdatedSemaphores.reserve(svk::MAX_FRAMES_IN_FLIGHT);
 	m_computeFinishedSemaphores.reserve(svk::MAX_FRAMES_IN_FLIGHT);
+	m_reduceFinishedSemaphores.reserve(svk::MAX_FRAMES_IN_FLIGHT);
+	m_resultTransferredSemaphores.reserve(svk::MAX_FRAMES_IN_FLIGHT);
 	m_inFlightFences.reserve(svk::MAX_FRAMES_IN_FLIGHT);
 	for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
 	{
 		m_uboUpdatedSemaphores.emplace_back(m_device.device(), vk::SemaphoreCreateInfo {});
 		m_computeFinishedSemaphores.emplace_back(m_device.device(), vk::SemaphoreCreateInfo {});
+		m_reduceFinishedSemaphores.emplace_back(m_device.device(), vk::SemaphoreCreateInfo {});
+		m_resultTransferredSemaphores.emplace_back(m_device.device(), vk::SemaphoreCreateInfo {});
 		m_inFlightFences.emplace_back(m_device.device(), vk::FenceCreateInfo {.flags = vk::FenceCreateFlagBits::eSignaled});
 	}
 
@@ -56,6 +62,17 @@ EngineInstance::EngineInstance(
 		vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eStorageBuffer,
 		vk::MemoryPropertyFlagBits::eDeviceLocal,
 		{svk::Device::TRANSFER, svk::Device::COMPUTE}));
+	m_resultDeviceBuffer.emplace(m_device.createBuffer(
+		sizeof(float),
+		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst,
+		vk::MemoryPropertyFlagBits::eDeviceLocal,
+		{svk::Device::TRANSFER, svk::Device::COMPUTE}));
+	m_resultStagingBuffer.emplace(m_device.createBuffer(
+		sizeof(float),
+		vk::BufferUsageFlagBits::eTransferDst,
+		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+		{svk::Device::TRANSFER}));
+	m_resultMap.emplace(m_resultStagingBuffer->map(0, sizeof(float)));
 	
 	{ // Upload vertex data via staging buffer
 		auto vertexStaging = m_device.createBuffer(
@@ -175,7 +192,7 @@ EngineInstance::EngineInstance(
 				.stageFlags = vk::ShaderStageFlagBits::eCompute,
 			},
 		};
-		m_computeRoutine.emplace(m_device, computeStage, computeDescriptorBindings, svk::MAX_FRAMES_IN_FLIGHT);
+		m_computeRoutine.emplace(m_device, computeStage, computeDescriptorBindings, 1);
 		m_computeRoutine->registerBuffers(0, {
 			svk::BufferBinding(*m_uboDeviceBuffer, 0),
 			svk::BufferBinding(*m_vertexBuffer, 1),
@@ -198,6 +215,74 @@ EngineInstance::EngineInstance(
 			1
 		);
 	}
+
+	{ // Create reduce routine and bake commands
+		const vk::raii::ShaderModule reduceModule(m_device.device(), reduce::smci);
+		const vk::PipelineShaderStageCreateInfo reduceStage {
+			.stage = vk::ShaderStageFlagBits::eCompute,
+			.module = *reduceModule,
+			.pName = "reduceMain",
+		};
+		const std::vector<vk::DescriptorSetLayoutBinding> reduceDescriptorBindings = {
+			vk::DescriptorSetLayoutBinding {
+				.binding = 0,
+				.descriptorType = vk::DescriptorType::eUniformBuffer,
+				.descriptorCount = 1,
+				.stageFlags = vk::ShaderStageFlagBits::eCompute,
+			},
+			vk::DescriptorSetLayoutBinding {
+				.binding = 1,
+				.descriptorType = vk::DescriptorType::eStorageBuffer,
+				.descriptorCount = 1,
+				.stageFlags = vk::ShaderStageFlagBits::eCompute,
+			},
+			vk::DescriptorSetLayoutBinding {
+				.binding = 2,
+				.descriptorType = vk::DescriptorType::eStorageBuffer,
+				.descriptorCount = 1,
+				.stageFlags = vk::ShaderStageFlagBits::eCompute,
+			},
+			vk::DescriptorSetLayoutBinding {
+				.binding = 3,
+				.descriptorType = vk::DescriptorType::eStorageBuffer,
+				.descriptorCount = 1,
+				.stageFlags = vk::ShaderStageFlagBits::eCompute,
+			},
+		};
+
+		m_reduceRoutine.emplace(m_device, reduceStage, reduceDescriptorBindings, 1);
+		m_reduceRoutine->registerBuffers(
+			0,
+			{
+				svk::BufferBinding(*m_uboDeviceBuffer, 0),
+				svk::BufferBinding(*m_vertexBuffer, 1),
+				svk::BufferBinding(*m_vertexDataBuffer, 2),
+				svk::BufferBinding(*m_resultDeviceBuffer, 3),
+			},
+			svk::BufferBinding(*m_resultDeviceBuffer, 3));
+
+		const uint32_t totalGroups = (static_cast<uint32_t>(m_mesh.vertices.size()) + 255) / 256;
+		const uint32_t MAX_GROUPS = 65535u;
+		const uint32_t groupCountX = std::min(totalGroups, MAX_GROUPS);
+		const uint32_t groupCountY = (totalGroups + MAX_GROUPS - 1) / MAX_GROUPS;
+
+		m_reduceRoutine->bakeCommands(
+			0,
+			vk::CommandBufferUsageFlagBits::eSimultaneousUse,
+			groupCountX,
+			groupCountY,
+			1);
+	}
+
+	// Bake dedicated transfer command for reduction result readback.
+	m_transferRoutine.bakeCommands(
+		kResultReadbackTransferCmd,
+		vk::CommandBufferUsageFlagBits::eSimultaneousUse,
+		*m_resultDeviceBuffer,
+		*m_resultStagingBuffer,
+		0,
+		0,
+		sizeof(float));
 
 	{ // Create shader module and render task for the mesh
 		const vk::raii::ShaderModule meshModule(m_device.device(), mesh::smci);
@@ -298,6 +383,11 @@ void EngineInstance::tick(float timeStep)
 	const vk::Fence fence = *m_inFlightFences[m_currentFrame];
 	if (m_device.device().waitForFences({fence}, vk::True, UINT64_MAX) != vk::Result::eSuccess)
 		{ throw std::runtime_error("Fence wait failed"); }
+
+	float reducedResult = 0.0f;
+	std::memcpy(&reducedResult, m_resultMap->get(), sizeof(float));
+	std::printf("[Reduce] alpha*w sum: %.6f\n", reducedResult);
+
 	m_device.device().resetFences({fence});
 
 	updateUBO(m_currentFrame, timeStep);
@@ -307,7 +397,17 @@ void EngineInstance::tick(float timeStep)
 		*m_uboUpdatedSemaphores[m_currentFrame],
 		*m_computeFinishedSemaphores[m_currentFrame]);
 
-	m_renderRoutine.draw(m_currentFrame, fence, *m_computeFinishedSemaphores[m_currentFrame]);
+	m_reduceRoutine->submitCommands(
+		0,
+		*m_computeFinishedSemaphores[m_currentFrame],
+		*m_reduceFinishedSemaphores[m_currentFrame]);
+
+	m_transferRoutine.submitCommands(
+		kResultReadbackTransferCmd,
+		*m_reduceFinishedSemaphores[m_currentFrame],
+		*m_resultTransferredSemaphores[m_currentFrame]);
+
+	m_renderRoutine.draw(m_currentFrame, fence, *m_resultTransferredSemaphores[m_currentFrame]);
 	m_currentFrame = svk::advanceFrame(m_currentFrame);
 }
 

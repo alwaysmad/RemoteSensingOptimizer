@@ -130,5 +130,11 @@ add_slang_shader_target(CompileSatellite
 	DEPENDS ${CMAKE_SOURCE_DIR}/shaders/shared.slang
 )
 
+add_slang_shader_target(CompileReduce
+	SOURCES ${CMAKE_SOURCE_DIR}/shaders/reduce.slang
+	ENTRIES reduceMain
+	DEPENDS ${CMAKE_SOURCE_DIR}/shaders/shared.slang
+)
+
 # 8. Add dependencies so they build before the executable
-add_dependencies(rso CompileMesh CompileComputeAlpha CompileSatellite)
+add_dependencies(rso CompileMesh CompileComputeAlpha CompileSatellite CompileReduce)

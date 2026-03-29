@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <optional>
+#include <utility>
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
 
@@ -35,7 +37,15 @@ public:
     );
 
     // Binds actual buffer memory to the specified Descriptor Set index
-    void registerBuffers(uint32_t setIndex, const std::vector<svk::BufferBinding>& descriptorBindings);
+    template <typename C = std::optional<svk::BufferBinding>>
+    void registerBuffers(
+        uint32_t setIndex,
+        const std::vector<svk::BufferBinding>& descriptorBindings,
+        C&& clearBuffer = std::nullopt)
+    {
+        m_clearBuffer = std::forward<C>(clearBuffer);
+        updateDescriptors(setIndex, descriptorBindings);
+    }
 
     // Prepare the spell
     void bakeCommands(
@@ -55,6 +65,8 @@ public:
     ) const;
 
 private:
+    void updateDescriptors(uint32_t setIndex, const std::vector<svk::BufferBinding>& descriptorBindings);
+
     const svk::Device* m_device = nullptr;
     const svk::Queue* m_computeQueue = nullptr;
 
@@ -62,6 +74,7 @@ private:
     svk::ComputePipeline m_pipeline;
     vk::raii::DescriptorPool m_descriptorPool = nullptr;
     vk::raii::DescriptorSets m_descriptorSets = nullptr;
+    std::optional<svk::BufferBinding> m_clearBuffer;
     
     // The Spellbook
     svk::Command m_command;

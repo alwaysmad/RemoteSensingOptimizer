@@ -44,7 +44,7 @@ ComputeRoutine::ComputeRoutine(
     m_descriptorSets = vk::raii::DescriptorSets(device.device(), allocInfo);
 }
 
-void ComputeRoutine::registerBuffers(uint32_t setIndex, const std::vector<svk::BufferBinding>& descriptorBindings)
+void ComputeRoutine::updateDescriptors(uint32_t setIndex, const std::vector<svk::BufferBinding>& descriptorBindings)
 {
     if (descriptorBindings.empty())
         { return; }
@@ -83,6 +83,22 @@ void ComputeRoutine::bakeCommands(
 {
     const vk::raii::CommandBuffer& cmd = m_command[cmdIndex];
     cmd.begin(vk::CommandBufferBeginInfo {.flags = usage});
+
+    if (m_clearBuffer)
+    {
+        cmd.fillBuffer(m_clearBuffer->buffer, 0, VK_WHOLE_SIZE, 0);
+
+        const vk::MemoryBarrier2 barrier {
+            .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+            .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+            .dstStageMask = vk::PipelineStageFlagBits2::eComputeShader,
+            .dstAccessMask = vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite,
+        };
+        cmd.pipelineBarrier2(vk::DependencyInfo {
+            .memoryBarrierCount = 1,
+            .pMemoryBarriers = &barrier,
+        });
+    }
 
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, *m_pipeline.getPipeline());
 
