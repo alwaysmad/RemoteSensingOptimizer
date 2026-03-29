@@ -41,7 +41,6 @@ private:
 
 	std::optional<svk::Buffer> m_vertexBuffer;
 	std::optional<svk::Buffer> m_vertexDataBuffer;
-	std::optional<svk::Buffer> m_indexBuffer;
 
 	// UBO data and buffers
 	UBO m_ubo;

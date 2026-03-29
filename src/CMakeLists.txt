@@ -112,8 +112,8 @@ target_precompile_headers(rso PRIVATE
 	"engine/VulkanHelpers.hpp"
 )
 
-add_slang_shader_target(CompileTriangle
-	SOURCES ${CMAKE_SOURCE_DIR}/shaders/triangle.slang
+add_slang_shader_target(CompileMesh
+	SOURCES ${CMAKE_SOURCE_DIR}/shaders/mesh.slang
 	ENTRIES vertMain fragMain
 	DEPENDS ${CMAKE_SOURCE_DIR}/shaders/shared.slang
 )
@@ -125,4 +125,4 @@ add_slang_shader_target(CompilePlaceholderCompute
 )
 
 # 8. Add dependencies so they build before the executable
-add_dependencies(rso CompileTriangle CompilePlaceholderCompute)
+add_dependencies(rso CompileMesh CompilePlaceholderCompute)

@@ -73,21 +73,18 @@ struct Mesh
 {
     std::vector<VertexCoords> vertices;
     std::vector<VertexData> vertexData;
-    alignas(16) std::vector<uint32_t> indices;
 
     Mesh() = default;
 
-    inline void populateCube()
+    inline void populateMesh()
     {
         vertices.clear();
         vertexData.clear();
-        indices.clear();
 
         vertices.reserve(8);
         vertexData.reserve(8);
-        indices.reserve(36);
 
-        constexpr std::array<std::array<float, 4>, 8> cubeVertices = {
+        constexpr std::array<std::array<float, 4>, 8> meshVertices = {
             std::array<float, 4>{-0.5f, -0.5f, -0.5f, 0.15f},
             std::array<float, 4>{ 0.5f, -0.5f, -0.5f, 0.30f},
             std::array<float, 4>{ 0.5f,  0.5f, -0.5f, 0.45f},
@@ -98,20 +95,11 @@ struct Mesh
             std::array<float, 4>{-0.5f,  0.5f,  0.5f, 1.00f},
         };
 
-        for (const auto& coords : cubeVertices)
+        for (const auto& coords : meshVertices)
         {
             vertices.emplace_back(coords);
             vertexData.emplace_back(std::array<float, 4>{coords[3], coords[3], coords[3], 1.0f});
         }
-
-        indices = {
-            0, 1, 2, 2, 3, 0,
-            1, 5, 6, 6, 2, 1,
-            5, 4, 7, 7, 6, 5,
-            4, 0, 3, 3, 7, 4,
-            3, 2, 6, 6, 7, 3,
-            4, 5, 1, 1, 0, 4,
-        };
     }
 };
 

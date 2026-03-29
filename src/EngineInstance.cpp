@@ -8,8 +8,8 @@
 
 #include "EngineInstance.hpp"
 
+#include "mesh.hpp"
 #include "placeholder_compute.hpp"
-#include "triangle.hpp"
 
 EngineInstance::EngineInstance(
 	const Settings& settings,
@@ -31,34 +31,6 @@ EngineInstance::EngineInstance(
 	  m_renderRoutine(m_device, m_swapchain, svk::MAX_FRAMES_IN_FLIGHT),
 	  m_transferRoutine(m_device, svk::MAX_FRAMES_IN_FLIGHT)
 {
-	const vk::raii::ShaderModule computeModule(m_device.device(), placeholder_compute::smci);
-	const vk::PipelineShaderStageCreateInfo computeStage {
-		.stage = vk::ShaderStageFlagBits::eCompute,
-		.module = *computeModule,
-		.pName = "compMain",
-	};
-	const std::vector<vk::DescriptorSetLayoutBinding> computeDescriptorBindings = {
-		vk::DescriptorSetLayoutBinding {
-			.binding = 0,
-			.descriptorType = vk::DescriptorType::eUniformBuffer,
-			.descriptorCount = 1,
-			.stageFlags = vk::ShaderStageFlagBits::eCompute,
-		},
-		vk::DescriptorSetLayoutBinding {
-			.binding = 1,
-			.descriptorType = vk::DescriptorType::eStorageBuffer,
-			.descriptorCount = 1,
-			.stageFlags = vk::ShaderStageFlagBits::eCompute,
-		},
-		vk::DescriptorSetLayoutBinding {
-			.binding = 2,
-			.descriptorType = vk::DescriptorType::eStorageBuffer,
-			.descriptorCount = 1,
-			.stageFlags = vk::ShaderStageFlagBits::eCompute,
-		},
-	};
-	m_computeRoutine.emplace(m_device, computeStage, computeDescriptorBindings, svk::MAX_FRAMES_IN_FLIGHT);
-
 	m_uboUpdatedSemaphores.reserve(svk::MAX_FRAMES_IN_FLIGHT);
 	m_computeFinishedSemaphores.reserve(svk::MAX_FRAMES_IN_FLIGHT);
 	m_inFlightFences.reserve(svk::MAX_FRAMES_IN_FLIGHT);
@@ -71,7 +43,6 @@ EngineInstance::EngineInstance(
 
 	const vk::DeviceSize vertexBytes = static_cast<vk::DeviceSize>(sizeof(VertexCoords) * m_mesh.vertices.size());
 	const vk::DeviceSize vertexDataBytes = static_cast<vk::DeviceSize>(sizeof(VertexData) * m_mesh.vertexData.size());
-	const vk::DeviceSize indexBytes = static_cast<vk::DeviceSize>(sizeof(uint32_t) * m_mesh.indices.size());
 
 	// Create final (device local) buffers
 	m_vertexBuffer.emplace(m_device.createBuffer(
@@ -79,17 +50,11 @@ EngineInstance::EngineInstance(
 		vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer,
 		vk::MemoryPropertyFlagBits::eDeviceLocal,
 		{svk::Device::TRANSFER, svk::Device::COMPUTE, svk::Device::GRAPHICS}));
-
 	m_vertexDataBuffer.emplace(m_device.createBuffer(
 		vertexDataBytes,
 		vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eStorageBuffer,
 		vk::MemoryPropertyFlagBits::eDeviceLocal,
 		{svk::Device::TRANSFER, svk::Device::COMPUTE}));
-	m_indexBuffer.emplace(m_device.createBuffer(
-		indexBytes,
-		vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
-		vk::MemoryPropertyFlagBits::eDeviceLocal,
-		{svk::Device::TRANSFER, svk::Device::GRAPHICS}));
 	
 	{ // Upload vertex data via staging buffer
 		auto vertexStaging = m_device.createBuffer(
@@ -138,30 +103,6 @@ EngineInstance::EngineInstance(
 		m_device.transferQueue().waitIdle();
 	}
 
-	{ // Upload index data via staging buffer
-		auto indexStaging = m_device.createBuffer(
-			indexBytes,
-			vk::BufferUsageFlagBits::eTransferSrc,
-			vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-			{svk::Device::TRANSFER});
-
-		{ // Map to copy
-			auto map = indexStaging.map(0, indexBytes);
-			std::memcpy(map.get(), m_mesh.indices.data(), static_cast<size_t>(indexBytes));
-		}
-		// copy from staging to device local
-		m_transferRoutine.bakeCommands(
-			0,
-			vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
-			indexStaging,
-			*m_indexBuffer,
-			0,
-			0,
-			indexBytes);
-		m_transferRoutine.submitCommands(0);
-		m_device.transferQueue().waitIdle();
-	}
-
 	{ // Initialize UBO system
 		// Frame size must be aligned to minUniformBufferOffsetAlignment
 		const vk::DeviceSize rawSize = sizeof(UBO);
@@ -206,33 +147,58 @@ EngineInstance::EngineInstance(
 		}
 	}
 
-	for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
-	{
-		m_computeRoutine->registerBuffers(i, {
+	{ // Create compute routine and bake commands
+		const vk::raii::ShaderModule computeModule(m_device.device(), placeholder_compute::smci);
+		const vk::PipelineShaderStageCreateInfo computeStage {
+			.stage = vk::ShaderStageFlagBits::eCompute,
+			.module = *computeModule,
+			.pName = "compMain",
+		};
+		const std::vector<vk::DescriptorSetLayoutBinding> computeDescriptorBindings = {
+			vk::DescriptorSetLayoutBinding {
+				.binding = 0,
+				.descriptorType = vk::DescriptorType::eUniformBuffer,
+				.descriptorCount = 1,
+				.stageFlags = vk::ShaderStageFlagBits::eCompute,
+			},
+			vk::DescriptorSetLayoutBinding {
+				.binding = 1,
+				.descriptorType = vk::DescriptorType::eStorageBuffer,
+				.descriptorCount = 1,
+				.stageFlags = vk::ShaderStageFlagBits::eCompute,
+			},
+			vk::DescriptorSetLayoutBinding {
+				.binding = 2,
+				.descriptorType = vk::DescriptorType::eStorageBuffer,
+				.descriptorCount = 1,
+				.stageFlags = vk::ShaderStageFlagBits::eCompute,
+			},
+		};
+		m_computeRoutine.emplace(m_device, computeStage, computeDescriptorBindings, svk::MAX_FRAMES_IN_FLIGHT);
+		m_computeRoutine->registerBuffers(0, {
 			svk::BufferBinding(*m_uboDeviceBuffer, 0),
 			svk::BufferBinding(*m_vertexBuffer, 1),
 			svk::BufferBinding(*m_vertexDataBuffer, 2),
 		});
-
 		m_computeRoutine->bakeCommands(
-			i,
+			0,
 			vk::CommandBufferUsageFlagBits::eSimultaneousUse,
 			1,
 			1,
 			1);
 	}
 
-	{ // Create shadermodule and render task for the triangle
-		const vk::raii::ShaderModule triangleModule(m_device.device(), triangle::smci);
+	{ // Create shader module and render task for the mesh
+		const vk::raii::ShaderModule meshModule(m_device.device(), mesh::smci);
 		const std::vector<vk::PipelineShaderStageCreateInfo> shaderStages = {
 			vk::PipelineShaderStageCreateInfo {
 				.stage = vk::ShaderStageFlagBits::eVertex,
-				.module = *triangleModule,
+				.module = *meshModule,
 				.pName = "vertMain",
 			},
 			vk::PipelineShaderStageCreateInfo {
 				.stage = vk::ShaderStageFlagBits::eFragment,
-				.module = *triangleModule,
+				.module = *meshModule,
 				.pName = "fragMain",
 			},
 		};
@@ -251,21 +217,21 @@ EngineInstance::EngineInstance(
 				.stageFlags = vk::ShaderStageFlagBits::eVertex,
 			}
 		};
-		auto& triangleTask = m_renderRoutine.m_tasks.emplace_back(
+		auto& meshTask = m_renderRoutine.m_tasks.emplace_back(
 			m_device.device(),
 			shaderStages,
 			vertexInput,
-			vk::PrimitiveTopology::eTriangleList,
+			vk::PrimitiveTopology::ePointList,
 			vk::CullModeFlagBits::eNone,
 			descriptorBindings,
 			m_swapchain.getFormat(),
 			m_renderRoutine.getDepthFormat());
-		triangleTask.m_active = true;
-		triangleTask.registerBuffers(
+		meshTask.m_active = true;
+		meshTask.registerBuffers(
 			std::vector<svk::BufferBinding> { svk::BufferBinding(*m_uboDeviceBuffer, 0) },
 			std::vector<svk::BufferBinding> { svk::BufferBinding(*m_vertexBuffer, 0) },
-			std::optional<svk::BufferBinding> { svk::BufferBinding(*m_indexBuffer, 0) },
-			static_cast<uint32_t>(m_mesh.indices.size()),
+			std::nullopt,
+			static_cast<uint32_t>(m_mesh.vertices.size()),
 			1);
 	}
 }
@@ -281,8 +247,9 @@ void EngineInstance::tick(float timeStep)
 	m_device.device().resetFences({fence});
 
 	updateUBO(m_currentFrame, timeStep);
+
 	m_computeRoutine->submitCommands(
-		m_currentFrame,
+		0,
 		*m_uboUpdatedSemaphores[m_currentFrame],
 		*m_computeFinishedSemaphores[m_currentFrame]);
 
@@ -294,7 +261,6 @@ bool EngineInstance::shouldClose() const { return m_window.shouldClose(); }
 
 void EngineInstance::updateUBO(uint32_t currentFrame, float timeStep)
 {
-	m_ubo = UBO{};
 	m_ubo.viewProj = m_camera.getViewProj();
 	m_ubo.model = m_model;
 	m_ubo.vertexCount = static_cast<uint32_t>(m_mesh.vertices.size());
