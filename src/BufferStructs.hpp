@@ -21,7 +21,8 @@ struct alignas(16) AgentData
 
 struct alignas(16) UBO
 {
-    glm::mat4 viewProj;
+    glm::mat4 view;
+    glm::mat4 proj;
     glm::mat4 model;
     uint32_t vertexCount;
     uint32_t agentCount;

@@ -46,7 +46,8 @@ struct CameraState
 		0.0f,	  0.0f,	-1.0f,	-1.0f,	// Col 2 (Forward-ish)
 		0.0f,     0.0f,	-near,	 0.0f	// Col 3 (Translation)
 	};
-    glm::mat4 viewProj = glm::mat4(1.0f);
+    glm::mat4 view = glm::mat4(1.0f);
+    glm::mat4 proj = glm::mat4(1.0f);
 };
 // =========================================================================
 // Because GLFW only has one user pointer
@@ -62,7 +63,8 @@ public:
     Camera(GLFWwindow* window, vk::Extent2D initialExtent);
 
     // Accessors
-    [[nodiscard]] inline const glm::mat4& getViewProj() const { return m_state.viewProj; }
+    [[nodiscard]] inline const glm::mat4& getView() const { return m_state.view; }
+    [[nodiscard]] inline const glm::mat4& getProj() const { return m_state.proj; }
     [[nodiscard]] inline bool isPaused() const { return m_state.isPaused; }
 
 private:

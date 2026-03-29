@@ -10,7 +10,8 @@ struct AgentData
 
 struct UBO
 {
-    float4x4 viewProj;
+    float4x4 view;
+    float4x4 proj;
     float4x4 model;
     uint vertexCount;
     uint agentCount;

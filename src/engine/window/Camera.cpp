@@ -11,7 +11,7 @@ namespace
 [[nodiscard]] inline svk::CameraState* getCameraState(GLFWwindow* window)
     { return reinterpret_cast<svk::CameraState*>(glfwGetWindowUserPointer(window)); }
 
-inline void updateViewProj(svk::CameraState& state)
+inline void updateViewAndProj(svk::CameraState& state)
 {
     // Spherical to Cartesian
 	// Y-Up coordinate system
@@ -30,8 +30,8 @@ inline void updateViewProj(svk::CameraState& state)
     if (state.height != 0u)
         { proj[1][1] *= minDim / static_cast<float>(state.height); }
 
-    const glm::mat4 view = glm::lookAt(eye, center, up);
-    state.viewProj = proj * view;
+    state.view = glm::lookAt(eye, center, up);
+    state.proj = proj;
 }
 
 } // namespace
@@ -44,7 +44,7 @@ Camera::Camera(GLFWwindow* window, vk::Extent2D initialExtent)
 {
     m_state.width = initialExtent.width;
     m_state.height = initialExtent.height;
-    updateViewProj(m_state);
+    updateViewAndProj(m_state);
 
     glfwSetWindowUserPointer(window, &m_state);
     glfwSetCursorPosCallback(window, cursorPositionCallback);
@@ -74,7 +74,7 @@ void Camera::cursorPositionCallback(GLFWwindow* window, double xpos, double ypos
     constexpr double epsilon = 0.01;
     state->phi = std::max( epsilon, std::min(glm::pi<double>() - epsilon, state->phi));
 
-    updateViewProj(*state);
+    updateViewAndProj(*state);
 }
 
 void Camera::mouseButtonCallback(GLFWwindow* window, int button, int action, [[maybe_unused]] int mods)
@@ -109,7 +109,7 @@ void Camera::scrollCallback(GLFWwindow* window, [[maybe_unused]] double xoffset,
     if (state->radius > maxRadius)
         { state->radius = maxRadius; }
 
-    updateViewProj(*state);
+    updateViewAndProj(*state);
 }
 
 void Camera::keyCallback(GLFWwindow* window, int key, [[maybe_unused]] int scancode, int action, [[maybe_unused]] int mods)
@@ -128,7 +128,7 @@ void Camera::framebufferSizeCallback(GLFWwindow* window, int width, int height)
 
     state->width = static_cast<uint32_t>(std::max(width, 0));
     state->height = static_cast<uint32_t>(std::max(height, 0));
-    updateViewProj(*state);
+    updateViewAndProj(*state);
 }
 
 } // namespace svk

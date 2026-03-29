@@ -261,7 +261,8 @@ bool EngineInstance::shouldClose() const { return m_window.shouldClose(); }
 
 void EngineInstance::updateUBO(uint32_t currentFrame, float timeStep)
 {
-	m_ubo.viewProj = m_camera.getViewProj();
+	m_ubo.view = m_camera.getView();
+	m_ubo.proj = m_camera.getProj();
 	m_ubo.model = m_model;
 	m_ubo.vertexCount = static_cast<uint32_t>(m_mesh.vertices.size());
 	m_ubo.agentCount = std::min(static_cast<uint32_t>(m_agents.size()), MAX_AGENTS);
