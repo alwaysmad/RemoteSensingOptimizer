@@ -100,7 +100,8 @@ int Application::launch()
 	m_logger.cInfo("Application name is {}", Settings::appName);
 
 	Mesh mesh;
-	mesh.populateMesh();
+	//mesh.populateMesh(3336);
+	mesh.populateMesh(300);
 
 	std::vector<AgentData> agents;
 	glm::mat4 model = glm::mat4(1.0f);

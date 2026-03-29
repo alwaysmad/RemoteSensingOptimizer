@@ -34,15 +34,10 @@ VertexOutput vertMain(VertexInput inVert)
         return output;
     }
 
-    // 1. Calculate View Space Position
-    const float4 worldPos = mul(g_ubo.model, float4(inVert.coords.xyz, 1.0));
-    const float4 viewPos = mul(g_ubo.view, worldPos);
-    
-    // 2. Calculate Final Clip Space Position
-    output.sv_position = mul(g_ubo.proj, viewPos);
-    output.pointSize = 5.0;
+    output.sv_position = mul(g_ubo.proj, mul(g_ubo.view, mul(g_ubo.model, float4(inVert.coords.xyz, 1.0))));
+    output.pointSize = 1.0;
 
-    // 3. Linear Coloring (alpha 0.0 = White, alpha 1.0 = Black)
+    // Linear Coloring (alpha 0.0 = White, alpha 1.0 = Black)
     const float alpha = saturate(inVert.coords.w);
     output.color = float3(1.0 - alpha);
 
