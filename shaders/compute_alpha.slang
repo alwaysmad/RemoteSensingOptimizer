@@ -38,24 +38,29 @@ void unpackCamera(float4x4 c, out float4x4 view, out float4x4 proj)
 // ==========================================
 // The Grand Equation
 // ==========================================
+// Change the signature to grab SV_GroupID:
 [shader("compute")]
 [numthreads(256, 1, 1)]
-void computeMain(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupThreadID : SV_GroupThreadID)
+void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadID)
 {
     uint agentCount = g_ubo.agentCount;
 
     // 1. Collaborative Cache Load
     // The 256 threads split the work of loading the agent matrices into L1 Cache
+    // Cache load remains perfectly identical (it relies on groupThreadID)
     for (uint i = groupThreadID.x; i < agentCount; i += 256)
     {
         s_agentCamera[i] = g_ubo.agents[i].camera;
     }
-
     // Halt all threads until the cache is fully loaded
     GroupMemoryBarrierWithGroupSync();
 
+    // === THE 2D UNPACK MATH ===
+    // Multiply Y by the MAX_GROUPS width (65535) we defined in C++
+    uint flatGroupID = groupID.y * 65535 + groupID.x;
+    uint idx = flatGroupID * 256 + groupThreadID.x;
+
     // 2. Bounds Check (Don't execute on padded threads)
-    uint idx = dispatchThreadID.x;
     if (idx >= g_ubo.vertexCount)
         return;
 
@@ -112,7 +117,6 @@ void computeMain(uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupThread
     //Omega = 100.0;
     float f = 1.0 / g_ubo.timeStep;
     float alpha_new = (f * alpha + epsilon) / (f + epsilon + Omega * v);
-    alpha_new = 0.0;
 
     // 7. Repack and Write to VRAM
     g_coords[idx].values.w = int16_t(clamp(alpha_new, -1.0, 1.0) * 32767.0);

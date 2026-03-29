@@ -181,12 +181,22 @@ EngineInstance::EngineInstance(
 			svk::BufferBinding(*m_vertexBuffer, 1),
 			svk::BufferBinding(*m_vertexDataBuffer, 2),
 		});
+
+		// Calculate total workgroups needed
+		const uint32_t totalGroups = (static_cast<uint32_t>(m_mesh.vertices.size()) + 255) / 256;
+		// Wrap them into a 2D grid
+		const uint32_t MAX_GROUPS = 65535u;
+		const uint32_t groupCountX = std::min(totalGroups, MAX_GROUPS);
+		const uint32_t groupCountY = (totalGroups + MAX_GROUPS - 1) / MAX_GROUPS;
+
+		// Dispatch with Y included!
 		m_computeRoutine->bakeCommands(
-			0,
-			vk::CommandBufferUsageFlagBits::eSimultaneousUse,
-			1,
-			1,
-			1);
+			0, 
+			vk::CommandBufferUsageFlagBits::eSimultaneousUse, 
+			groupCountX, 
+			groupCountY, 
+			1
+		);
 	}
 
 	{ // Create shader module and render task for the mesh

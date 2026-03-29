@@ -101,8 +101,8 @@ int Application::launch()
 
 	Mesh mesh;
 	//mesh.populateMesh(3336); // 66773376
-	mesh.populateMesh(2000); // 24000000
-	//mesh.populateMesh(300); // 540000
+	//mesh.populateMesh(2000); // 24000000
+	mesh.populateMesh(300); // 540000
 
 
 	std::vector<AgentData> agents;
