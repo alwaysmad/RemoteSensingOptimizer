@@ -118,9 +118,9 @@ add_slang_shader_target(CompileMesh
 	DEPENDS ${CMAKE_SOURCE_DIR}/shaders/shared.slang
 )
 
-add_slang_shader_target(CompilePlaceholderCompute
-	SOURCES ${CMAKE_SOURCE_DIR}/shaders/placeholder_compute.slang
-	ENTRIES compMain
+add_slang_shader_target(CompileComputeAlpha
+	SOURCES ${CMAKE_SOURCE_DIR}/shaders/compute_alpha.slang
+	ENTRIES computeMain
 	DEPENDS ${CMAKE_SOURCE_DIR}/shaders/shared.slang
 )
 
@@ -131,4 +131,4 @@ add_slang_shader_target(CompileSatellite
 )
 
 # 8. Add dependencies so they build before the executable
-add_dependencies(rso CompileMesh CompilePlaceholderCompute CompileSatellite)
+add_dependencies(rso CompileMesh CompileComputeAlpha CompileSatellite)

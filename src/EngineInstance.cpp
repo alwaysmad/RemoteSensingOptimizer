@@ -8,8 +8,8 @@
 
 #include "EngineInstance.hpp"
 
+#include "compute_alpha.hpp"
 #include "mesh.hpp"
-#include "placeholder_compute.hpp"
 #include "satellite.hpp"
 
 EngineInstance::EngineInstance(
@@ -149,11 +149,11 @@ EngineInstance::EngineInstance(
 	}
 
 	{ // Create compute routine and bake commands
-		const vk::raii::ShaderModule computeModule(m_device.device(), placeholder_compute::smci);
+		const vk::raii::ShaderModule computeModule(m_device.device(), compute_alpha::smci);
 		const vk::PipelineShaderStageCreateInfo computeStage {
 			.stage = vk::ShaderStageFlagBits::eCompute,
 			.module = *computeModule,
-			.pName = "compMain",
+			.pName = "computeMain",
 		};
 		const std::vector<vk::DescriptorSetLayoutBinding> computeDescriptorBindings = {
 			vk::DescriptorSetLayoutBinding {
