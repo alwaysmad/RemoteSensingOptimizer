@@ -99,7 +99,7 @@ void Camera::scrollCallback(GLFWwindow* window, [[maybe_unused]] double xoffset,
     CameraState* state = getCameraState(window);
     if (!state) { return; }
 
-    constexpr double zoomSpeed = 0.2;
+    constexpr double zoomSpeed = 0.1;
     state->radius -= yoffset * zoomSpeed;
 
     constexpr double minRadius = 0.5;

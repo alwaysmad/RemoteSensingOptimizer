@@ -83,7 +83,7 @@ static inline void updateAgents(std::vector<AgentData>& agents, double time)
 
 static inline void updateModel(glm::mat4& model, double time)
 {
-	constexpr auto rotSpeed = 0.08;
+	constexpr auto rotSpeed = 0.00;
 	const auto cosTime = static_cast<float>(std::cos(time * rotSpeed));
 	const auto sinTime = static_cast<float>(std::sin(time * rotSpeed));
 
@@ -100,8 +100,8 @@ int Application::launch()
 	m_logger.cInfo("Application name is {}", Settings::appName);
 
 	Mesh mesh;
-	//mesh.populateMesh(3336);
-	mesh.populateMesh(300);
+	//mesh.populateMesh(3336); // 66773376
+	mesh.populateMesh(300); // 540000
 
 	std::vector<AgentData> agents;
 	glm::mat4 model = glm::mat4(1.0f);

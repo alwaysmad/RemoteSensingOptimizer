@@ -18,7 +18,7 @@ struct CameraState
 {
     double theta = 0.0;
     double phi = 1.1;
-    double radius = 3.35;
+    double radius = 1.10;
     
     double lastX = 0.0;
     double lastY = 0.0;

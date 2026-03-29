@@ -20,23 +20,31 @@ struct VertexOutput
 VertexOutput vertMain(VertexInput inVert)
 {
     VertexOutput output;
-    // The Warlord's Cull: Direction from Center to Point in View Space
-    // By setting w=0.0, we ignore translation. We just rotate the local coordinate.
-    float viewDirectionZ = mul(g_ubo.view, mul(g_ubo.model, float4(inVert.coords.xyz, 0.0))).z;
-    // In standard GLM lookAt, the camera looks down the -Z axis.
-    // This means anything pointing away from the camera has a negative Z.
-    // (If it culls the wrong half, just flip it to > 0.0 depending on your exact projection setup).
-    if (viewDirectionZ < 0.0)
+    // 1. Calculate View Space Position
+    const float4 worldPos = mul(g_ubo.model, float4(inVert.coords.xyz, 1.0));
+    const float4 viewPos = mul(g_ubo.view, worldPos);
+
+    // 2. Calculate Final Clip Space Position
+    output.sv_position = mul(g_ubo.proj, viewPos);
+
+    // ==========================================
+    // 3. The True Perspective Horizon Cull
+    // ==========================================
+    // Rotate the local coordinate (which is also the normal) into View Space
+    float3 viewNormal = mul(g_ubo.view, mul(g_ubo.model, float4(inVert.coords.xyz, 0.0))).xyz;
+
+    // 'viewPos.xyz' is the vector FROM the camera TO the vertex (since camera is at 0,0,0).
+    // If the dot product is > 0.0, the normal and the view ray are facing the same general direction,
+    // meaning the vertex is physically pointing away from the camera.
+    if (dot(viewNormal, viewPos.xyz) > 0.0)
     {
         output.color = float3(0.0, 0.0, 0.0);
-        output.sv_position = float4(-10.0, -10.0, -10.0, 1.0); // banish point off-screen
+        output.sv_position = float4(-10.0, -10.0, -10.0, 1.0);
         output.pointSize = 0.0;
         return output;
     }
 
-    output.sv_position = mul(g_ubo.proj, mul(g_ubo.view, mul(g_ubo.model, float4(inVert.coords.xyz, 1.0))));
     output.pointSize = 1.0;
-
     // Linear Coloring (alpha 0.0 = White, alpha 1.0 = Black)
     const float alpha = saturate(inVert.coords.w);
     output.color = float3(1.0 - alpha);
