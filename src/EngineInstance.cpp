@@ -10,6 +10,7 @@
 
 #include "mesh.hpp"
 #include "placeholder_compute.hpp"
+#include "satellite.hpp"
 
 EngineInstance::EngineInstance(
 	const Settings& settings,
@@ -233,6 +234,49 @@ EngineInstance::EngineInstance(
 			std::nullopt,
 			static_cast<uint32_t>(m_mesh.vertices.size()),
 			1);
+	}
+
+	{ // Create shader module and render task for satellite frustum lines
+		const vk::raii::ShaderModule satelliteModule(m_device.device(), satellite::smci);
+		const std::vector<vk::PipelineShaderStageCreateInfo> shaderStages = {
+			vk::PipelineShaderStageCreateInfo {
+				.stage = vk::ShaderStageFlagBits::eVertex,
+				.module = *satelliteModule,
+				.pName = "vertMain",
+			},
+			vk::PipelineShaderStageCreateInfo {
+				.stage = vk::ShaderStageFlagBits::eFragment,
+				.module = *satelliteModule,
+				.pName = "fragMain",
+			},
+		};
+
+		const vk::PipelineVertexInputStateCreateInfo vertexInput {};
+		const std::vector<vk::DescriptorSetLayoutBinding> descriptorBindings = {
+			vk::DescriptorSetLayoutBinding {
+				.binding = 0,
+				.descriptorType = vk::DescriptorType::eUniformBuffer,
+				.descriptorCount = 1,
+				.stageFlags = vk::ShaderStageFlagBits::eVertex,
+			}
+		};
+
+		auto& satelliteTask = m_renderRoutine.m_tasks.emplace_back(
+			m_device.device(),
+			shaderStages,
+			vertexInput,
+			vk::PrimitiveTopology::eLineList,
+			vk::CullModeFlagBits::eNone,
+			descriptorBindings,
+			m_swapchain.getFormat(),
+			m_renderRoutine.getDepthFormat());
+		satelliteTask.m_active = true;
+		satelliteTask.registerBuffers(
+			std::vector<svk::BufferBinding> { svk::BufferBinding(*m_uboDeviceBuffer, 0) },
+			std::vector<svk::BufferBinding> {},
+			std::nullopt,
+			32,
+			static_cast<uint32_t>(m_agents.size()));
 	}
 }
 

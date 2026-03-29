@@ -55,7 +55,7 @@ static inline void updateAgents(std::vector<AgentData>& agents, double time)
 		const float theta = static_cast<float>(i) / static_cast<float>(count) * glm::two_pi<float>();
 		const float phi = glm::half_pi<float>() * 0.0f;
 
-		const float r = 1.5f;
+		const float r = 1.4f;
 		const glm::vec3 pos(
 			r * std::sin(theta) * std::cos(phi),
 			r * std::cos(theta),
@@ -83,7 +83,7 @@ static inline void updateAgents(std::vector<AgentData>& agents, double time)
 
 static inline void updateModel(glm::mat4& model, double time)
 {
-	constexpr auto rotSpeed = 0.00;
+	constexpr auto rotSpeed = (3.141592653589793) / (24*60*60) * 100;
 	const auto cosTime = static_cast<float>(std::cos(time * rotSpeed));
 	const auto sinTime = static_cast<float>(std::sin(time * rotSpeed));
 
@@ -101,7 +101,9 @@ int Application::launch()
 
 	Mesh mesh;
 	//mesh.populateMesh(3336); // 66773376
-	mesh.populateMesh(300); // 540000
+	mesh.populateMesh(2000); // 24000000
+	//mesh.populateMesh(300); // 540000
+
 
 	std::vector<AgentData> agents;
 	glm::mat4 model = glm::mat4(1.0f);

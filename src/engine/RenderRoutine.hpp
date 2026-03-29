@@ -50,7 +50,7 @@ private:
     std::vector<vk::raii::Semaphore> m_imageAvailableSemaphores;
 
     // The Void
-    static constexpr std::array<float, 4> m_backgroundColor = {0.01f, 0.01f, 0.01f, 1.0f};
+    std::array<float, 4> m_backgroundColor;
 };
 
 } // namespace svk

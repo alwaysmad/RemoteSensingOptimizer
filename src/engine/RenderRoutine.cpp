@@ -10,7 +10,8 @@ RenderRoutine::RenderRoutine(
     : m_swapchain(&swapchain),
       m_graphicsQueue(&device.graphicsQueue()),
       m_depthResources(device, swapchain.getExtent(), bufferCount),
-      m_command(device.createCommand(svk::Device::GRAPHICS, bufferCount, vk::CommandPoolCreateFlagBits::eResetCommandBuffer))
+      m_command(device.createCommand(svk::Device::GRAPHICS, bufferCount, vk::CommandPoolCreateFlagBits::eResetCommandBuffer)),
+      m_backgroundColor {0.005f, 0.005f, 0.01f, 1.0f}
 {
     // Create image-available semaphores (one per frame)
     for (uint32_t i = 0; i < bufferCount; ++i)
@@ -117,7 +118,7 @@ void RenderRoutine::draw(uint32_t currentFrame, vk::Fence fence, vk::Semaphore w
     });
 
     // 7. Attachments & Rendering Info
-    constexpr vk::ClearValue clearColor{.color = m_backgroundColor};
+    const vk::ClearValue clearColor{.color = m_backgroundColor};
     const vk::RenderingAttachmentInfo colorAttachment{
         .imageView = frame.imageView,
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
