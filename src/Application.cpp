@@ -43,42 +43,84 @@ static inline std::array<float, 4> getCosineColor(double t, double offset)
 
 static inline void updateAgents(std::vector<AgentData>& agents, double time)
 {
-	constexpr float tanHalfFov = 0.5f;
-	constexpr float aspect = 1.0f;
-	constexpr float zNear = 0.1f;
-	constexpr float zFar = 0.4f;
+    constexpr float tanHalfFov = 0.2f;
+    constexpr float aspect = 1.0f;
+    constexpr float zNear = 0.1f;
+    constexpr float zFar = 0.4f;
 
-	const uint32_t count = static_cast<uint32_t>(agents.size());
+    // Realistic angular velocities (radians per second)
+    constexpr float earthRotSpeed = glm::two_pi<float>() / 86400.0f; // 24 hours (GEO)
+    constexpr float leoRotSpeed   = glm::two_pi<float>() / 5400.0f;  // 90 minutes (LEO)
 
-	for (uint32_t i = 0; i < count; ++i)
-	{
-		const float theta = static_cast<float>(i) / static_cast<float>(count) * glm::two_pi<float>();
-		const float phi = glm::half_pi<float>() * 0.0f;
+    const uint32_t count = static_cast<uint32_t>(agents.size());
 
-		const float r = 1.4f;
-		const glm::vec3 pos(
-			r * std::sin(theta) * std::cos(phi),
-			r * std::cos(theta),
-			r * std::sin(theta) * std::sin(phi));
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        float speed = 0.0f;
+        float inc = 0.0f;
+        float raan = 0.0f;
+        float offsetAngle = 0.0f;
+        float r = 1.4f;
 
-		const glm::vec3 target(0.0f);
-		const glm::vec3 up(
-			std::cos(theta) * std::cos(phi),
-			-std::sin(theta),
-			std::cos(theta) * std::sin(phi));
-		glm::mat4 view = glm::lookAt(pos, target, up);
+        if (i == 0)
+        {
+            // Geostationary Anchor
+            r = 1.8f;
+            speed = earthRotSpeed; // Matches the model matrix rotation exactly
+            inc = 0.0f;            // 0 inclination = orbits perfectly over the equator
+            raan = 0.0f;
+            offsetAngle = 0.0f;    // The longitude it hovers over
+        }
+        else
+        {
+            // LEO Swarm (Walker-Delta Constellation)
+            const uint32_t swarmIndex = i - 1;
+            const uint32_t swarmCount = count - 1;
+            
+            const uint32_t numPlanes = 6;
+            const uint32_t planeIndex = swarmIndex % numPlanes;
+            const uint32_t satInPlane = swarmIndex / numPlanes;
+            const uint32_t satsPerPlane = std::max(1u, (swarmCount + numPlanes - 1) / numPlanes);
 
-		view[0][3] = tanHalfFov;
-		view[1][3] = aspect;
-		view[2][3] = zNear;
-		view[3][3] = zFar;
+            r = 1.3f;
+            speed = leoRotSpeed; // Orbits much faster than the Earth spins
+            inc = glm::radians(55.0f); 
+            
+            raan = static_cast<float>(planeIndex) * (glm::two_pi<float>() / static_cast<float>(numPlanes));
+            offsetAngle = static_cast<float>(satInPlane) * (glm::two_pi<float>() / static_cast<float>(satsPerPlane));
+            offsetAngle += static_cast<float>(planeIndex) * 0.3f;
+        }
 
-		agents[i].camera = view;
+        // 1. Calculate position in flat equatorial plane
+        const float theta = static_cast<float>(time) * speed + offsetAngle;
+        glm::vec3 pos(r * std::cos(theta), 0.0f, r * std::sin(theta));
 
-		const auto offset = static_cast<double>(i) * 0.8;
-		const auto col = getCosineColor(0, offset);
-		std::memcpy(agents[i].data, col.data(), sizeof(col));
-	}
+        // 2. Apply Inclination
+        const float y_inc = pos.z * std::sin(inc);
+        const float z_inc = pos.z * std::cos(inc);
+        pos = glm::vec3(pos.x, y_inc, z_inc);
+
+        // 3. Apply RAAN
+        const float x_final = pos.x * std::cos(raan) + pos.z * std::sin(raan);
+        const float z_final = -pos.x * std::sin(raan) + pos.z * std::cos(raan);
+        pos = glm::vec3(x_final, pos.y, z_final);
+
+        // 4. Build Camera View Matrix
+        const glm::vec3 target(0.0f);
+        const glm::vec3 up(0.0f, 1.0f, 0.0f);
+        glm::mat4 view = glm::lookAt(pos, target, up);
+
+        view[0][3] = tanHalfFov;
+        view[1][3] = aspect;
+        view[2][3] = zNear;
+        view[3][3] = zFar;
+
+        agents[i].camera = view;
+
+        const auto colorOffset = static_cast<double>(i) * 0.8;
+        const auto col = getCosineColor(0, colorOffset);
+        std::memcpy(agents[i].data, col.data(), sizeof(col));
+    }
 }
 
 static inline void updateModel(glm::mat4& model, double time)
@@ -111,11 +153,11 @@ int Application::launch()
 
 	constexpr double SIM_START_TIME = 0.0;
 	constexpr double SIM_END_TIME = 24.0 * 60.0 * 60.0;
-	constexpr float SIMULATION_TIME_STEP = 10.0f;
+	constexpr float SIMULATION_TIME_STEP = 5.0f;
 
 	double m_simTime = SIM_START_TIME;
 
-	agents.resize(8);
+	agents.resize(10);
 
 	EngineInstance engine(m_settings, m_logger, J_T, J_av, mesh, agents, model);
 	while (!engine.shouldClose() && m_simTime < SIM_END_TIME)
