@@ -76,7 +76,7 @@ static inline void updateAgents(std::vector<AgentData>& agents, double time)
 		agents[i].camera = view;
 
 		const auto offset = static_cast<double>(i) * 0.8;
-		const auto col = getCosineColor(time, offset);
+		const auto col = getCosineColor(0, offset);
 		std::memcpy(agents[i].data, col.data(), sizeof(col));
 	}
 }
@@ -101,8 +101,8 @@ int Application::launch()
 
 	Mesh mesh;
 	//mesh.populateMesh(3336); // 66773376
-	//mesh.populateMesh(2000); // 24000000
-	mesh.populateMesh(300); // 540000
+	mesh.populateMesh(600); // 
+	//mesh.populateMesh(300); // 540000
 
 	std::vector<AgentData> agents;
 	glm::mat4 model = glm::mat4(1.0f);
