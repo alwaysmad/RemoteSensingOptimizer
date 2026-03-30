@@ -101,7 +101,7 @@ int Application::launch()
 
 	Mesh mesh;
 	//mesh.populateMesh(3336); // 66773376
-	mesh.populateMesh(600); // 
+	mesh.populateMesh(m_settings.meshResolution);
 	//mesh.populateMesh(300); // 540000
 
 	std::vector<AgentData> agents;
@@ -111,7 +111,7 @@ int Application::launch()
 
 	constexpr double SIM_START_TIME = 0.0;
 	constexpr double SIM_END_TIME = 24.0 * 60.0 * 60.0;
-	constexpr float SIMULATION_TIME_STEP = 1.0f;
+	constexpr float SIMULATION_TIME_STEP = 10.0f;
 
 	double m_simTime = SIM_START_TIME;
 

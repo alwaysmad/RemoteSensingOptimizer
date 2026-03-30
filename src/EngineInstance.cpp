@@ -401,7 +401,7 @@ void EngineInstance::tick(float timeStep)
 	float* mappedResults = static_cast<float*>(m_resultMap->get());
 	const float reducedResult = mappedResults[m_currentFrame];
 	m_J_T = reducedResult;
-	m_J_av += reducedResult;
+	m_J_av += reducedResult * timeStep;
 	std::printf("[Reduce] alpha*s*w sum: %.6f\n", reducedResult);
 
 	updateUBO(m_currentFrame, timeStep);
