@@ -32,7 +32,7 @@ EngineInstance::EngineInstance(
 	  m_device(m_instance, m_window.getSurface(), m_settings.deviceName, logger),
 	  m_swapchain(m_device, m_window),
 	  m_renderRoutine(m_device, m_swapchain, svk::MAX_FRAMES_IN_FLIGHT),
-	  m_transferRoutine(m_device, svk::MAX_FRAMES_IN_FLIGHT + 1)
+	  m_transferRoutine(m_device, svk::MAX_FRAMES_IN_FLIGHT * 2)
 {
 	m_uboUpdatedSemaphores.reserve(svk::MAX_FRAMES_IN_FLIGHT);
 	m_computeFinishedSemaphores.reserve(svk::MAX_FRAMES_IN_FLIGHT);
@@ -67,12 +67,13 @@ EngineInstance::EngineInstance(
 		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst,
 		vk::MemoryPropertyFlagBits::eDeviceLocal,
 		{svk::Device::TRANSFER, svk::Device::COMPUTE}));
+	const vk::DeviceSize resultRingSize = sizeof(float) * svk::MAX_FRAMES_IN_FLIGHT;
 	m_resultStagingBuffer.emplace(m_device.createBuffer(
-		sizeof(float),
+		resultRingSize,
 		vk::BufferUsageFlagBits::eTransferDst,
 		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
 		{svk::Device::TRANSFER}));
-	m_resultMap.emplace(m_resultStagingBuffer->map(0, sizeof(float)));
+	m_resultMap.emplace(m_resultStagingBuffer->map(0, resultRingSize));
 	
 	{ // Upload vertex data via staging buffer
 		auto vertexStaging = m_device.createBuffer(
@@ -156,7 +157,7 @@ EngineInstance::EngineInstance(
 			// Bake frame-specific transfer command once, then reuse every tick.
 			m_transferRoutine.bakeCommands(
 				i,
-				vk::CommandBufferUsageFlagBits::eSimultaneousUse,
+				vk::CommandBufferUsageFlags{},
 				*m_uboStagingBuffer,
 				*m_uboDeviceBuffer,
 				offset,
@@ -208,12 +209,12 @@ EngineInstance::EngineInstance(
 
 		// Dispatch with Y included!
 		m_computeRoutine->bakeCommands(
-			0, 
-			vk::CommandBufferUsageFlagBits::eSimultaneousUse, 
-			groupCountX, 
-			groupCountY, 
-			1
-		);
+			0,
+			vk::CommandBufferUsageFlagBits::eSimultaneousUse,
+			groupCountX,
+			groupCountY,
+			1);
+
 	}
 
 	{ // Create reduce routine and bake commands
@@ -250,39 +251,47 @@ EngineInstance::EngineInstance(
 			},
 		};
 
-		m_reduceRoutine.emplace(m_device, reduceStage, reduceDescriptorBindings, 1);
-		m_reduceRoutine->registerBuffers(
-			0,
-			{
-				svk::BufferBinding(*m_uboDeviceBuffer, 0),
-				svk::BufferBinding(*m_vertexBuffer, 1),
-				svk::BufferBinding(*m_vertexDataBuffer, 2),
-				svk::BufferBinding(*m_resultDeviceBuffer, 3),
-			},
-			svk::BufferBinding(*m_resultDeviceBuffer, 3));
+		m_reduceRoutine.emplace(m_device, reduceStage, reduceDescriptorBindings, svk::MAX_FRAMES_IN_FLIGHT);
+		for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
+		{
+			m_reduceRoutine->registerBuffers(
+				i,
+				{
+					svk::BufferBinding(*m_uboDeviceBuffer, 0),
+					svk::BufferBinding(*m_vertexBuffer, 1),
+					svk::BufferBinding(*m_vertexDataBuffer, 2),
+					svk::BufferBinding(*m_resultDeviceBuffer, 3),
+				},
+				svk::BufferBinding(*m_resultDeviceBuffer, 3));
+		}
 
 		const uint32_t totalGroups = (static_cast<uint32_t>(m_mesh.vertices.size()) + 255) / 256;
 		const uint32_t MAX_GROUPS = 65535u;
 		const uint32_t groupCountX = std::min(totalGroups, MAX_GROUPS);
 		const uint32_t groupCountY = (totalGroups + MAX_GROUPS - 1) / MAX_GROUPS;
 
-		m_reduceRoutine->bakeCommands(
-			0,
-			vk::CommandBufferUsageFlagBits::eSimultaneousUse,
-			groupCountX,
-			groupCountY,
-			1);
+		for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
+		{
+			m_reduceRoutine->bakeCommands(
+				i,
+				vk::CommandBufferUsageFlags{},
+				groupCountX,
+				groupCountY,
+				1);
+		}
 	}
 
-	// Bake dedicated transfer command for reduction result readback.
-	m_transferRoutine.bakeCommands(
-		kResultReadbackTransferCmd,
-		vk::CommandBufferUsageFlagBits::eSimultaneousUse,
-		*m_resultDeviceBuffer,
-		*m_resultStagingBuffer,
-		0,
-		0,
-		sizeof(float));
+	for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
+	{
+		m_transferRoutine.bakeCommands(
+			kResultReadbackTransferCmdBase + i,
+			vk::CommandBufferUsageFlags{},
+			*m_resultDeviceBuffer,
+			*m_resultStagingBuffer,
+			0,
+			i * sizeof(float),
+			sizeof(float));
+	}
 
 	{ // Create shader module and render task for the mesh
 		const vk::raii::ShaderModule meshModule(m_device.device(), mesh::smci);
@@ -383,12 +392,11 @@ void EngineInstance::tick(float timeStep)
 	const vk::Fence fence = *m_inFlightFences[m_currentFrame];
 	if (m_device.device().waitForFences({fence}, vk::True, UINT64_MAX) != vk::Result::eSuccess)
 		{ throw std::runtime_error("Fence wait failed"); }
-
-	float reducedResult = 0.0f;
-	std::memcpy(&reducedResult, m_resultMap->get(), sizeof(float));
-	std::printf("[Reduce] alpha*w sum: %.6f\n", reducedResult);
-
 	m_device.device().resetFences({fence});
+
+	float* mappedResults = static_cast<float*>(m_resultMap->get());
+	const float reducedResult = mappedResults[m_currentFrame];
+	std::printf("[Reduce] alpha*w sum: %.6f\n", reducedResult);
 
 	updateUBO(m_currentFrame, timeStep);
 
@@ -398,12 +406,12 @@ void EngineInstance::tick(float timeStep)
 		*m_computeFinishedSemaphores[m_currentFrame]);
 
 	m_reduceRoutine->submitCommands(
-		0,
+		m_currentFrame,
 		*m_computeFinishedSemaphores[m_currentFrame],
 		*m_reduceFinishedSemaphores[m_currentFrame]);
 
 	m_transferRoutine.submitCommands(
-		kResultReadbackTransferCmd,
+		kResultReadbackTransferCmdBase + m_currentFrame,
 		*m_reduceFinishedSemaphores[m_currentFrame],
 		*m_resultTransferredSemaphores[m_currentFrame]);
 

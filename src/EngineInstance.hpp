@@ -62,7 +62,7 @@ private:
 	std::vector<vk::raii::Fence> m_inFlightFences;
 	uint32_t m_currentFrame = 0;
 
-	static constexpr uint32_t kResultReadbackTransferCmd = svk::MAX_FRAMES_IN_FLIGHT;
+	static constexpr uint32_t kResultReadbackTransferCmdBase = svk::MAX_FRAMES_IN_FLIGHT;
 
 public:
 	EngineInstance(const EngineInstance&) = delete;

@@ -83,7 +83,7 @@ static inline void updateAgents(std::vector<AgentData>& agents, double time)
 
 static inline void updateModel(glm::mat4& model, double time)
 {
-	constexpr auto rotSpeed = (3.141592653589793) / (24*60*60) * 100;
+	constexpr auto rotSpeed = (2 * 3.141592653589793) / (24*60*60); // one full rotation per 24 hours
 	const auto cosTime = static_cast<float>(std::cos(time * rotSpeed));
 	const auto sinTime = static_cast<float>(std::sin(time * rotSpeed));
 
@@ -110,20 +110,16 @@ int Application::launch()
 	double m_simTime = 0.0;
 
 	agents.resize(8);
+	constexpr float SIMULATION_TIME_STEP = 1.0f;
 
 	EngineInstance engine(m_settings, m_logger, mesh, agents, model);
-	auto lastTick = std::chrono::steady_clock::now();
 	while (!engine.shouldClose())
 	{
-		const auto now = std::chrono::steady_clock::now();
-		const double realDt = std::chrono::duration<double>(now - lastTick).count();
-		lastTick = now;
-
-		m_simTime += realDt;
+		m_simTime += static_cast<double>(SIMULATION_TIME_STEP);
 		updateAgents(agents, m_simTime);
 		updateModel(model, m_simTime);
 
-		engine.tick(static_cast<float>(realDt));
+		engine.tick(SIMULATION_TIME_STEP);
 	}
 
 	return EXIT_SUCCESS;
