@@ -20,8 +20,9 @@ void reduceMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadID
     if (idx < g_ubo.vertexCount)
     {
         float alpha = float(g_coords[idx].values.w) / 32767.0;
+        float s = f16tof32(uint(g_data[idx].values.z));
         float w = f16tof32(uint(g_data[idx].values.w));
-        myValue = alpha * w;
+        myValue = alpha * w * s;
     }
 
     float waveSum = WaveActiveSum(myValue);

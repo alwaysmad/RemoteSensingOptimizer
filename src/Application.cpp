@@ -104,23 +104,32 @@ int Application::launch()
 	//mesh.populateMesh(2000); // 24000000
 	mesh.populateMesh(300); // 540000
 
-
 	std::vector<AgentData> agents;
 	glm::mat4 model = glm::mat4(1.0f);
-	double m_simTime = 0.0;
+	float J_T = 0.0f;
+	float J_av = 0.0f;
 
-	agents.resize(8);
+	constexpr double SIM_START_TIME = 0.0;
+	constexpr double SIM_END_TIME = 24.0 * 60.0 * 60.0;
 	constexpr float SIMULATION_TIME_STEP = 1.0f;
 
-	EngineInstance engine(m_settings, m_logger, mesh, agents, model);
-	while (!engine.shouldClose())
+	double m_simTime = SIM_START_TIME;
+
+	agents.resize(8);
+
+	EngineInstance engine(m_settings, m_logger, J_T, J_av, mesh, agents, model);
+	while (!engine.shouldClose() && m_simTime < SIM_END_TIME)
 	{
-		m_simTime += static_cast<double>(SIMULATION_TIME_STEP);
 		updateAgents(agents, m_simTime);
 		updateModel(model, m_simTime);
-
 		engine.tick(SIMULATION_TIME_STEP);
+		m_simTime += static_cast<double>(SIMULATION_TIME_STEP);
 	}
+
+	const double elapsedTime = m_simTime - SIM_START_TIME;
+	const float J_av_mean = (elapsedTime > 0.0) ? static_cast<float>(J_av / elapsedTime) : 0.0f;
+	m_logger.cInfo("Final J_T: {}", J_T);
+	m_logger.cInfo("Final J_av: {}", J_av_mean);
 
 	return EXIT_SUCCESS;
 }

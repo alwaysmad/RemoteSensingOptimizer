@@ -26,6 +26,8 @@ class EngineInstance
 private:
 	const Settings& m_settings;
 	const svk::Logger& m_logger;
+	float& m_J_T;
+	float& m_J_av;
 	const Mesh& m_mesh;
 	const std::vector<AgentData>& m_agents;
 	const glm::mat4& m_model;
@@ -73,6 +75,8 @@ public:
 	EngineInstance(
 		const Settings& settings,
 		const svk::Logger& logger,
+		float& J_T,
+		float& J_av,
 		const Mesh& mesh,
 		const std::vector<AgentData>& agents,
 		const glm::mat4& model);

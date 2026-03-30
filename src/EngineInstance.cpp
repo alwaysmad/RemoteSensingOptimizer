@@ -17,11 +17,15 @@
 EngineInstance::EngineInstance(
 	const Settings& settings,
 	const svk::Logger& logger,
+	float& J_T,
+	float& J_av,
 	const Mesh& mesh,
 	const std::vector<AgentData>& agents,
 	const glm::mat4& model)
 	: m_settings(settings),
 	  m_logger(logger),
+	  m_J_T(J_T),
+	  m_J_av(J_av),
 	  m_mesh(mesh),
 	  m_agents(agents),
 	  m_model(model),
@@ -396,7 +400,9 @@ void EngineInstance::tick(float timeStep)
 
 	float* mappedResults = static_cast<float*>(m_resultMap->get());
 	const float reducedResult = mappedResults[m_currentFrame];
-	std::printf("[Reduce] alpha*w sum: %.6f\n", reducedResult);
+	m_J_T = reducedResult;
+	m_J_av += reducedResult;
+	std::printf("[Reduce] alpha*s*w sum: %.6f\n", reducedResult);
 
 	updateUBO(m_currentFrame, timeStep);
 
