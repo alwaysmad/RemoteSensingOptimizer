@@ -126,7 +126,7 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
 
                 // The differential area in NDC space.
                 // -nDotV flips the negative dot product to positive.
-                float ndcArea = s * areaScale * (-nDotV) / w3;
+                float ndcArea = areaScale * (-nDotV) / w3;
 
                 // 5. Normalized Sensor Coverage
                 // Divide by 4.0 because the total NDC screen area is 2x2
@@ -139,7 +139,7 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
     //Omega *=  g_ubo.timeStep;
     //float f = 1.0 / g_ubo.timeStep;
     //float alpha_new = (f * alpha + epsilon) / (f + epsilon + Omega * v);
-    float alpha_new = Omega;
+    float alpha_new = 1;
 
     // 7. Repack and Write to VRAM
     g_coords[idx].values.w = int16_t(clamp(alpha_new, -1.0, 1.0) * 32767.0);

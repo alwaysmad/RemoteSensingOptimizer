@@ -104,6 +104,7 @@ struct Mesh
         const size_t totalBytes = vertexBytes + vertexDataBytes;
         const double totalMB = static_cast<double>(totalBytes) / (1024.0 * 1024.0);
         const double totalGB = static_cast<double>(totalBytes) / (1024.0 * 1024.0 * 1024.0);
+        double totalSurfaceArea = 0.0;
 
         std::printf("[Mesh] total cells: %u\n", totalCells);
         if (totalBytes < (1ull << 30))
@@ -143,6 +144,7 @@ struct Mesh
 
                     // 3. Exact surface area calculation (Solid Angle of the cell)
                     const float area = solidAngle(x1, y1) - solidAngle(x0, y1) - solidAngle(x1, y0) + solidAngle(x0, y0);
+                    totalSurfaceArea += static_cast<double>(area);
 
                     // 4. Map the 2D face coordinates to 3D cube coordinates based on the face index
                     glm::vec3 pos;
@@ -173,6 +175,8 @@ struct Mesh
             }
             std::printf("[Mesh] generated face %d/6\n", face + 1);
         }
+
+        std::printf("[Mesh] total generated surface area: %.6f\n", totalSurfaceArea);
     }
 };
 
