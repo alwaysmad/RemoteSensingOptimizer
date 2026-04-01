@@ -4,8 +4,8 @@
 // The Memory Contracts
 // ==========================================
 [[vk::binding(0, 0)]] ConstantBuffer<UBO> g_ubo;
-[[vk::binding(1, 0)]] RWStructuredBuffer<uint2> g_coords; // Read-Write for Alpha
-[[vk::binding(2, 0)]] StructuredBuffer<uint2> g_data;     // Read-Only for Payload
+[[vk::binding(1, 0)]] RWStructuredBuffer<VertexCoords> g_coords; // Read-Write for Alpha
+[[vk::binding(2, 0)]] StructuredBuffer<VertexData> g_data;       // Read-Only for Payload
 
 // 32KB L1 Shared Memory Cache for the Workgroup.
 // Fits perfectly within the Vulkan guaranteed hardware limit.
@@ -39,12 +39,14 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
     if (idx >= g_ubo.vertexCount)
         return;
 
-    // 3. Unpack 16-bit Memory
-    float3 localPos; float alpha;
-    unpackCoords(g_coords[idx], localPos, alpha);
+    // 3. Read vertex payload directly as 32-bit floats
+    float3 localPos = g_coords[idx].values.xyz;
+    float alpha = g_coords[idx].values.w;
 
-    float epsilon, v, s, w_val;
-    unpackData(g_data[idx], epsilon, v, s, w_val);
+    float epsilon = g_data[idx].values.x;
+    float v = g_data[idx].values.y;
+    float s = g_data[idx].values.z;
+    float w_val = g_data[idx].values.w;
 
     // 4. Transform to World Space (Do this ONCE per vertex, not inside the loop)
     float4 worldPos = mul(g_ubo.model, float4(localPos, 1.0));
@@ -111,9 +113,6 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
     float alpha_new = (f * alpha + epsilon) / (f + epsilon + Omega * v);
     //float alpha_new = 1;
 
-    // 7. Repack and Write to VRAM
-    // Pack the original Z coordinate alongside the newly calculated Alpha
-    uint2 current_coords = g_coords[idx];
-    current_coords.y = packSnorm2x16(float2(localPos.z, alpha_new));
-    g_coords[idx] = current_coords;
+    // 7. Write updated alpha directly to VRAM
+    g_coords[idx].values.w = clamp(alpha_new, -1.0, 1.0);
 }

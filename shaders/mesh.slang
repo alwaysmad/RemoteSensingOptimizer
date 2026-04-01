@@ -11,9 +11,16 @@ ConstantBuffer<UBO> g_ubo;
 
 struct VertexOutput
 {
+    [[vk::location(0)]]
     float3 color;
     float4 sv_position : SV_Position;
     float pointSize : SV_PointSize;
+};
+
+struct FragmentInput
+{
+    [[vk::location(0)]]
+    float3 color;
 };
 
 [shader("vertex")]
@@ -40,19 +47,19 @@ VertexOutput vertMain(VertexInput inVert)
     {
         output.color = float3(0.0, 0.0, 0.0);
         output.sv_position = float4(-10.0, -10.0, -10.0, 1.0);
-        output.pointSize = 0.0;
+        output.pointSize = 1.0;
         return output;
     }
 
-    output.pointSize = 1.0;
     // Linear Coloring (alpha 0.0 = White, alpha 1.0 = Black)
     const float alpha = saturate(inVert.coords.w);
     output.color = float3(1.0 - alpha);
+    output.pointSize = 1.0;
     return output;
 }
 
 [shader("fragment")]
-float4 fragMain(VertexOutput inVert) : SV_Target
+float4 fragMain(FragmentInput inVert) : SV_Target
 {
     return float4(inVert.color, 1.0);
 }

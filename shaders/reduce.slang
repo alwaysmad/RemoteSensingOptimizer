@@ -1,11 +1,11 @@
 #include "shared.slang"
 
 [[vk::binding(0, 0)]] ConstantBuffer<UBO> g_ubo;
-[[vk::binding(1, 0)]] StructuredBuffer<uint4> g_coords;
-[[vk::binding(2, 0)]] StructuredBuffer<uint4> g_data;
+[[vk::binding(1, 0)]] StructuredBuffer<VertexCoords> g_coords;
+[[vk::binding(2, 0)]] StructuredBuffer<VertexData> g_data;
 [[vk::binding(3, 0)]] RWByteAddressBuffer g_result;
 
-groupshared float s_subgroupSums[32];
+groupshared float s_threadSums[256];
 
 [shader("compute")]
 [numthreads(256, 1, 1)]
@@ -17,42 +17,30 @@ void reduceMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadID
 
     float myValue = 0.0;
 
-    // Divide vertexCount by 2 because each thread now processes TWO vertices
     if (idx < g_ubo.vertexCount)
     {
-        uint4 c = g_coords[idx];
-        uint4 d = g_data[idx];
+        float alpha = g_coords[idx].values.w;
+        float s = g_data[idx].values.z;
+        float w = g_data[idx].values.w;
 
-        // Process Cell A (lower 8 bytes)
-        float3 posA; float alphaA;
-        unpackCoords(c.xy, posA, alphaA);
-        float epsA, vA, sA, wA;
-        unpackData(d.xy, epsA, vA, sA, wA);
-
-        // Process Cell B (upper 8 bytes)
-        float3 posB; float alphaB;
-        unpackCoords(c.zw, posB, alphaB);
-        float epsB, vB, sB, wB;
-        unpackData(d.zw, epsB, vB, sB, wB);
-
-        // Sum both cells for this thread (Remove 's' if computing pure Omega coverage!)
-        myValue = wA + wB;
+        myValue = s;
     }
 
-    float waveSum = WaveActiveSum(myValue);
-
-    if (WaveIsFirstLane())
-    {
-        uint waveID = groupIndex / WaveGetLaneCount();
-        s_subgroupSums[waveID] = waveSum;
-    }
+    s_threadSums[groupIndex] = myValue;
     GroupMemoryBarrierWithGroupSync();
+
+    for (uint stride = 128; stride > 0; stride >>= 1)
+    {
+        if (groupIndex < stride)
+        {
+            s_threadSums[groupIndex] += s_threadSums[groupIndex + stride];
+        }
+        GroupMemoryBarrierWithGroupSync();
+    }
 
     if (groupIndex == 0)
     {
-        float groupSum = 0.0;
-        uint numWaves = (256 + WaveGetLaneCount() - 1) / WaveGetLaneCount();
-        for (uint i = 0; i < numWaves; ++i) { groupSum += s_subgroupSums[i]; }
+        float groupSum = s_threadSums[0];
 
         uint prev;
         g_result.InterlockedCompareExchange(0, 0, 0, prev);

@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <vector>
 
-#include <glm/gtc/packing.hpp>
+#include <glm/ext/scalar_constants.hpp>
 #include <glm/mat4x4.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
@@ -32,43 +32,24 @@ struct alignas(16) UBO
     AgentData agents[MAX_AGENTS];
 };
 
-struct alignas(8) VertexCoords
+struct alignas(16) VertexCoords
 {
-    int16_t values[4];
-
+    float values[4];
     VertexCoords() = default;
-
     explicit VertexCoords(const std::array<float, 4>& input)
-        : values {
-            packSnorm(input[0]),
-            packSnorm(input[1]),
-            packSnorm(input[2]),
-            packSnorm(input[3])
-        }
-    {}
-
-private:
-    [[nodiscard]] static inline int16_t packSnorm(float value)
     {
-        const float clamped = std::clamp(value, -1.0f, 1.0f);
-        return static_cast<int16_t>(std::round(clamped * 32767.0f));
+        std::copy(input.begin(), input.end(), values);
     }
 };
 
-struct alignas(8) VertexData
+struct alignas(16) VertexData
 {
-    uint16_t values[4];
-
+    float values[4];
     VertexData() = default;
-
     explicit VertexData(const std::array<float, 4>& input)
-        : values {
-            glm::packHalf1x16(input[0]),
-            glm::packHalf1x16(input[1]),
-            glm::packHalf1x16(input[2]),
-            glm::packHalf1x16(input[3])
-        }
-    {}
+    {
+        std::copy(input.begin(), input.end(), values);
+    }
 };
 
 struct Mesh
@@ -77,12 +58,6 @@ struct Mesh
     std::vector<VertexData> vertexData;
 
     Mesh() = default;
-
-    // Helper to pack float into 16-bit SNORM (-1.0 to 1.0)
-    static inline int16_t packSnorm16(float v)
-    {
-        return static_cast<int16_t>(std::clamp(v, -1.0f, 1.0f) * 32767.0f);
-    }
 
     // Helper to calculate the exact solid angle of a rectangle on the z=1 face
     static inline float solidAngle(float x, float y)
@@ -192,7 +167,7 @@ static constexpr std::array<vk::VertexInputAttributeDescription, 1> kVertexCoord
     {
         .location = 0,
         .binding = 0,
-        .format = vk::Format::eR16G16B16A16Snorm,
+        .format = vk::Format::eR32G32B32A32Sfloat,
         .offset = static_cast<uint32_t>(offsetof(VertexCoords, values)),
     }
 }};
@@ -209,7 +184,7 @@ static constexpr std::array<vk::VertexInputAttributeDescription, 1> kVertexDataA
     {
         .location = 1,
         .binding = 1,
-        .format = vk::Format::eR16G16B16A16Sfloat,
+        .format = vk::Format::eR32G32B32A32Sfloat,
         .offset = static_cast<uint32_t>(offsetof(VertexData, values)),
     }
 }};

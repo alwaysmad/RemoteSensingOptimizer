@@ -20,35 +20,15 @@ struct UBO
     AgentData agents[MAX_AGENTS];
 };
 
-float2 unpackSnorm2x16(uint packed)
+struct VertexCoords
 {
-    int lo = int(packed << 16) >> 16;
-    int hi = int(packed >> 16 << 16) >> 16;
-    return clamp(float2(lo, hi) / 32767.0, -1.0, 1.0);
-}
+    float4 values;
+};
 
-float2 unpackHalf2x16(uint packed)
+struct VertexData
 {
-    return float2(f16tof32(packed & 0xFFFFu), f16tof32(packed >> 16));
-}
-
-void unpackCoords(uint2 packed, out float3 localPos, out float alpha)
-{
-    float2 xy = unpackSnorm2x16(packed.x);
-    float2 zw = unpackSnorm2x16(packed.y);
-    localPos = float3(xy, zw.x);
-    alpha = zw.y;
-}
-
-void unpackData(uint2 packed, out float epsilon, out float v, out float s, out float w)
-{
-    float2 ev = unpackHalf2x16(packed.x);
-    float2 sw = unpackHalf2x16(packed.y);
-    epsilon = ev.x;
-    v = ev.y;
-    s = sw.x;
-    w = sw.y;
-}
+    float4 values;
+};
 
 // ==========================================
 // Helper: Unpack View & Proj Matrices
