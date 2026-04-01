@@ -106,10 +106,10 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
     }
 
     // 6. Backwards Euler Integration
-    //Omega *=  g_ubo.timeStep;
-    //float f = 1.0 / g_ubo.timeStep;
-    //float alpha_new = (f * alpha + epsilon) / (f + epsilon + Omega * v);
-    float alpha_new = 1;
+    Omega *=  g_ubo.timeStep;
+    float f = 1.0 / g_ubo.timeStep;
+    float alpha_new = (f * alpha + epsilon) / (f + epsilon + Omega * v);
+    //float alpha_new = 1;
 
     // 7. Repack and Write to VRAM
     // Pack the original Z coordinate alongside the newly calculated Alpha

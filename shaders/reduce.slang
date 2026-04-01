@@ -1,8 +1,8 @@
 #include "shared.slang"
 
 [[vk::binding(0, 0)]] ConstantBuffer<UBO> g_ubo;
-[[vk::binding(1, 0)]] StructuredBuffer<uint2> g_coords;
-[[vk::binding(2, 0)]] StructuredBuffer<uint2> g_data;
+[[vk::binding(1, 0)]] StructuredBuffer<uint4> g_coords;
+[[vk::binding(2, 0)]] StructuredBuffer<uint4> g_data;
 [[vk::binding(3, 0)]] RWByteAddressBuffer g_result;
 
 groupshared float s_subgroupSums[32];
@@ -17,16 +17,26 @@ void reduceMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadID
 
     float myValue = 0.0;
 
-    if (idx < g_ubo.vertexCount)
+    // Divide vertexCount by 2 because each thread now processes TWO vertices
+    if (idx < g_ubo.vertexCount / 2)
     {
-        float3 localPos; float alpha;
-        unpackCoords(g_coords[idx], localPos, alpha);
+        uint4 c = g_coords[idx];
+        uint4 d = g_data[idx];
 
-        float epsilon, v, s, w;
-        unpackData(g_data[idx], epsilon, v, s, w);
+        // Process Cell A (lower 8 bytes)
+        float3 posA; float alphaA;
+        unpackCoords(c.xy, posA, alphaA);
+        float epsA, vA, sA, wA;
+        unpackData(d.xy, epsA, vA, sA, wA);
 
-        // Your physics equation:
-        myValue = w;
+        // Process Cell B (upper 8 bytes)
+        float3 posB; float alphaB;
+        unpackCoords(c.zw, posB, alphaB);
+        float epsB, vB, sB, wB;
+        unpackData(d.zw, epsB, vB, sB, wB);
+
+        // Sum both cells for this thread (Remove 's' if computing pure Omega coverage!)
+        myValue = wA + wB;
     }
 
     float waveSum = WaveActiveSum(myValue);
