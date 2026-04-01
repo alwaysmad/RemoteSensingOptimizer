@@ -4,8 +4,8 @@
 // The Memory Contracts
 // ==========================================
 [[vk::binding(0, 0)]] ConstantBuffer<UBO> g_ubo;
-[[vk::binding(1, 0)]] RWStructuredBuffer<VertexCoords> g_coords; // Read-Write for Alpha
-[[vk::binding(2, 0)]] StructuredBuffer<VertexData> g_data;       // Read-Only for Payload
+[[vk::binding(1, 0)]] RWStructuredBuffer<uint2> g_coords; // Read-Write for Alpha
+[[vk::binding(2, 0)]] StructuredBuffer<uint2> g_data;     // Read-Only for Payload
 
 // 32KB L1 Shared Memory Cache for the Workgroup.
 // Fits perfectly within the Vulkan guaranteed hardware limit.
@@ -113,5 +113,7 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
 
     // 7. Repack and Write to VRAM
     // Pack the original Z coordinate alongside the newly calculated Alpha
-    g_coords[idx].packed.y = packSnorm2x16(float2(localPos.z, alpha_new));
+    uint2 current_coords = g_coords[idx];
+    current_coords.y = packSnorm2x16(float2(localPos.z, alpha_new));
+    g_coords[idx] = current_coords;
 }

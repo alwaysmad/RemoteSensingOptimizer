@@ -20,40 +20,30 @@ struct UBO
     AgentData agents[MAX_AGENTS];
 };
 
-struct VertexCoords
-{
-    uint2 packed;
-};
-
-struct VertexData
-{
-    uint2 packed;
-};
-
-float2 unpackSnorm2x16Compat(uint packed)
+float2 unpackSnorm2x16(uint packed)
 {
     int lo = int(packed << 16) >> 16;
     int hi = int(packed >> 16 << 16) >> 16;
     return clamp(float2(lo, hi) / 32767.0, -1.0, 1.0);
 }
 
-float2 unpackHalf2x16Compat(uint packed)
+float2 unpackHalf2x16(uint packed)
 {
     return float2(f16tof32(packed & 0xFFFFu), f16tof32(packed >> 16));
 }
 
-void unpackCoords(VertexCoords c, out float3 localPos, out float alpha)
+void unpackCoords(uint2 packed, out float3 localPos, out float alpha)
 {
-    float2 xy = unpackSnorm2x16Compat(c.packed.x);
-    float2 zw = unpackSnorm2x16Compat(c.packed.y);
+    float2 xy = unpackSnorm2x16(packed.x);
+    float2 zw = unpackSnorm2x16(packed.y);
     localPos = float3(xy, zw.x);
     alpha = zw.y;
 }
 
-void unpackData(VertexData d, out float epsilon, out float v, out float s, out float w)
+void unpackData(uint2 packed, out float epsilon, out float v, out float s, out float w)
 {
-    float2 ev = unpackHalf2x16Compat(d.packed.x);
-    float2 sw = unpackHalf2x16Compat(d.packed.y);
+    float2 ev = unpackHalf2x16(packed.x);
+    float2 sw = unpackHalf2x16(packed.y);
     epsilon = ev.x;
     v = ev.y;
     s = sw.x;

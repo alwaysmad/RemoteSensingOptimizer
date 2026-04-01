@@ -1,8 +1,8 @@
 #include "shared.slang"
 
 [[vk::binding(0, 0)]] ConstantBuffer<UBO> g_ubo;
-[[vk::binding(1, 0)]] StructuredBuffer<VertexCoords> g_coords;
-[[vk::binding(2, 0)]] StructuredBuffer<VertexData> g_data;
+[[vk::binding(1, 0)]] StructuredBuffer<uint2> g_coords;
+[[vk::binding(2, 0)]] StructuredBuffer<uint2> g_data;
 [[vk::binding(3, 0)]] RWByteAddressBuffer g_result;
 
 groupshared float s_subgroupSums[32];
@@ -25,7 +25,8 @@ void reduceMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadID
         float epsilon, v, s, w;
         unpackData(g_data[idx], epsilon, v, s, w);
 
-        myValue = s;
+        // Your physics equation:
+        myValue = w;
     }
 
     float waveSum = WaveActiveSum(myValue);
