@@ -48,7 +48,6 @@ VertexOutput vertMain(VertexInput inVert)
     // Linear Coloring (alpha 0.0 = White, alpha 1.0 = Black)
     const float alpha = saturate(inVert.coords.w);
     output.color = float3(1.0 - alpha);
-
     return output;
 }
 

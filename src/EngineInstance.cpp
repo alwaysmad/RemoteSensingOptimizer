@@ -55,6 +55,23 @@ EngineInstance::EngineInstance(
 	const vk::DeviceSize vertexBytes = static_cast<vk::DeviceSize>(sizeof(VertexCoords) * m_mesh.vertices.size());
 	const vk::DeviceSize vertexDataBytes = static_cast<vk::DeviceSize>(sizeof(VertexData) * m_mesh.vertexData.size());
 
+	{ // Log shared L1 cache size and UBO limits vs current usage
+		const vk::PhysicalDeviceProperties properties = m_device.physicalDevice().getProperties();
+		const uint32_t maxSharedMemoryBytes = properties.limits.maxComputeSharedMemorySize;
+		const uint32_t maxUboBytes = properties.limits.maxUniformBufferRange;
+
+		const vk::DeviceSize l1SharedCacheBytes = static_cast<vk::DeviceSize>(sizeof(glm::mat4) * MAX_AGENTS);
+		const vk::DeviceSize uboBytes = static_cast<vk::DeviceSize>(sizeof(UBO));
+		constexpr double bytesPerKiB = 1024.0;
+
+		m_logger.cInfo(
+			"Shared L1 cache: used {:.2f} KiB / max {:.2f} KiB | UBO: used {:.2f} KiB / max {:.2f} KiB",
+			static_cast<double>(l1SharedCacheBytes) / bytesPerKiB,
+			static_cast<double>(maxSharedMemoryBytes) / bytesPerKiB,
+			static_cast<double>(uboBytes) / bytesPerKiB,
+			static_cast<double>(maxUboBytes) / bytesPerKiB);
+	}
+
 	// Create final (device local) buffers
 	m_vertexBuffer.emplace(m_device.createBuffer(
 		vertexBytes,

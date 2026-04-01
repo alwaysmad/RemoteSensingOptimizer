@@ -36,14 +36,6 @@ void unpackCamera(float4x4 c, out float4x4 view, out float4x4 proj)
 }
 
 // ==========================================
-// Helper: Analytical Solid Angle of a Rectangle at z=1
-// ==========================================
-float exactSolidAngle(float x, float y)
-{
-    return atan((x * y) / sqrt(x * x + y * y + 1.0));
-}
-
-// ==========================================
 // The Grand Equation
 // ==========================================
 // Change the signature to grab SV_GroupID:
@@ -90,7 +82,7 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
 
     // 5. Compute Omega (Total Survey Quality)
     float Omega = 0.0;
-
+    // iterate over ALL agents
     for (uint i = 0; i < agentCount; ++i)
     {
         float4x4 view, proj;
