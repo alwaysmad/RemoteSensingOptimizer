@@ -14,7 +14,7 @@ public:
 	std::string deviceName = "Intel(R) Iris(R) Xe Graphics (ADL GT2)";
 	uint32_t windowWidth = 800;
 	uint32_t windowHeight = 600;
-	uint32_t meshResolution = 800;
+	uint32_t meshResolution = 600;
 
 	Settings() noexcept = default;
 	~Settings() noexcept = default;

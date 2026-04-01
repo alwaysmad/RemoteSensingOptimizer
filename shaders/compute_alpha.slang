@@ -36,6 +36,14 @@ void unpackCamera(float4x4 c, out float4x4 view, out float4x4 proj)
 }
 
 // ==========================================
+// Helper: Analytical Solid Angle of a Rectangle at z=1
+// ==========================================
+float exactSolidAngle(float x, float y)
+{
+    return atan((x * y) / sqrt(x * x + y * y + 1.0));
+}
+
+// ==========================================
 // The Grand Equation
 // ==========================================
 // Change the signature to grab SV_GroupID:
@@ -44,7 +52,6 @@ void unpackCamera(float4x4 c, out float4x4 view, out float4x4 proj)
 void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadID)
 {
     uint agentCount = g_ubo.agentCount;
-
     // 1. Collaborative Cache Load
     // The 256 threads split the work of loading the agent matrices into L1 Cache
     // Cache load remains perfectly identical (it relies on groupThreadID)
@@ -75,10 +82,11 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
     // Convert SFLOAT16 to standard floats using the hardware intrinsic
     float epsilon = f16tof32(uint(data.values.x));
     float v = f16tof32(uint(data.values.y));
+    float s = f16tof32(uint(data.values.z));
 
     // 4. Transform to World Space (Do this ONCE per vertex, not inside the loop)
     float4 worldPos = mul(g_ubo.model, float4(localPos, 1.0));
-    float3 worldNormal = normalize(mul(g_ubo.model, float4(localPos, 0.0)).xyz);
+    float3 worldNormal = mul(g_ubo.model, float4(localPos, 0.0)).xyz;
 
     // 5. Compute Omega (Total Survey Quality)
     float Omega = 0.0;
@@ -92,29 +100,51 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
         float4 viewPos = mul(view, worldPos);
         float3 viewNormal = mul(view, float4(worldNormal, 0.0)).xyz;
 
-        // 5.1 Horizon Cull: If dot product > 0, it's facing away from the satellite
-        if (dot(viewNormal, viewPos.xyz) > 0.0)
+        // 1. Raw dot product
+        float nDotV = dot(viewNormal, viewPos.xyz);
+
+        // 2. Horizon Cull (If dot > 0, it's facing away)
+        if (nDotV > 0.0)
             continue;
 
-        // 5.2 Viewport Check
+        // 3. Viewport Check
         float4 clipPos = mul(proj, viewPos);
-
-        // Check if the point is actually in front of the camera lens (w > 0)
+        
+        // Ensure the point is actually in front of the camera (w > 0)
         if (clipPos.w > 0.0)
         {
-            // Convert to Normalized Device Coordinates (NDC)
             float3 ndc = clipPos.xyz / clipPos.w;
-
-            // Is the point inside the (-1.0, 1.0) boundaries of the camera screen?
+            
+            // Is it on screen?
             if (ndc.x > -1.0 && ndc.x < 1.0 && ndc.y > -1.0 && ndc.y < 1.0)
             {
-                Omega += 1.0;
+                // ==========================================
+                // 4. The Jacobian Determinant (Flat CMOS Physics)
+                // ==========================================
+                // Extract projection scaling factors from the matrix
+                float P00 = proj[0][0]; 
+                float P11 = proj[1][1]; 
+
+                // Vulkan's P11 is usually negative (to flip Y), so we take abs()
+                float areaScale = abs(P00 * P11);
+
+                // w is the depth along the optical axis. Cubing it replaces the 
+                // inverse-square law and accounts for perspective stretching!
+                float w3 = clipPos.w * clipPos.w * clipPos.w;
+
+                // The differential area in NDC space.
+                // -nDotV flips the negative dot product to positive.
+                float ndcArea = s * areaScale * (-nDotV) / w3;
+
+                // 5. Normalized Sensor Coverage
+                // Divide by 4.0 because the total NDC screen area is 2x2
+                Omega += ndcArea / 4.0;
             }
         }
     }
 
     // 6. Backwards Euler Integration
-    //Omega = 100.0;
+    Omega *=  10.0;
     float f = 1.0 / g_ubo.timeStep;
     float alpha_new = (f * alpha + epsilon) / (f + epsilon + Omega * v);
 

@@ -46,7 +46,7 @@ static inline void updateAgents(std::vector<AgentData>& agents, double time)
     constexpr float tanHalfFov = 0.2f;
     constexpr float aspect = 1.0f;
     constexpr float zNear = 0.1f;
-    constexpr float zFar = 0.4f;
+    constexpr float zFar = 0.3f;
 
     // Realistic angular velocities (radians per second)
     constexpr float earthRotSpeed = glm::two_pi<float>() / 86400.0f; // 24 hours (GEO)
@@ -125,7 +125,7 @@ static inline void updateAgents(std::vector<AgentData>& agents, double time)
 
 static inline void updateModel(glm::mat4& model, double time)
 {
-	constexpr auto rotSpeed = (2 * 3.141592653589793) / (24*60*60); // one full rotation per 24 hours
+	constexpr auto rotSpeed = glm::two_pi<float>() / (24*60*60); // one full rotation per 24 hours
 	const auto cosTime = static_cast<float>(std::cos(time * rotSpeed));
 	const auto sinTime = static_cast<float>(std::sin(time * rotSpeed));
 
@@ -160,8 +160,14 @@ int Application::launch()
 	agents.resize(10);
 
 	EngineInstance engine(m_settings, m_logger, J_T, J_av, mesh, agents, model);
-	while (!engine.shouldClose() && m_simTime < SIM_END_TIME)
+	while (!engine.shouldClose() /*&& m_simTime < SIM_END_TIME*/)
 	{
+        if (engine.isPaused())
+        {
+            engine.tick(SIMULATION_TIME_STEP);
+            continue;
+        }
+
 		updateAgents(agents, m_simTime);
 		updateModel(model, m_simTime);
 		engine.tick(SIMULATION_TIME_STEP);

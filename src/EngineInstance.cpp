@@ -109,11 +109,11 @@ EngineInstance::EngineInstance(
 			vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
 			{svk::Device::TRANSFER});
 
-		{
+		{ // Map to copy
 			auto map = vertexDataStaging.map(0, vertexDataBytes);
 			std::memcpy(map.get(), m_mesh.vertexData.data(), static_cast<size_t>(vertexDataBytes));
 		}
-
+		// copy from staging to device local
 		m_transferRoutine.bakeCommands(
 			0,
 			vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
@@ -157,7 +157,6 @@ EngineInstance::EngineInstance(
 			const vk::DeviceSize offset = m_uboFrameSize * i;
 			// Store offsets in pointers
 			m_uboStagingPtrs[i] = mappedBase + offset;
-
 			// Bake frame-specific transfer command once, then reuse every tick.
 			m_transferRoutine.bakeCommands(
 				i,
@@ -207,7 +206,7 @@ EngineInstance::EngineInstance(
 		// Calculate total workgroups needed
 		const uint32_t totalGroups = (static_cast<uint32_t>(m_mesh.vertices.size()) + 255) / 256;
 		// Wrap them into a 2D grid
-		const uint32_t MAX_GROUPS = 65535u;
+		constexpr uint32_t MAX_GROUPS = 65535u;
 		const uint32_t groupCountX = std::min(totalGroups, MAX_GROUPS);
 		const uint32_t groupCountY = (totalGroups + MAX_GROUPS - 1) / MAX_GROUPS;
 
@@ -218,7 +217,6 @@ EngineInstance::EngineInstance(
 			groupCountX,
 			groupCountY,
 			1);
-
 	}
 
 	{ // Create reduce routine and bake commands
@@ -270,7 +268,7 @@ EngineInstance::EngineInstance(
 		}
 
 		const uint32_t totalGroups = (static_cast<uint32_t>(m_mesh.vertices.size()) + 255) / 256;
-		const uint32_t MAX_GROUPS = 65535u;
+		constexpr uint32_t MAX_GROUPS = 65535u;
 		const uint32_t groupCountX = std::min(totalGroups, MAX_GROUPS);
 		const uint32_t groupCountY = (totalGroups + MAX_GROUPS - 1) / MAX_GROUPS;
 
@@ -392,19 +390,27 @@ void EngineInstance::tick(float timeStep)
 {
 	m_window.pollEvents();
 	m_window.updateFPS(std::string(Settings::appName));
+	const bool paused = m_camera.isPaused();
 
 	const vk::Fence fence = *m_inFlightFences[m_currentFrame];
 	if (m_device.device().waitForFences({fence}, vk::True, UINT64_MAX) != vk::Result::eSuccess)
 		{ throw std::runtime_error("Fence wait failed"); }
 	m_device.device().resetFences({fence});
 
+	updateUBO(m_currentFrame, timeStep);
+
+	if (paused)
+	{
+		m_renderRoutine.draw(m_currentFrame, fence, *m_uboUpdatedSemaphores[m_currentFrame]);
+		m_currentFrame = svk::advanceFrame(m_currentFrame);
+		return;
+	}
+
 	float* mappedResults = static_cast<float*>(m_resultMap->get());
 	const float reducedResult = mappedResults[m_currentFrame];
 	m_J_T = reducedResult;
 	m_J_av += reducedResult * timeStep;
 	std::printf("[Reduce] alpha*s*w sum: %.6f\n", reducedResult);
-
-	updateUBO(m_currentFrame, timeStep);
 
 	m_computeRoutine->submitCommands(
 		0,
@@ -426,6 +432,8 @@ void EngineInstance::tick(float timeStep)
 }
 
 bool EngineInstance::shouldClose() const { return m_window.shouldClose(); }
+
+bool EngineInstance::isPaused() const { return m_camera.isPaused(); }
 
 void EngineInstance::updateUBO(uint32_t currentFrame, float timeStep)
 {
@@ -454,7 +462,4 @@ void EngineInstance::updateUBO(uint32_t currentFrame, float timeStep)
 		*m_uboUpdatedSemaphores[currentFrame]);
 }
 
-EngineInstance::~EngineInstance()
-{
-	m_device.waitIdle();
-}
+EngineInstance::~EngineInstance() { m_device.waitIdle(); }

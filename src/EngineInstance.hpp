@@ -84,6 +84,7 @@ public:
 
 	void tick(float timeStep);
 	[[nodiscard]] bool shouldClose() const;
+	[[nodiscard]] bool isPaused() const;
 
 private:
 	void updateUBO(uint32_t currentFrame, float timeStep);
