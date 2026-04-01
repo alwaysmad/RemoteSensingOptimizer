@@ -18,7 +18,7 @@ void reduceMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadID
     float myValue = 0.0;
 
     // Divide vertexCount by 2 because each thread now processes TWO vertices
-    if (idx < g_ubo.vertexCount / 2)
+    if (idx < g_ubo.vertexCount)
     {
         uint4 c = g_coords[idx];
         uint4 d = g_data[idx];
