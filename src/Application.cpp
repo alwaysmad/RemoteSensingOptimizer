@@ -142,9 +142,7 @@ int Application::launch()
 	m_logger.cInfo("Application name is {}", Settings::appName);
 
 	Mesh mesh;
-	//mesh.populateMesh(3336); // 66773376
-	mesh.populateMesh(m_settings.meshResolution);
-	//mesh.populateMesh(300); // 540000
+    mesh.populateMesh(m_settings.meshResolution);
 
 	std::vector<AgentData> agents;
 	glm::mat4 model = glm::mat4(1.0f);
@@ -157,7 +155,7 @@ int Application::launch()
 
 	double m_simTime = SIM_START_TIME;
 
-	agents.resize(10);
+	agents.resize(1);
 
 	EngineInstance engine(m_settings, m_logger, J_T, J_av, mesh, agents, model);
 	while (!engine.shouldClose() /*&& m_simTime < SIM_END_TIME*/)

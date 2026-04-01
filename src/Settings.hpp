@@ -15,6 +15,7 @@ public:
 	uint32_t windowWidth = 800;
 	uint32_t windowHeight = 600;
 	uint32_t meshResolution = 600;
+	//mesh.populateMesh(3336); // 66773376
 
 	Settings() noexcept = default;
 	~Settings() noexcept = default;

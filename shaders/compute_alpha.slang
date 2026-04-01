@@ -136,9 +136,10 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
     }
 
     // 6. Backwards Euler Integration
-    Omega *=  10.0;
-    float f = 1.0 / g_ubo.timeStep;
-    float alpha_new = (f * alpha + epsilon) / (f + epsilon + Omega * v);
+    //Omega *=  g_ubo.timeStep;
+    //float f = 1.0 / g_ubo.timeStep;
+    //float alpha_new = (f * alpha + epsilon) / (f + epsilon + Omega * v);
+    float alpha_new = Omega;
 
     // 7. Repack and Write to VRAM
     g_coords[idx].values.w = int16_t(clamp(alpha_new, -1.0, 1.0) * 32767.0);
