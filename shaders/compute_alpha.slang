@@ -12,30 +12,6 @@
 groupshared float4x4 s_agentCamera[MAX_AGENTS];
 
 // ==========================================
-// Helper: Unpack View & Proj Matrices
-// ==========================================
-void unpackCamera(float4x4 c, out float4x4 view, out float4x4 proj)
-{
-    float t = c[3].x;
-    float a = c[3].y;
-    float n = c[3].z;
-    float f = c[3].w;
-
-    view = c;
-    view[3].x = 0.0;
-    view[3].y = 0.0;
-    view[3].z = 0.0;
-    view[3].w = 1.0;
-
-    proj = float4x4(
-        1.0 / (a * t), 0.0, 0.0, 0.0,
-        0.0, -1.0 / t, 0.0, 0.0,
-        0.0, 0.0, -f / (f - n), -f * n / (f - n),
-        0.0, 0.0, -1.0, 0.0
-    );
-}
-
-// ==========================================
 // The Grand Equation
 // ==========================================
 // Change the signature to grab SV_GroupID:
@@ -64,17 +40,11 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
         return;
 
     // 3. Unpack 16-bit Memory
-    VertexCoords coords = g_coords[idx];
-    VertexData data = g_data[idx];
+    float3 localPos; float alpha;
+    unpackCoords(g_coords[idx], localPos, alpha);
 
-    // Convert SNORM16 to standard floats
-    float3 localPos = float3(coords.values.xyz) / 32767.0;
-    float alpha = float(coords.values.w) / 32767.0;
-
-    // Convert SFLOAT16 to standard floats using the hardware intrinsic
-    float epsilon = f16tof32(uint(data.values.x));
-    float v = f16tof32(uint(data.values.y));
-    float s = f16tof32(uint(data.values.z));
+    float epsilon, v, s, w_val;
+    unpackData(g_data[idx], epsilon, v, s, w_val);
 
     // 4. Transform to World Space (Do this ONCE per vertex, not inside the loop)
     float4 worldPos = mul(g_ubo.model, float4(localPos, 1.0));
@@ -142,5 +112,6 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
     float alpha_new = 1;
 
     // 7. Repack and Write to VRAM
-    g_coords[idx].values.w = int16_t(clamp(alpha_new, -1.0, 1.0) * 32767.0);
+    // Pack the original Z coordinate alongside the newly calculated Alpha
+    g_coords[idx].packed.y = packSnorm2x16(float2(localPos.z, alpha_new));
 }

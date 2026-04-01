@@ -144,7 +144,6 @@ struct Mesh
 
                     // 3. Exact surface area calculation (Solid Angle of the cell)
                     const float area = solidAngle(x1, y1) - solidAngle(x0, y1) - solidAngle(x1, y0) + solidAngle(x0, y0);
-                    totalSurfaceArea += static_cast<double>(area);
 
                     // 4. Map the 2D face coordinates to 3D cube coordinates based on the face index
                     glm::vec3 pos;
@@ -166,6 +165,7 @@ struct Mesh
                     constexpr float epsilon = 0.0004f;
                     constexpr float v = 1.0f;
                     const float s = area;
+                    totalSurfaceArea += static_cast<double>(area);
                     constexpr float w = 1.0f;
 
                     // 7. Add vertex to GPU arrays
