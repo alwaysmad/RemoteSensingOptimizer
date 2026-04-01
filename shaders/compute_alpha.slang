@@ -68,14 +68,14 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
         float nDotV = dot(viewNormal, viewPos.xyz);
 
         // 2. Horizon Cull (If dot > 0, it's facing away)
-        if (nDotV > 0.0)
+        if (nDotV >= 0.0)
             continue;
 
         // 3. Viewport Check
         float4 clipPos = mul(proj, viewPos);
         
         // Ensure the point is actually in front of the camera (w > 0)
-        if (clipPos.w > 0.0)
+        if (clipPos.w >= 0.0)
         {
             float3 ndc = clipPos.xyz / clipPos.w;
             
@@ -108,12 +108,12 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
     }
 
     // 6. Backwards Euler Integration
-    //Omega *= s * g_ubo.timeStep;
+    Omega *= g_ubo.timeStep;
     float f = 1.0 / g_ubo.timeStep;
-    //float alpha_new = (f * alpha + epsilon) / (f + epsilon + Omega * v);
-    float alpha_new = Omega * s;
+    float alpha_new = (f * alpha + epsilon) / (f + epsilon + Omega * v);
+    //float alpha_new = 1 - Omega * s;
 
     // 7. Write updated alpha directly to VRAM
-    g_coords[idx].values.w = clamp(alpha_new, -1.0, 1.0);
-    //g_coords[idx].values.w = alpha_new;
+    //g_coords[idx].values.w = clamp(alpha_new, -1.0, 1.0);
+    g_coords[idx].values.w = alpha_new;
 }

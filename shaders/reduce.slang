@@ -23,7 +23,7 @@ void reduceMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadID
         float s = g_data[idx].values.z;
         float w = g_data[idx].values.w;
 
-        myValue = alpha * w;
+        myValue = alpha * w * s;
     }
 
     s_threadSums[groupIndex] = myValue;

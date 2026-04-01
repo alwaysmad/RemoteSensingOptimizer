@@ -155,7 +155,7 @@ int Application::launch()
 
 	double m_simTime = SIM_START_TIME;
 
-	agents.resize(1);
+	agents.resize(10);
 
 	EngineInstance engine(m_settings, m_logger, J_T, J_av, mesh, agents, model);
 	while (!engine.shouldClose() /*&& m_simTime < SIM_END_TIME*/)
