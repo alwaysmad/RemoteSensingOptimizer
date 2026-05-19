@@ -95,6 +95,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glm)
 
+# --- Add SGP4 ---
+FetchContent_Declare(
+	sgp4
+	GIT_REPOSITORY https://github.com/dnwrnr/sgp4.git
+	GIT_TAG        master
+)
+FetchContent_MakeAvailable(sgp4)
+
 # --- Find Slang Compiler ---
 find_program(SLANGC_EXECUTABLE slangc)
 if(NOT SLANGC_EXECUTABLE)

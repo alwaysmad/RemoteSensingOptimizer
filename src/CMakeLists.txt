@@ -51,6 +51,7 @@ target_compile_definitions(rso PRIVATE
 # 4. Include Directories (CRITICAL FIX)
 target_include_directories(rso PRIVATE
 	${vulkan-hpp_BINARY_DIR}
+	${sgp4_SOURCE_DIR}/libsgp4
 	${CMAKE_CURRENT_SOURCE_DIR}
 	${CMAKE_CURRENT_BINARY_DIR}
 )
@@ -60,6 +61,7 @@ target_link_libraries(rso PRIVATE
 	Vulkan::Vulkan
 	glfw
 	glm::glm
+	sgp4
 )
 
 # 6. Precompiled Headers (PCH)

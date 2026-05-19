@@ -125,7 +125,10 @@ static inline void updateAgents(std::vector<AgentData>& agents, double time)
 
 static inline void updateModel(glm::mat4& model, double time)
 {
-	constexpr auto rotSpeed = glm::two_pi<float>() / (24*60*60); // one full rotation per 24 hours
+	// Earth completes one full rotation relative to ECI space in one sidereal day
+    constexpr double siderealDay = 86164.0905; // seconds
+    constexpr auto rotSpeed = static_cast<float>(glm::two_pi<double>() / siderealDay);
+    
 	const auto cosTime = static_cast<float>(std::cos(time * rotSpeed));
 	const auto sinTime = static_cast<float>(std::sin(time * rotSpeed));
 
