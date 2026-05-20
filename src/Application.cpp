@@ -10,6 +10,7 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
 
+#include "FLOCK_tle_data.hpp"
 #include "Application.hpp"
 #include "BufferStructs.hpp"
 #include "EngineInstance.hpp"
@@ -158,7 +159,8 @@ int Application::launch()
 
 	double m_simTime = SIM_START_TIME;
 
-	agents.resize(10);
+    const auto& flockTles = FLOCK_tle_data::tle_data;
+    agents.resize(flockTles.size());
 
 	EngineInstance engine(m_settings, m_logger, J_T, J_av, mesh, agents, model);
 	while (!engine.shouldClose() /*&& m_simTime < SIM_END_TIME*/)

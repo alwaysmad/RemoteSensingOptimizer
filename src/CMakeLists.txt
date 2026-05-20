@@ -64,6 +64,8 @@ target_link_libraries(rso PRIVATE
 	sgp4
 )
 
+add_dependencies(rso flock_tle_data)
+
 # 6. Precompiled Headers (PCH)
 target_precompile_headers(rso PRIVATE
 	# STL

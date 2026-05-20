@@ -79,6 +79,7 @@ message(STATUS "Setting vulkan.hpp Git tag to: ${VULKAN_HPP_GIT_TAG}")
 
 # --- Fetch vulkan.hpp (The C++ Bindings) ---
 include(FetchContent)
+include(ExternalProject)
 
 FetchContent_Declare(
 	vulkan-hpp
@@ -102,6 +103,39 @@ FetchContent_Declare(
 	GIT_TAG        master
 )
 FetchContent_MakeAvailable(sgp4)
+
+# --- Fetch Celestrak active TLE data ---
+set(CELESTRAK_TLE_URL "https://celestrak.org/NORAD/ELEMENTS/gp.php?GROUP=active&FORMAT=tle")
+set(CELESTRAK_TLE_PREFIX "${FETCHCONTENT_BASE_DIR}/celestrak_tle")
+set(CELESTRAK_TLE_DOWNLOAD_DIR "${CELESTRAK_TLE_PREFIX}/download")
+set(CELESTRAK_TLE_DATA_FILE "${CELESTRAK_TLE_DOWNLOAD_DIR}/active.tle")
+set(FLOCK_TLE_HEADER_FILE "${CMAKE_BINARY_DIR}/src/FLOCK_tle_data.hpp")
+
+ExternalProject_Add(celestrak_tle_raw
+	URL ${CELESTRAK_TLE_URL}
+	DOWNLOAD_NO_EXTRACT TRUE
+	DOWNLOAD_NAME active.tle
+	DOWNLOAD_DIR ${CELESTRAK_TLE_DOWNLOAD_DIR}
+	PREFIX ${CELESTRAK_TLE_PREFIX}
+	CONFIGURE_COMMAND ""
+	BUILD_COMMAND ""
+	INSTALL_COMMAND ""
+	TEST_COMMAND ""
+)
+
+add_custom_command(
+	OUTPUT ${FLOCK_TLE_HEADER_FILE}
+	COMMAND ${CMAKE_COMMAND}
+		-DRAW_TLE_FILE=${CELESTRAK_TLE_DATA_FILE}
+		-DOUTPUT_HEADER_FILE=${FLOCK_TLE_HEADER_FILE}
+		-P ${CMAKE_SOURCE_DIR}/scripts/filter_flock_tle.cmake
+	DEPENDS ${CELESTRAK_TLE_DATA_FILE} ${CMAKE_SOURCE_DIR}/scripts/filter_flock_tle.cmake
+	COMMENT "Filtering and embedding FLOCK TLE data"
+	VERBATIM
+)
+
+add_custom_target(flock_tle_data DEPENDS ${FLOCK_TLE_HEADER_FILE})
+add_dependencies(flock_tle_data celestrak_tle_raw)
 
 # --- Find Slang Compiler ---
 find_program(SLANGC_EXECUTABLE slangc)
