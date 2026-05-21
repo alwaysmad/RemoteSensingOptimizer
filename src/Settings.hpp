@@ -14,7 +14,10 @@ public:
 	std::string deviceName = "Intel(R) Iris(R) Xe Graphics (ADL GT2)";
 	uint32_t windowWidth = 800;
 	uint32_t windowHeight = 600;
+
 	uint32_t meshResolution = 600;
+	// const double kXKMPER = 6378.135; // libsgp4::kXKMPER Earth radius in km
+	static constexpr double scaling = 1.0 / 6378.135; 
 	//mesh.populateMesh(3336); // 66773376
 
 	Settings() noexcept = default;

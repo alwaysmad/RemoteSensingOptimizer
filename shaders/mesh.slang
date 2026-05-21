@@ -33,6 +33,7 @@ VertexOutput vertMain(VertexInput inVert)
 
     // 2. Calculate Final Clip Space Position
     output.sv_position = mul(g_ubo.proj, viewPos);
+    output.pointSize = 1.0;
 
     // ==========================================
     // 3. The True Perspective Horizon Cull
@@ -47,14 +48,11 @@ VertexOutput vertMain(VertexInput inVert)
     {
         output.color = float3(0.0, 0.0, 0.0);
         output.sv_position = float4(-10.0, -10.0, -10.0, 1.0);
-        output.pointSize = 1.0;
         return output;
     }
 
     // Linear Coloring (alpha 0.0 = White, alpha 1.0 = Black)
-    const float alpha = saturate(inVert.coords.w);
-    output.color = float3(1.0 - alpha);
-    output.pointSize = 1.0;
+    output.color = float3(1.0 - saturate(inVert.coords.w));
     return output;
 }
 
