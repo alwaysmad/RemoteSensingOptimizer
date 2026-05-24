@@ -146,12 +146,9 @@ int Application::launch()
         m_simTime = m_simTime.AddSeconds(SIMULATION_TIME_STEP);
 	}
 
-    const auto elapsedTime = (m_simTime - startSimTime).TotalSeconds()- SIMULATION_TIME_STEP;
+    const auto elapsedTime = static_cast<float>((m_simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP);
     if (elapsedTime > 0.0)
-    {
-        const float J_av_mean = J_av / elapsedTime;
-        m_logger.cInfo("Final J_av: {}", J_av_mean);
-    }
+        { m_logger.cInfo("Final J_av: {}", J_av / elapsedTime); }
 
 	return EXIT_SUCCESS;
 }
