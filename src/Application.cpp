@@ -115,11 +115,9 @@ int Application::launch()
 	float J_T = 0.0f;
 	float J_av = 0.0f;
 
-	//constexpr double SIM_START_TIME = 0.0;
-	//constexpr double SIM_END_TIME = 24.0 * 60.0 * 60.0;
 	constexpr double SIMULATION_TIME_STEP = 5.0;
-
-    libsgp4::DateTime m_simTime(2026, 5, 20, 12, 0, 0);
+    const libsgp4::DateTime startSimTime(2026, 5, 20, 12, 0, 0);
+    libsgp4::DateTime m_simTime = startSimTime;
 
     m_logger.cInfo("Active satellites: {}", FLOCK_tle_data::tle_data.size());
     for (const auto& tle : FLOCK_tle_data::tle_data)
@@ -131,7 +129,7 @@ int Application::launch()
     //agents.resize(5);
 
 	EngineInstance engine(m_settings, m_logger, J_T, J_av, mesh, agents, model);
-	while (!engine.shouldClose() /*&& m_simTime < SIM_END_TIME*/)
+	while (!engine.shouldClose()/*&& m_simTime < SIM_END_TIME*/)
 	{
         if (engine.isPaused())
         {
@@ -142,13 +140,18 @@ int Application::launch()
         updateAgents(agents, propagators, m_simTime);
 		updateModel(model, m_simTime);
 		engine.tick(static_cast<float>(SIMULATION_TIME_STEP));
+        const auto reportedSimTime = (m_simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP;
+        if (reportedSimTime >= 0.0)
+            { m_logger.cInfo("{} | J_T: {}", reportedSimTime, J_T); }
         m_simTime = m_simTime.AddSeconds(SIMULATION_TIME_STEP);
 	}
 
-    const float elapsedTime = (m_simTime - libsgp4::DateTime(2026, 5, 20, 12, 0, 0)).TotalSeconds();
-	const float J_av_mean = (elapsedTime > 0.0) ? (J_av / elapsedTime) : 0.0f;
-	m_logger.cInfo("Final J_T: {}", J_T);
-	m_logger.cInfo("Final J_av: {}", J_av_mean);
+    const auto elapsedTime = (m_simTime - startSimTime).TotalSeconds()- SIMULATION_TIME_STEP;
+    if (elapsedTime > 0.0)
+    {
+        const float J_av_mean = J_av / elapsedTime;
+        m_logger.cInfo("Final J_av: {}", J_av_mean);
+    }
 
 	return EXIT_SUCCESS;
 }

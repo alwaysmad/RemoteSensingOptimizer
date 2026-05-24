@@ -1,7 +1,6 @@
 // src/EngineInstance.cpp
 
 #include <algorithm>
-#include <cstdio>
 #include <cstring>
 #include <string> // std::string
 
@@ -427,7 +426,6 @@ void EngineInstance::tick(float timeStep)
 	const float reducedResult = mappedResults[m_currentFrame];
 	m_J_T = reducedResult;
 	m_J_av += reducedResult * timeStep;
-	std::printf("[Reduce] alpha*s*w sum: %.6f\n", reducedResult);
 
 	m_computeRoutine->submitCommands(
 		0,
@@ -447,10 +445,6 @@ void EngineInstance::tick(float timeStep)
 	m_renderRoutine.draw(m_currentFrame, fence, *m_resultTransferredSemaphores[m_currentFrame]);
 	m_currentFrame = svk::advanceFrame(m_currentFrame);
 }
-
-bool EngineInstance::shouldClose() const { return m_window.shouldClose(); }
-
-bool EngineInstance::isPaused() const { return m_camera.isPaused(); }
 
 void EngineInstance::updateUBO(uint32_t currentFrame, float timeStep)
 {

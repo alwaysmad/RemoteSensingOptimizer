@@ -83,8 +83,8 @@ public:
 	~EngineInstance();
 
 	void tick(float timeStep);
-	[[nodiscard]] bool shouldClose() const;
-	[[nodiscard]] bool isPaused() const;
+	[[nodiscard]] inline bool shouldClose() const { return m_window.shouldClose(); };
+	[[nodiscard]] inline bool isPaused() const { return m_camera.isPaused(); }
 
 private:
 	void updateUBO(uint32_t currentFrame, float timeStep);

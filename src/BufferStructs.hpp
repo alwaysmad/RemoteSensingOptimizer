@@ -137,7 +137,7 @@ struct Mesh
 
                     // 6. Define payload parameters
                     constexpr float alpha = 1.0f;
-                    constexpr float epsilon = 0.0004f;
+                    constexpr float epsilon = 0.0f; //0.0004f;
                     constexpr float v = 1.0f;
                     const float s = area;
                     totalSurfaceArea += static_cast<double>(area);
