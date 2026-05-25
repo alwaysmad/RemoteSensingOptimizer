@@ -46,7 +46,7 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
     float epsilon = g_data[idx].values.x;
     float v = g_data[idx].values.y;
     float s = g_data[idx].values.z;
-    float w_val = g_data[idx].values.w;
+    //float w_val = g_data[idx].values.w;
 
     // 4. Transform to World Space (Do this ONCE per vertex, not inside the loop)
     float4 worldPos = mul(g_ubo.model, float4(localPos, 1.0));
@@ -59,6 +59,7 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
     {
         float4x4 view, proj;
         unpackCamera(s_agentCamera[i], view, proj);
+        float OmegaStrength = g_ubo.agents[i].data[3];
 
         // Transform to Satellite's View Space
         float4 viewPos = mul(view, worldPos);
@@ -98,11 +99,11 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
 
                 // The differential area in NDC space.
                 // -nDotV flips the negative dot product to positive.
-                float ndcArea = areaScale * (-nDotV) / w3;
+                float ndcArea = areaScale * (-nDotV) / w3 * s;
 
                 // 5. Normalized Sensor Coverage
                 // Divide by 4.0 because the total NDC screen area is 2x2
-                Omega += ndcArea / 4.0;
+                Omega += OmegaStrength * (ndcArea / 4.0);
             }
         }
     }
@@ -111,9 +112,9 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
     Omega *= g_ubo.timeStep;
     float f = 1.0 / g_ubo.timeStep;
     float alpha_new = (f * alpha + epsilon) / (f + epsilon + Omega * v);
-    //float alpha_new = 1 - Omega * s;
 
     // 7. Write updated alpha directly to VRAM
     //g_coords[idx].values.w = clamp(alpha_new, -1.0, 1.0);
     g_coords[idx].values.w = alpha_new;
+    //g_coords[idx].values.w = Omega;
 }

@@ -48,10 +48,11 @@ static inline std::array<float, 4> getCosineColor(double t, double offset)
 static inline void updateAgents(std::vector<AgentData>& agents, const std::vector<libsgp4::SGP4>& propagators, const libsgp4::DateTime& currentTime)
 {
     // specificatoins derived from SuperDove
-    constexpr float aspect = 32.5 / 19.6;
-    constexpr float tanHalfFov = 19.6 / 2.0 / 525.0;
+    constexpr float aspect = 19.6 / 32.5;
+    constexpr float tanHalfFov = 32.5 / 2.0 / 525.0;
     constexpr float zNear = 400.0 * Settings::scaling;
     constexpr float zFar = 525.0 * Settings::scaling;
+    constexpr float OmegaStrength = 1 / (5.0 / 0.5); // 0.5 fps, 5 frames for 'full' survey
 
     const std::size_t count = std::min(agents.size(), propagators.size());
 
@@ -73,8 +74,30 @@ static inline void updateAgents(std::vector<AgentData>& agents, const std::vecto
             static_cast<float>(eciVelocity.z * Settings::scaling),
             static_cast<float>(-eciVelocity.y * Settings::scaling));
 
-        const glm::vec3 target(0.0f);
+        // ==========================================
+        // Off-Nadir Pointing Calculation
+        // ==========================================
+        
+        // 1. Define your angle (e.g., 20 degrees cross-track). 
+        // You can make this dynamic per-satellite using agent data.
+        const float angleOffset = glm::radians(0.0f); 
+
+        // 2. Determine the original nadir forward vector (pointing exactly at 0,0,0)
+        const glm::vec3 nadirForward = glm::normalize(-pos); 
+
+        // 3. Create a rotation matrix around the normalized velocity axis
+        const glm::vec3 rotAxis = glm::normalize(vel);
+        const glm::mat4 rotMatrix = glm::rotate(glm::mat4(1.0f), angleOffset, rotAxis);
+
+        // 4. Rotate the forward vector 
+        const glm::vec3 offNadirForward = glm::vec3(rotMatrix * glm::vec4(nadirForward, 0.0f));
+
+        // 5. Calculate the new target point in world space
+        const glm::vec3 target = pos + offNadirForward;
+
+        // 6. Generate the view matrix using the new target
         glm::mat4 view = glm::lookAt(pos, target, vel);
+        // ==========================================
 
         view[0][3] = tanHalfFov;
         view[1][3] = aspect;
@@ -83,8 +106,7 @@ static inline void updateAgents(std::vector<AgentData>& agents, const std::vecto
 
         agents[i].camera = view;
 
-        const auto colorOffset = static_cast<double>(i) * 0.8;
-        const auto col = getCosineColor(0, colorOffset);
+        auto col = getCosineColor(0, static_cast<double>(i)); col[3] = OmegaStrength;
         std::memcpy(agents[i].data, col.data(), sizeof(col));
     }
 }
@@ -116,7 +138,7 @@ int Application::launch()
 	float J_T = 0.0f;
 	float J_av = 0.0f;
 
-	constexpr double SIMULATION_TIME_STEP = 5.0;
+	constexpr double SIMULATION_TIME_STEP = 1.0;
     const libsgp4::DateTime startSimTime(2026, 5, 20, 12, 0, 0);
     libsgp4::DateTime m_simTime = startSimTime;
 
@@ -127,27 +149,24 @@ int Application::launch()
         propagators.emplace_back(tle);
     }
     agents.resize(propagators.size());
-    //agents.resize(5);
+    agents.resize(1);
 
 	EngineInstance engine(m_settings, m_logger, J_T, J_av, mesh, agents, model);
 	while (!engine.shouldClose()/*&& m_simTime < SIM_END_TIME*/)
 	{
         if (engine.isPaused())
-        {
-            engine.tick(static_cast<float>(SIMULATION_TIME_STEP));
-            continue;
-        }
+            { engine.tick(static_cast<float>(SIMULATION_TIME_STEP)); continue; }
 
         updateAgents(agents, propagators, m_simTime);
 		updateModel(model, m_simTime);
 		engine.tick(static_cast<float>(SIMULATION_TIME_STEP));
-        const auto reportedSimTime = (m_simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP;
-        if (reportedSimTime >= 0.0)
+        const auto reportedSimTime = (m_simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2;
+        //if (reportedSimTime >= 0.0)
             { m_logger.cInfo("{} | J_T: {}", reportedSimTime, J_T); }
         m_simTime = m_simTime.AddSeconds(SIMULATION_TIME_STEP);
 	}
 
-    const auto elapsedTime = static_cast<float>((m_simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP);
+    const auto elapsedTime = static_cast<float>((m_simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2);
     if (elapsedTime > 0.0)
         { m_logger.cInfo("Final J_av: {}", J_av / elapsedTime); }
 
