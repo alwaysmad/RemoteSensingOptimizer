@@ -37,11 +37,11 @@ Settings Application::configure(/*TODO parse cli args*/)
 	return s;
 }
 
-static inline std::array<float, 4> getCosineColor(double t, double offset)
+static inline std::array<float, 4> getCosineColor(double offset)
 {
-	const float r = 0.5f + 0.5f * std::cos(t + offset);
-	const float g = 0.5f + 0.5f * std::cos(t + offset + 2.0f);
-	const float b = 0.5f + 0.5f * std::cos(t + offset + 4.0f);
+	const float r = 0.5f + 0.5f * std::cos(offset);
+	const float g = 0.5f + 0.5f * std::cos(offset + 2.0f);
+	const float b = 0.5f + 0.5f * std::cos(offset + 4.0f);
 	return {r, g, b, 1.0f};
 }
 
@@ -49,10 +49,10 @@ static inline void updateAgents(std::vector<AgentData>& agents, const std::vecto
 {
     // specificatoins derived from SuperDove
     constexpr float aspect = 19.6 / 32.5;
-    constexpr float tanHalfFov = 32.5 / 2.0 / 525.0;
+    constexpr float tanHalfFov = 32.5 / 2.0 / 525.0 * 10; // TODO: remove last multiplier after testing
     constexpr float zNear = 400.0 * Settings::scaling;
     constexpr float zFar = 525.0 * Settings::scaling;
-    constexpr float OmegaStrength = 1 / (5.0 / 0.5); // 0.5 fps, 5 frames for 'full' survey
+    constexpr float OmegaStrength = (1.0 / (5.0 / 0.5)) * (19.6 * Settings::scaling * 32.5 * Settings::scaling); // 0.5 fps, 5 frames for 'full' survey
 
     const std::size_t count = std::min(agents.size(), propagators.size());
 
@@ -78,8 +78,7 @@ static inline void updateAgents(std::vector<AgentData>& agents, const std::vecto
         // Off-Nadir Pointing Calculation
         // ==========================================
         
-        // 1. Define your angle (e.g., 20 degrees cross-track). 
-        // You can make this dynamic per-satellite using agent data.
+        // 1. Define angle (in degrees))
         const float angleOffset = glm::radians(0.0f); 
 
         // 2. Determine the original nadir forward vector (pointing exactly at 0,0,0)
@@ -106,7 +105,7 @@ static inline void updateAgents(std::vector<AgentData>& agents, const std::vecto
 
         agents[i].camera = view;
 
-        auto col = getCosineColor(0, static_cast<double>(i)); col[3] = OmegaStrength;
+        auto col = getCosineColor(static_cast<double>(i)); col[3] = OmegaStrength;
         std::memcpy(agents[i].data, col.data(), sizeof(col));
     }
 }
@@ -138,7 +137,7 @@ int Application::launch()
 	float J_T = 0.0f;
 	float J_av = 0.0f;
 
-	constexpr double SIMULATION_TIME_STEP = 1.0;
+	constexpr double SIMULATION_TIME_STEP = 5.0;
     const libsgp4::DateTime startSimTime(2026, 5, 20, 12, 0, 0);
     libsgp4::DateTime m_simTime = startSimTime;
 
@@ -149,7 +148,7 @@ int Application::launch()
         propagators.emplace_back(tle);
     }
     agents.resize(propagators.size());
-    agents.resize(1);
+    //agents.resize(1);
 
 	EngineInstance engine(m_settings, m_logger, J_T, J_av, mesh, agents, model);
 	while (!engine.shouldClose()/*&& m_simTime < SIM_END_TIME*/)

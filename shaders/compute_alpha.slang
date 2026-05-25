@@ -99,7 +99,7 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
 
                 // The differential area in NDC space.
                 // -nDotV flips the negative dot product to positive.
-                float ndcArea = areaScale * (-nDotV) / w3 * s;
+                float ndcArea = areaScale * (-nDotV) / w3;
 
                 // 5. Normalized Sensor Coverage
                 // Divide by 4.0 because the total NDC screen area is 2x2
