@@ -35,45 +35,42 @@ VertexOutput vertMain(uint vertexID: SV_VertexID, uint instanceID: SV_InstanceID
 {
     VertexOutput out;
 
-    // 1. Out of bounds check
     if (instanceID >= g_ubo.agentCount)
     {
+        // if outside array bounds
         // banish to shadow realm
         out.pos = float4(-10.0, -10.0, -10.0, 1.0);
         out.color = float4(0.0, 0.0, 0.0, 0.0);
         return out;
     }
-
-    // 2. Extract satellite transform contract
     float4x4 satInvViewProj = getInvViewProj(g_ubo.agents[instanceID].camera);
 
-    // 3. Extract the Satellite's World Space Position
-    // The tip of the satellite camera frustum (Ndc corner index 0) is the camera position itself!
+    // ==========================================
+    // 2.1 Find Earth (E) & Satellite (S) in Observer's View
+    // ==========================================
     float4 satWorldPosTmp = mul(satInvViewProj, kNdcCorners[0]);
-    float3 satWorldPos = satWorldPosTmp.xyz / satWorldPosTmp.w;
+    float3 S = satWorldPosTmp.xyz / satWorldPosTmp.w;
 
-    // 4. Calculate Main Observer View Space vectors
-    // Main observer camera is at (0,0,0) in its own view space.
-    float4 satViewPos = mul(g_ubo.view, float4(satWorldPos, 1.0));
-
-    // Earth's center in World Space is (0,0,0). Find it in View Space:
-    float3 earthCenterView = mul(g_ubo.view, float4(0.0, 0.0, 0.0, 1.0)).xyz;
-
-    // Vector from the Earth's center to the Satellite (This is also the horizon normal direction)
-    float3 earthToSatWorld = satWorldPos - float3(0.0, 0.0, 0.0);
-    float3 horizonNormalView = mul(g_ubo.view, float4(earthToSatWorld, 0.0)).xyz;
-
-    // Vector from the main observer camera to the Earth's horizon point facing the satellite
-    // Earth radius is normalized to 1.0f in your cubesphere mesh population
-    float3 earthHorizonPointView = earthCenterView + horizonNormalView;
-    float3 viewRayToHorizon = earthHorizonPointView; // Camera is at (0,0,0) in view space, so vector is just the point
+    // Observer is at (0,0,0), so vector CE is exactly Earth's position in View Space
+    float3 E = mul(g_ubo.view, float4(0.0, 0.0, 0.0, 1.0)).xyz;
+    S = mul(g_ubo.view, float4(S, 1.0)).xyz;
 
     // ==========================================
-    // 5. The True Perspective Horizon Cull
+    // 2.2 Calculate Triangle Properties
     // ==========================================
-    // If the dot product of the horizon normal and the camera view ray to that horizon is > 0.0,
-    // the horizon point is facing away from the camera, putting the satellite behind the Earth's curvature.
-    if (dot(horizonNormalView, viewRayToHorizon) > 0.0)
+    // Squared distance from E to line segment CS using projection (avoids cross product and sqrt)
+    float e_dot_s = dot(E, S);
+    float s_sq = dot(S, S);
+    float d2 = dot(E, E) - (e_dot_s * e_dot_s) / s_sq;
+
+    // Vector from Earth to Satellite
+    float3 ES = S - E;
+
+    // ==========================================
+    // 2.3 Cull if behind
+    // ==========================================
+    // If ray intersects Earth (d2 < 1.0) AND satellite is further away than Earth (dot(E, ES) > 0)
+    if (d2 < 1.0 && dot(E, ES) > 0.0)
     {
         // banish to shadow realm
         out.pos = float4(-10.0, -10.0, -10.0, 1.0);
@@ -81,7 +78,9 @@ VertexOutput vertMain(uint vertexID: SV_VertexID, uint instanceID: SV_InstanceID
         return out;
     }
 
-    // 6. Generate vertex position normally if visible
+    // ==========================================
+    // Render Visible Satellite
+    // ==========================================
     uint idx = kIndices[vertexID];
     float4 ndcPos = kNdcCorners[idx];
     float4 worldPos = mul(satInvViewProj, ndcPos);
