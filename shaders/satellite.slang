@@ -38,6 +38,7 @@ VertexOutput vertMain(uint vertexID: SV_VertexID, uint instanceID: SV_InstanceID
     // 1. Out of bounds check
     if (instanceID >= g_ubo.agentCount)
     {
+        // banish to shadow realm
         out.pos = float4(-10.0, -10.0, -10.0, 1.0);
         out.color = float4(0.0, 0.0, 0.0, 0.0);
         return out;
@@ -60,11 +61,11 @@ VertexOutput vertMain(uint vertexID: SV_VertexID, uint instanceID: SV_InstanceID
 
     // Vector from the Earth's center to the Satellite (This is also the horizon normal direction)
     float3 earthToSatWorld = satWorldPos - float3(0.0, 0.0, 0.0);
-    float3 horizonNormalView = mul(g_ubo.view, float4(normalize(earthToSatWorld), 0.0)).xyz;
+    float3 horizonNormalView = mul(g_ubo.view, float4(earthToSatWorld, 0.0)).xyz;
 
     // Vector from the main observer camera to the Earth's horizon point facing the satellite
     // Earth radius is normalized to 1.0f in your cubesphere mesh population
-    float3 earthHorizonPointView = earthCenterView + horizonNormalView * 1.0;
+    float3 earthHorizonPointView = earthCenterView + horizonNormalView;
     float3 viewRayToHorizon = earthHorizonPointView; // Camera is at (0,0,0) in view space, so vector is just the point
 
     // ==========================================
@@ -74,6 +75,7 @@ VertexOutput vertMain(uint vertexID: SV_VertexID, uint instanceID: SV_InstanceID
     // the horizon point is facing away from the camera, putting the satellite behind the Earth's curvature.
     if (dot(horizonNormalView, viewRayToHorizon) > 0.0)
     {
+        // banish to shadow realm
         out.pos = float4(-10.0, -10.0, -10.0, 1.0);
         out.color = float4(0.0, 0.0, 0.0, 0.0);
         return out;

@@ -47,6 +47,7 @@ static inline std::array<float, 4> getCosineColor(double t, double offset)
 
 static inline void updateAgents(std::vector<AgentData>& agents, const std::vector<libsgp4::SGP4>& propagators, const libsgp4::DateTime& currentTime)
 {
+    // specificatoins derived from SuperDove
     constexpr float aspect = 32.5 / 19.6;
     constexpr float tanHalfFov = 19.6 / 2.0 / 525.0;
     constexpr float zNear = 400.0 * Settings::scaling;
