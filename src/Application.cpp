@@ -45,16 +45,66 @@ static inline std::array<float, 4> getCosineColor(double offset)
 	return {r, g, b, 1.0f};
 }
 
+static inline glm::vec3 getSunVector(const libsgp4::DateTime& currentTime)
+{
+    // 1. Extract the Julian Date from your existing time object
+    const double julian_date = currentTime.ToJulian();
+    
+    // Julian centuries since J2000.0
+    const double T = (julian_date - 2451545.0) / 36525.0;
+    
+    // Mean longitude and anomaly of the Sun
+    double L = 280.460 + 36000.770 * T;
+    double M = 357.528 + 35999.050 * T;
+    
+    L = std::fmod(L, 360.0); if (L < 0) L += 360.0;
+    M = std::fmod(M, 360.0); if (M < 0) M += 360.0;
+    
+    const double M_rad = M * std::numbers::pi / 180.0;
+    
+    // Ecliptic longitude & Obliquity
+    const double lambda = (L + 1.915 * std::sin(M_rad) + 0.020 * std::sin(2.0 * M_rad)) * std::numbers::pi / 180.0;
+    const double obliq_rad = (23.439 - 0.013 * T) * std::numbers::pi / 180.0;
+    
+    // Standard ECI Frame components (where Z is North)
+    const auto eci_x = static_cast<float>(std::cos(lambda));
+    const auto eci_y = static_cast<float>(std::sin(lambda) * std::cos(obliq_rad));
+    const auto eci_z = static_cast<float>(std::sin(lambda) * std::sin(obliq_rad));
+    
+    // 2. swizzle axes (engine mapping: x, z, -y)
+    return glm::vec3{ eci_x, eci_z, -eci_y }; 
+}
+
+static inline float getSunElevationAngle(const glm::vec3& pos, const glm::vec3& sunDir)
+{
+    // The normal vector pointing up from the Earth's surface directly under the satellite
+    const glm::vec3 earthNormal = glm::normalize(pos);
+
+    // Dot product gives the cosine of the zenith angle
+    float cosZenith = glm::dot(earthNormal, sunDir);
+    cosZenith = glm::clamp(cosZenith, -1.0f, 1.0f); // Protect against floating-point drift
+
+    // Elevation is the complement of the zenith angle (sin(elev) = cos(zenith))
+    const float elevationRad = std::asin(cosZenith);
+    const float elevationDeg = glm::degrees(elevationRad);
+
+    // If it's on the dark side (below the horizon), return 0
+    return (elevationDeg > 0.0f) ? elevationDeg : 0.0f;
+}
+
 static inline void updateAgents(std::vector<AgentData>& agents, const std::vector<libsgp4::SGP4>& propagators, const libsgp4::DateTime& currentTime)
 {
     // specificatoins derived from SuperDove
-    constexpr float aspect = 19.6 / 32.5;
-    constexpr float tanHalfFov = 32.5 / 2.0 / 525.0 * 10; // TODO: remove last multiplier after testing
+    constexpr float aspect = 32.5/ 19.6;
+    constexpr float tanHalfFov = 19.6 / 2.0 / 525.0 * 10; // TODO: remove last multiplier after testing
     constexpr float zNear = 400.0 * Settings::scaling;
     constexpr float zFar = 525.0 * Settings::scaling;
     constexpr float OmegaStrength = (1.0 / (5.0 / 0.5)) * (19.6 * Settings::scaling * 32.5 * Settings::scaling); // 0.5 fps, 5 frames for 'full' survey
 
     const std::size_t count = std::min(agents.size(), propagators.size());
+
+    // Compute the Sun vector once for this time step
+    const glm::vec3 sunDir = getSunVector(currentTime);
 
     for (std::size_t i = 0; i < count; ++i)
     {
@@ -74,10 +124,14 @@ static inline void updateAgents(std::vector<AgentData>& agents, const std::vecto
             static_cast<float>(eciVelocity.z * Settings::scaling),
             static_cast<float>(-eciVelocity.y * Settings::scaling));
 
+        const float sunElevation = getSunElevationAngle(pos, sunDir);
+        // FLOCK Satellite only works is sun elevation > 10
+        const bool isOn = (sunElevation > 10.0f);
+        
         // ==========================================
         // Off-Nadir Pointing Calculation
         // ==========================================
-        
+        /*
         // 1. Define angle (in degrees))
         const float angleOffset = glm::radians(0.0f); 
 
@@ -93,9 +147,9 @@ static inline void updateAgents(std::vector<AgentData>& agents, const std::vecto
 
         // 5. Calculate the new target point in world space
         const glm::vec3 target = pos + offNadirForward;
-
+        */
         // 6. Generate the view matrix using the new target
-        glm::mat4 view = glm::lookAt(pos, target, vel);
+        glm::mat4 view = glm::lookAt(pos, glm::vec3{0.0, 0.0, 0.0}/*target*/, vel);
         // ==========================================
 
         view[0][3] = tanHalfFov;
@@ -105,8 +159,10 @@ static inline void updateAgents(std::vector<AgentData>& agents, const std::vecto
 
         agents[i].camera = view;
 
-        auto col = getCosineColor(static_cast<double>(i)); col[3] = OmegaStrength;
+        const auto col = getCosineColor(static_cast<double>(i));
         std::memcpy(agents[i].data, col.data(), sizeof(col));
+        // no survey if no On
+        agents[i].data[3] = isOn ? OmegaStrength : 0.0f;
     }
 }
 

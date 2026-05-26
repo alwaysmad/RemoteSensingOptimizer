@@ -86,7 +86,25 @@ VertexOutput vertMain(uint vertexID: SV_VertexID, uint instanceID: SV_InstanceID
     float4 worldPos = mul(satInvViewProj, ndcPos);
 
     out.pos = mul(g_ubo.proj, mul(g_ubo.view, worldPos));
-    out.color = float4(g_ubo.agents[instanceID].data.xyzw);
+    // ==========================================
+    // Visual Styling: Active vs Inactive
+    // ==========================================
+    float4 agentData = g_ubo.agents[instanceID].data;
+    float3 finalColor = agentData.xyz;
+
+    // Check if OmegaStrength (.w) is zero
+    if (agentData.w <= 0.0f)
+    {
+        // 1. Convert RGB to perceptual grayscale luminance (Rec. 709 weights)
+        float luminance = dot(finalColor, float3(0.2126, 0.7152, 0.0722));
+
+        // 2. Desaturate and drastically dim the color
+        // Scaling the luminance by 0.15 keeps it subtly visible as a matte gray.
+        // We add a tiny offset (0.05) to ensure it doesn't pitch black out if the original color was dark blue.
+        finalColor = float3(luminance * 0.15f + 0.05f);
+    }
+
+    out.color = float4(finalColor, 1.0f);
     return out;
 }
 
