@@ -155,7 +155,6 @@ struct Mesh
                     constexpr float epsilon = 0.0f; //0.0004f;
                     constexpr float v = 1.0f;
                     const float s = area;
-                    totalSurfaceArea += static_cast<double>(area);
                     constexpr float w = 1.0f;
 
                     // 7. Add vertex to GPU arrays
@@ -163,6 +162,7 @@ struct Mesh
                     {
                         vertices.emplace_back(std::array<float, 4>{ pos.x, pos.y, pos.z, alpha });
                         vertexData.emplace_back(std::array<float, 4>{ epsilon, v, s, w });
+                        totalSurfaceArea += static_cast<double>(area);
                     }
                 }
             }

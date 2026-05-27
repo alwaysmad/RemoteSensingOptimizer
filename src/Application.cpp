@@ -195,8 +195,8 @@ int Application::launch()
 
 	constexpr double SIMULATION_TIME_STEP = 1.0;
     const libsgp4::DateTime startSimTime(2026, 6, 20, 10, 0, 0);
-    //libsgp4::DateTime endSimTime(2026, 6, 20, 13, 0, 0);
-    libsgp4::DateTime endSimTime(2026, 6, 20, 10, 0, 30);
+    libsgp4::DateTime endSimTime(2026, 6, 20, 13, 0, 0);
+    //libsgp4::DateTime endSimTime(2026, 6, 20, 10, 0, 30);
 
     // no activity here
     /*const libsgp4::DateTime startSimTime(2026, 6, 20, 13, 0, 0);

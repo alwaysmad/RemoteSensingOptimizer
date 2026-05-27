@@ -15,9 +15,9 @@ endif()
 # -------------------------
 
 # --- Set Build Type and Flags ---
-# Set a default build type if none is specified (e.g., Debug)
+# Set a default build type if none is specified (e.g., Release)
 if(NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose build type: Debug, Release, RelWithDebInfo, MinSizeRel")
+	set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose build type: Debug, Release, RelWithDebInfo, MinSizeRel")
 endif()
 
 # Set standard compiler flags for Release and Debug builds

@@ -36,7 +36,7 @@ set(RSO_COMMON_SOURCES
 )
 
 set(RSO_COMMON_COMPILE_DEFINITIONS
-	$<$<CONFIG:Debug>:ENABLE_DEBUG_LOGGING>
+	$<$<NOT:$<CONFIG:Debug>>:NDEBUG>
 	VULKAN_HPP_NO_CONSTRUCTORS
 	GLFW_INCLUDE_VULKAN
 	GLM_FORCE_CXX20
@@ -138,7 +138,7 @@ add_slang_shader_target(CompileReduce
 	DEPENDS ${CMAKE_SOURCE_DIR}/shaders/shared.slang
 )
 
-add_rso_binary(rso)
+add_rso_binary(rso DEFINITIONS)
 add_rso_binary(rso_headless DEFINITIONS HEADLESS)
 
 add_dependencies(rso flock_tle_data CompileMesh CompileComputeAlpha CompileSatellite CompileReduce)
