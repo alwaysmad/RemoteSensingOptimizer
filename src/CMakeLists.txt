@@ -1,9 +1,6 @@
 # src/CMakeLists.txt
 
-add_executable(rso main.cpp)
-
-# 2. Add sources
-target_sources(rso PRIVATE
+set(RSO_COMMON_SOURCES
 	engine/window/Camera.cpp
 	engine/window/WindowContext.hpp
 	engine/window/Window.hpp
@@ -38,8 +35,7 @@ target_sources(rso PRIVATE
 	EngineInstance.cpp
 )
 
-# 3. Compile Definitions
-target_compile_definitions(rso PRIVATE
+set(RSO_COMMON_COMPILE_DEFINITIONS
 	$<$<CONFIG:Debug>:ENABLE_DEBUG_LOGGING>
 	VULKAN_HPP_NO_CONSTRUCTORS
 	GLFW_INCLUDE_VULKAN
@@ -48,26 +44,26 @@ target_compile_definitions(rso PRIVATE
 	GLM_FORCE_RADIANS
 )
 
-# 4. Include Directories (CRITICAL FIX)
-target_include_directories(rso PRIVATE
-	${vulkan-hpp_BINARY_DIR}
-	${sgp4_SOURCE_DIR}/libsgp4
-	${CMAKE_CURRENT_SOURCE_DIR}
-	${CMAKE_CURRENT_BINARY_DIR}
-)
+function(add_rso_binary TARGET_NAME)
+	cmake_parse_arguments(ARG "" "" "DEFINITIONS" ${ARGN})
 
-# 5. Link Libraries
-target_link_libraries(rso PRIVATE 
-	Vulkan::Vulkan
-	glfw
-	glm::glm
-	sgp4
-)
+	add_executable(${TARGET_NAME} main.cpp)
+	target_sources(${TARGET_NAME} PRIVATE ${RSO_COMMON_SOURCES})
+	target_compile_definitions(${TARGET_NAME} PRIVATE ${RSO_COMMON_COMPILE_DEFINITIONS} ${ARG_DEFINITIONS})
+	target_include_directories(${TARGET_NAME} PRIVATE
+		${vulkan-hpp_BINARY_DIR}
+		${sgp4_SOURCE_DIR}/libsgp4
+		${CMAKE_CURRENT_SOURCE_DIR}
+		${CMAKE_CURRENT_BINARY_DIR}
+	)
+	target_link_libraries(${TARGET_NAME} PRIVATE 
+		Vulkan::Vulkan
+		glfw
+		glm::glm
+		sgp4
+	)
 
-add_dependencies(rso flock_tle_data)
-
-# 6. Precompiled Headers (PCH)
-target_precompile_headers(rso PRIVATE
+	target_precompile_headers(${TARGET_NAME} PRIVATE
 	# STL
 	<vector>      # dynamic arrays (extensions, layer lists, etc.)
 	<array>       # fixed-size math/vertex helper arrays
@@ -116,6 +112,8 @@ target_precompile_headers(rso PRIVATE
 	"engine/VulkanHelpers.hpp"
 )
 
+endfunction()
+
 add_slang_shader_target(CompileMesh
 	SOURCES ${CMAKE_SOURCE_DIR}/shaders/mesh.slang
 	ENTRIES vertMain fragMain
@@ -140,5 +138,8 @@ add_slang_shader_target(CompileReduce
 	DEPENDS ${CMAKE_SOURCE_DIR}/shaders/shared.slang
 )
 
-# 8. Add dependencies so they build before the executable
-add_dependencies(rso CompileMesh CompileComputeAlpha CompileSatellite CompileReduce)
+add_rso_binary(rso)
+add_rso_binary(rso_headless DEFINITIONS HEADLESS)
+
+add_dependencies(rso flock_tle_data CompileMesh CompileComputeAlpha CompileSatellite CompileReduce)
+add_dependencies(rso_headless flock_tle_data CompileMesh CompileComputeAlpha CompileSatellite CompileReduce)

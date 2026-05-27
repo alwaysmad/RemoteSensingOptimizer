@@ -195,13 +195,14 @@ int Application::launch()
 
 	constexpr double SIMULATION_TIME_STEP = 1.0;
     const libsgp4::DateTime startSimTime(2026, 6, 20, 10, 0, 0);
-    libsgp4::DateTime endSimTime(2026, 6, 20, 13, 0, 0);
+    //libsgp4::DateTime endSimTime(2026, 6, 20, 13, 0, 0);
+    libsgp4::DateTime endSimTime(2026, 6, 20, 10, 0, 30);
 
     // no activity here
     /*const libsgp4::DateTime startSimTime(2026, 6, 20, 13, 0, 0);
     libsgp4::DateTime endSimTime(2026, 6, 21, 10, 0, 0);*/
 
-    endSimTime = endSimTime.AddSeconds(SIMULATION_TIME_STEP2 * 2);
+    endSimTime = endSimTime.AddSeconds(SIMULATION_TIME_STEP * 2);
     libsgp4::DateTime simTime = startSimTime;
 
     m_logger.cInfo("Active satellites: {}", FLOCK_tle_data::tle_data.size());
@@ -217,8 +218,12 @@ int Application::launch()
 	while (!engine.shouldClose() && simTime <= endSimTime)
 	{
         if (engine.isPaused())
-            { engine.tick(static_cast<float>(SIMULATION_TIME_STEP)); continue; }
-
+        {
+            engine.tick(static_cast<float>(SIMULATION_TIME_STEP));
+            const auto reportedSimTime = (simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2;
+            m_logger.cInfo("{} | J_T: {:.6f}", reportedSimTime, J_T);
+            continue;
+        }
         updateAgents(agents, propagators, simTime);
 		updateModel(model, simTime);
 		engine.tick(static_cast<float>(SIMULATION_TIME_STEP));

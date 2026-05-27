@@ -89,9 +89,8 @@ inline void selectPhysicalDevice(
 
 }
 
-inline void pickQueueFamilies(
+inline void pickHeadlessQueueFamilies(
     const vk::raii::PhysicalDevice& physicalDevice,
-    const vk::raii::SurfaceKHR* surface,
     uint32_t& outGraphics,
     uint32_t& outPresent,
     uint32_t& outCompute,
@@ -101,37 +100,7 @@ inline void pickQueueFamilies(
 
     outGraphics = outPresent = outCompute = outTransfer = UINT32_MAX;
 
-    if (surface != nullptr)
-    {
-        for (uint32_t i = 0; i < queueFamilies.size(); ++i)
-        { // 1. Try to find a queue family that supports BOTH Graphics and Present
-            const bool supportsGraphics = (queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics) != vk::QueueFlags {};
-            const bool supportsPresent = physicalDevice.getSurfaceSupportKHR(i, **surface);
-            if (supportsGraphics && supportsPresent)
-                { outGraphics = outPresent = i; break; }
-        }
-
-        // 2. If we didn't find a unified one, fallback to separate queues
-        if (outGraphics == UINT32_MAX)
-        { // Find any graphics queue
-            for (uint32_t i = 0; i < queueFamilies.size(); ++i)
-            {
-                if ((queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics) != vk::QueueFlags {})
-                    { outGraphics = i; break; }
-            }
-        }
-        if (outPresent == UINT32_MAX)
-        { // Find any present queue
-            for (uint32_t i = 0; i < queueFamilies.size(); ++i)
-            {
-                if (physicalDevice.getSurfaceSupportKHR(i, **surface))
-                    { outPresent = i; break; }
-            }
-        }
-    }
-
-    // 3. Find Compute (Dedicated if possible, or reuse graphics)
-    // Some vendors have a dedicated compute queue (Async Compute) which is faster.
+    // Headless mode should never depend on surface-backed queue capabilities.
     for (uint32_t i = 0; i < queueFamilies.size(); ++i)
     {
         const bool supportsCompute = (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) != vk::QueueFlags {};
@@ -170,21 +139,94 @@ inline void pickQueueFamilies(
     if (outTransfer == UINT32_MAX)
         { outTransfer = outGraphics; }
 
-    if (surface != nullptr)
+    if (outCompute == UINT32_MAX)
+        { throw std::runtime_error("Failed to find compute queue family"); }
+    if (outTransfer == UINT32_MAX)
+        { throw std::runtime_error("Failed to find transfer queue family"); }
+
+    // Route non-surface types to a valid queue for safety.
+    outGraphics = outCompute;
+    outPresent = outCompute;
+}
+
+inline void pickSurfaceQueueFamilies(
+    const vk::raii::PhysicalDevice& physicalDevice,
+    const vk::raii::SurfaceKHR& surface,
+    uint32_t& outGraphics,
+    uint32_t& outPresent,
+    uint32_t& outCompute,
+    uint32_t& outTransfer)
+{
+    const auto queueFamilies = physicalDevice.getQueueFamilyProperties();
+
+    outGraphics = outPresent = outCompute = outTransfer = UINT32_MAX;
+
+    for (uint32_t i = 0; i < queueFamilies.size(); ++i)
     {
-        if (outGraphics == UINT32_MAX)
-            { throw std::runtime_error("Failed to find graphics queue family"); }
-        if (outPresent == UINT32_MAX)
-            { throw std::runtime_error("Failed to find queue family that can present to surface"); }
-    } else
-    {
-        if (outCompute == UINT32_MAX)
-            { throw std::runtime_error("Failed to find compute queue family"); }
-        // Route non-surface types to a valid queue for safety.
-        outGraphics = outCompute;
-        outPresent = outCompute;
+        const bool supportsGraphics = (queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics) != vk::QueueFlags {};
+        const bool supportsPresent = physicalDevice.getSurfaceSupportKHR(i, surface);
+        if (supportsGraphics && supportsPresent)
+            { outGraphics = outPresent = i; break; }
     }
 
+    if (outGraphics == UINT32_MAX)
+    {
+        for (uint32_t i = 0; i < queueFamilies.size(); ++i)
+        {
+            if ((queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics) != vk::QueueFlags {})
+                { outGraphics = i; break; }
+        }
+    }
+
+    if (outPresent == UINT32_MAX)
+    {
+        for (uint32_t i = 0; i < queueFamilies.size(); ++i)
+        {
+            if (physicalDevice.getSurfaceSupportKHR(i, surface))
+                { outPresent = i; break; }
+        }
+    }
+
+    for (uint32_t i = 0; i < queueFamilies.size(); ++i)
+    {
+        const bool supportsCompute = (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) != vk::QueueFlags {};
+        if (supportsCompute && i != outGraphics)
+            { outCompute = i; break; }
+    }
+
+    if (outCompute == UINT32_MAX)
+    {
+        if (outGraphics != UINT32_MAX)
+            { outCompute = outGraphics; }
+        else
+        {
+            for (uint32_t i = 0; i < queueFamilies.size(); ++i)
+            {
+                if ((queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) != vk::QueueFlags {})
+                    { outCompute = i; break; }
+            }
+        }
+    }
+
+    for (uint32_t i = 0; i < queueFamilies.size(); ++i)
+    {
+        const auto flags = queueFamilies[i].queueFlags;
+        const bool transfer = (flags & vk::QueueFlagBits::eTransfer) != vk::QueueFlags {};
+        const bool graphics = (flags & vk::QueueFlagBits::eGraphics) != vk::QueueFlags {};
+        const bool compute = (flags & vk::QueueFlagBits::eCompute) != vk::QueueFlags {};
+        if (transfer && !graphics && !compute)
+            { outTransfer = i; break; }
+    }
+
+    if (outTransfer == UINT32_MAX && outCompute != UINT32_MAX)
+        { outTransfer = outCompute; }
+    if (outTransfer == UINT32_MAX)
+        { outTransfer = outGraphics; }
+
+    if (outGraphics == UINT32_MAX)
+        { throw std::runtime_error("Failed to find graphics queue family"); }
+    if (outPresent == UINT32_MAX)
+        { throw std::runtime_error("Failed to find queue family that can present to surface"); }
     if (outCompute == UINT32_MAX)
         { throw std::runtime_error("Failed to find compute queue family"); }
     if (outTransfer == UINT32_MAX)
@@ -304,8 +346,25 @@ void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKH
 
     uint32_t graphicsQueueIndex, presentQueueIndex, computeQueueIndex, transferQueueIndex;
 
-    pickQueueFamilies( m_physicalDevice, surface,
-        graphicsQueueIndex, presentQueueIndex, computeQueueIndex, transferQueueIndex );
+    if (surface != nullptr)
+    {
+        pickSurfaceQueueFamilies(
+            m_physicalDevice,
+            *surface,
+            graphicsQueueIndex,
+            presentQueueIndex,
+            computeQueueIndex,
+            transferQueueIndex);
+    }
+    else
+    {
+        pickHeadlessQueueFamilies(
+            m_physicalDevice,
+            graphicsQueueIndex,
+            presentQueueIndex,
+            computeQueueIndex,
+            transferQueueIndex);
+    }
 
     std::set<uint32_t> uniqueQueueFamilies {
         transferQueueIndex, computeQueueIndex, graphicsQueueIndex, presentQueueIndex };

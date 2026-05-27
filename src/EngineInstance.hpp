@@ -31,14 +31,14 @@ private:
 	const Mesh& m_mesh;
 	const std::vector<AgentData>& m_agents;
 	const glm::mat4& m_model;
-	svk::WindowContext m_windowContext;
-	svk::Instance m_instance;
-	svk::Window m_window;
-	svk::Camera m_camera;
-	svk::Device m_device;
-	svk::Swapchain m_swapchain;
-	svk::RenderRoutine m_renderRoutine;
-	svk::TransferRoutine m_transferRoutine;
+	std::optional<svk::WindowContext> m_windowContext;
+	std::optional<svk::Instance> m_instance;
+	std::optional<svk::Window> m_window;
+	std::optional<svk::Camera> m_camera;
+	std::optional<svk::Device> m_device;
+	std::optional<svk::Swapchain> m_swapchain;
+	std::optional<svk::RenderRoutine> m_renderRoutine;
+	std::optional<svk::TransferRoutine> m_transferRoutine;
 	std::optional<svk::ComputeRoutine> m_computeRoutine;
 	std::optional<svk::ComputeRoutine> m_reduceRoutine;
 
@@ -83,9 +83,24 @@ public:
 	~EngineInstance();
 
 	void tick(float timeStep);
-	[[nodiscard]] inline bool shouldClose() const { return m_window.shouldClose(); };
-	[[nodiscard]] inline bool isPaused() const { return m_camera.isPaused(); }
-	inline bool setPause(bool paused) { return m_camera.setPause(paused); }
+	[[nodiscard]] inline bool shouldClose() const
+	{
+		if constexpr (!Settings::headlessMode)
+			{ if (m_window) { return m_window->shouldClose(); } }
+		return false;
+	}
+	[[nodiscard]] inline bool isPaused() const
+	{
+		if constexpr (!Settings::headlessMode)
+			{ if (m_camera) { return m_camera->isPaused(); } }
+		return false;
+	}
+	inline bool setPause(bool paused)
+	{
+		if constexpr (!Settings::headlessMode)
+			{ if (m_camera) { return m_camera->setPause(paused); } }
+		return false;
+	}
 
 private:
 	void updateUBO(uint32_t currentFrame, float timeStep);

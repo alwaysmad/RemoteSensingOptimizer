@@ -7,6 +7,5 @@ namespace svk
 #else
     constexpr bool enableValidationLayers = true;
 #endif
-
-    // (You can add other engine-wide constexpr flags here later)
+// (You can add other engine-wide constexpr flags here later)
 }
