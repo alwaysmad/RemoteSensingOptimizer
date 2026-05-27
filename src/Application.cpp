@@ -96,7 +96,7 @@ static inline void updateAgents(std::vector<AgentData>& agents, const std::vecto
 {
     // specificatoins derived from SuperDove
     constexpr float aspect = 32.5/ 19.6;
-    constexpr float tanHalfFov = 19.6 / 2.0 / 525.0 * 10; // TODO: remove last multiplier after testing
+    constexpr float tanHalfFov = 19.6 / 2.0 / 525.0; // TODO: remove last multiplier after testing
     constexpr float zNear = 400.0 * Settings::scaling;
     constexpr float zFar = 525.0 * Settings::scaling;
     constexpr float OmegaStrength = (1.0 / (5.0 / 0.5)) * (19.6 * Settings::scaling * 32.5 * Settings::scaling); // 0.5 fps, 5 frames for 'full' survey
@@ -193,9 +193,11 @@ int Application::launch()
 	float J_T = 0.0f;
 	float J_av = 0.0f;
 
-	constexpr double SIMULATION_TIME_STEP = 5.0;
-    const libsgp4::DateTime startSimTime(2026, 5, 20, 12, 0, 0);
-    libsgp4::DateTime m_simTime = startSimTime;
+	constexpr double SIMULATION_TIME_STEP = 1.0;
+    const libsgp4::DateTime startSimTime(2026, 6, 20, 0, 0, 0);
+    libsgp4::DateTime endSimTime(2026, 6, 21, 0, 0, 0);
+    endSimTime = endSimTime.AddSeconds(2 * SIMULATION_TIME_STEP);
+    libsgp4::DateTime simTime = startSimTime;
 
     m_logger.cInfo("Active satellites: {}", FLOCK_tle_data::tle_data.size());
     for (const auto& tle : FLOCK_tle_data::tle_data)
@@ -207,21 +209,26 @@ int Application::launch()
     //agents.resize(1);
 
 	EngineInstance engine(m_settings, m_logger, J_T, J_av, mesh, agents, model);
-	while (!engine.shouldClose()/*&& m_simTime < SIM_END_TIME*/)
+	while (!engine.shouldClose() && simTime <= endSimTime)
 	{
         if (engine.isPaused())
             { engine.tick(static_cast<float>(SIMULATION_TIME_STEP)); continue; }
 
-        updateAgents(agents, propagators, m_simTime);
-		updateModel(model, m_simTime);
+        updateAgents(agents, propagators, simTime);
+		updateModel(model, simTime);
 		engine.tick(static_cast<float>(SIMULATION_TIME_STEP));
-        const auto reportedSimTime = (m_simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2;
+        const auto reportedSimTime = (simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2;
         //if (reportedSimTime >= 0.0)
             { m_logger.cInfo("{} | J_T: {}", reportedSimTime, J_T); }
-        m_simTime = m_simTime.AddSeconds(SIMULATION_TIME_STEP);
+        simTime = simTime.AddSeconds(SIMULATION_TIME_STEP);
 	}
+    
+    // Once simulation is done pause to show final state
+    engine.setPause(true);
+    while(!engine.shouldClose() || !engine.isPaused())
+        { engine.tick(static_cast<float>(SIMULATION_TIME_STEP)); continue; }
 
-    const auto elapsedTime = static_cast<float>((m_simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2);
+    const auto elapsedTime = static_cast<float>((simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2);
     if (elapsedTime > 0.0)
         { m_logger.cInfo("Final J_av: {}", J_av / elapsedTime); }
 

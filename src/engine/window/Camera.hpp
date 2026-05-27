@@ -66,6 +66,7 @@ public:
     [[nodiscard]] inline const glm::mat4& getView() const { return m_state.view; }
     [[nodiscard]] inline const glm::mat4& getProj() const { return m_state.proj; }
     [[nodiscard]] inline bool isPaused() const { return m_state.isPaused; }
+    inline bool setPause(bool paused) { return m_state.isPaused = paused; }
 
 private:
     GLFWwindow* m_window = nullptr;

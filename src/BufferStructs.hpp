@@ -55,7 +55,7 @@ struct Mesh
 
     Mesh() = default;
 
-    static inline bool isMeshPointInGreenland(const glm::vec3& pos)
+    static inline bool isMeshPointInFrance(const glm::vec3& pos)
     {
         // 1. Latitude: Angle from the XZ equatorial plane
         // Returns radians in the range [-pi/2, pi/2]
@@ -71,9 +71,9 @@ struct Mesh
         float lat = latRad * radToDeg;
         float lon = lonRad * radToDeg;
 
-        // 4. Evaluate against the Greenland BBOX
-        return (lon >= -73.5f && lon <= -11.3f) && 
-            (lat >= 59.7f  && lat <= 83.7f);
+        // 4. Evaluate against the Metropolitan France BBOX
+        return (lon >= -5.5f && lon <= 9.6f) && 
+            (lat >= 41.3f && lat <= 51.1f);
     }
 
     // Helper to calculate the exact solid angle of a rectangle on the z=1 face
@@ -159,7 +159,7 @@ struct Mesh
                     constexpr float w = 1.0f;
 
                     // 7. Add vertex to GPU arrays
-                    if (isMeshPointInGreenland(pos))
+                    if (isMeshPointInFrance(pos))
                     {
                         vertices.emplace_back(std::array<float, 4>{ pos.x, pos.y, pos.z, alpha });
                         vertexData.emplace_back(std::array<float, 4>{ epsilon, v, s, w });

@@ -85,6 +85,7 @@ public:
 	void tick(float timeStep);
 	[[nodiscard]] inline bool shouldClose() const { return m_window.shouldClose(); };
 	[[nodiscard]] inline bool isPaused() const { return m_camera.isPaused(); }
+	inline bool setPause(bool paused) { return m_camera.setPause(paused); }
 
 private:
 	void updateUBO(uint32_t currentFrame, float timeStep);
