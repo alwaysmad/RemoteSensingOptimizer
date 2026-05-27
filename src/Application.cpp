@@ -4,9 +4,13 @@
 #include <filesystem> // std::filesystem::temp_directory_path
 
 #include <array>
+#include <algorithm>
 #include <chrono>
 #include <cmath>
-#include <algorithm>
+#include <limits>
+#include <numbers>
+#include <sstream>
+#include <string>
 
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
@@ -47,136 +51,97 @@ static inline std::array<float, 4> getCosineColor(double offset)
 
 static inline glm::vec3 getSunVector(const libsgp4::DateTime& currentTime)
 {
-    // 1. Extract the Julian Date from your existing time object
-    const double julian_date = currentTime.ToJulian();
-    
-    // Julian centuries since J2000.0
-    const double T = (julian_date - 2451545.0) / 36525.0;
-    
-    // Mean longitude and anomaly of the Sun
-    double L = 280.460 + 36000.770 * T;
-    double M = 357.528 + 35999.050 * T;
-    
-    L = std::fmod(L, 360.0); if (L < 0) L += 360.0;
-    M = std::fmod(M, 360.0); if (M < 0) M += 360.0;
-    
-    const double M_rad = M * std::numbers::pi / 180.0;
-    
-    // Ecliptic longitude & Obliquity
-    const double lambda = (L + 1.915 * std::sin(M_rad) + 0.020 * std::sin(2.0 * M_rad)) * std::numbers::pi / 180.0;
-    const double obliq_rad = (23.439 - 0.013 * T) * std::numbers::pi / 180.0;
-    
-    // Standard ECI Frame components (where Z is North)
-    const auto eci_x = static_cast<float>(std::cos(lambda));
-    const auto eci_y = static_cast<float>(std::sin(lambda) * std::cos(obliq_rad));
-    const auto eci_z = static_cast<float>(std::sin(lambda) * std::sin(obliq_rad));
-    
-    // 2. swizzle axes (engine mapping: x, z, -y)
-    return glm::vec3{ eci_x, eci_z, -eci_y }; 
+	const double julianDate = currentTime.ToJulian();
+	const double julianCenturies = (julianDate - 2451545.0) / 36525.0;
+
+	double meanLongitude = 280.460 + 36000.770 * julianCenturies;
+	double meanAnomaly = 357.528 + 35999.050 * julianCenturies;
+
+	meanLongitude = std::fmod(meanLongitude, 360.0);
+	if (meanLongitude < 0.0)
+		{ meanLongitude += 360.0; }
+	meanAnomaly = std::fmod(meanAnomaly, 360.0);
+	if (meanAnomaly < 0.0)
+		{ meanAnomaly += 360.0; }
+
+	const double meanAnomalyRad = meanAnomaly * std::numbers::pi / 180.0;
+	const double eclipticLongitude = (meanLongitude + 1.915 * std::sin(meanAnomalyRad) + 0.020 * std::sin(2.0 * meanAnomalyRad)) * std::numbers::pi / 180.0;
+	const double obliquityRad = (23.439 - 0.013 * julianCenturies) * std::numbers::pi / 180.0;
+
+	const auto eciX = static_cast<float>(std::cos(eclipticLongitude));
+	const auto eciY = static_cast<float>(std::sin(eclipticLongitude) * std::cos(obliquityRad));
+	const auto eciZ = static_cast<float>(std::sin(eclipticLongitude) * std::sin(obliquityRad));
+
+	return glm::vec3{ eciX, eciZ, -eciY };
 }
 
 static inline float getSunElevationAngle(const glm::vec3& pos, const glm::vec3& sunDir)
 {
-    // The normal vector pointing up from the Earth's surface directly under the satellite
-    const glm::vec3 earthNormal = glm::normalize(pos);
+	const glm::vec3 earthNormal = glm::normalize(pos);
+	float cosZenith = glm::dot(earthNormal, sunDir);
+	cosZenith = glm::clamp(cosZenith, -1.0f, 1.0f);
 
-    // Dot product gives the cosine of the zenith angle
-    float cosZenith = glm::dot(earthNormal, sunDir);
-    cosZenith = glm::clamp(cosZenith, -1.0f, 1.0f); // Protect against floating-point drift
-
-    // Elevation is the complement of the zenith angle (sin(elev) = cos(zenith))
-    const float elevationRad = std::asin(cosZenith);
-    const float elevationDeg = glm::degrees(elevationRad);
-
-    // If it's on the dark side (below the horizon), return 0
-    return (elevationDeg > 0.0f) ? elevationDeg : 0.0f;
+	const float elevationRad = std::asin(cosZenith);
+	const float elevationDeg = glm::degrees(elevationRad);
+	return (elevationDeg > 0.0f) ? elevationDeg : 0.0f;
 }
 
 static inline void updateAgents(std::vector<AgentData>& agents, const std::vector<libsgp4::SGP4>& propagators, const libsgp4::DateTime& currentTime)
 {
-    // specificatoins derived from SuperDove
-    constexpr float aspect = 32.5/ 19.6;
-    constexpr float tanHalfFov = 19.6 / 2.0 / 525.0; // TODO: remove last multiplier after testing
-    constexpr float zNear = 400.0 * Settings::scaling;
-    constexpr float zFar = 525.0 * Settings::scaling;
-    constexpr float OmegaStrength = (1.0 / (5.0 / 0.5)) * (19.6 * Settings::scaling * 32.5 * Settings::scaling); // 0.5 fps, 5 frames for 'full' survey
+	constexpr float aspect = 32.5 / 19.6;
+	constexpr float tanHalfFov = 19.6 / 2.0 / 525.0;
+	constexpr float zNear = 400.0 * Settings::scaling;
+	constexpr float zFar = 525.0 * Settings::scaling;
+	constexpr float OmegaStrength = (1.0 / (5.0 / 0.5)) * (19.6 * Settings::scaling * 32.5 * Settings::scaling);
 
-    const std::size_t count = std::min(agents.size(), propagators.size());
+	const std::size_t count = std::min(agents.size(), propagators.size());
+	const glm::vec3 sunDir = getSunVector(currentTime);
 
-    // Compute the Sun vector once for this time step
-    const glm::vec3 sunDir = getSunVector(currentTime);
+	for (std::size_t i = 0; i < count; ++i)
+	{
+		const libsgp4::Eci eci = propagators[i].FindPosition(currentTime);
 
-    for (std::size_t i = 0; i < count; ++i)
-    {
-        const libsgp4::Eci eci = propagators[i].FindPosition(currentTime);
+		const libsgp4::Vector eciPosition = eci.Position();
+		const libsgp4::Vector eciVelocity = eci.Velocity();
 
-        const libsgp4::Vector eciPosition = eci.Position();
-        const libsgp4::Vector eciVelocity = eci.Velocity();
+		const glm::vec3 pos(
+			static_cast<float>(eciPosition.x * Settings::scaling),
+			static_cast<float>(eciPosition.z * Settings::scaling),
+			static_cast<float>(-eciPosition.y * Settings::scaling));
 
-        // Scale and swizzle axes (engine mapping: x, z, -y)
-        const glm::vec3 pos(
-            static_cast<float>(eciPosition.x * Settings::scaling),
-            static_cast<float>(eciPosition.z * Settings::scaling),
-            static_cast<float>(-eciPosition.y * Settings::scaling));
+		const glm::vec3 vel(
+			static_cast<float>(eciVelocity.x * Settings::scaling),
+			static_cast<float>(eciVelocity.z * Settings::scaling),
+			static_cast<float>(-eciVelocity.y * Settings::scaling));
 
-        const glm::vec3 vel(
-            static_cast<float>(eciVelocity.x * Settings::scaling),
-            static_cast<float>(eciVelocity.z * Settings::scaling),
-            static_cast<float>(-eciVelocity.y * Settings::scaling));
+		const float sunElevation = getSunElevationAngle(pos, sunDir);
+		const bool isOn = (sunElevation > 10.0f);
 
-        const float sunElevation = getSunElevationAngle(pos, sunDir);
-        // FLOCK Satellite only works is sun elevation > 10
-        const bool isOn = (sunElevation > 10.0f);
-        
-        // ==========================================
-        // Off-Nadir Pointing Calculation
-        // ==========================================
-        /*
-        // 1. Define angle (in degrees))
-        const float angleOffset = glm::radians(0.0f); 
+		glm::mat4 view = glm::lookAt(pos, glm::vec3{0.0, 0.0, 0.0}, vel);
+		view[0][3] = tanHalfFov;
+		view[1][3] = aspect;
+		view[2][3] = zNear;
+		view[3][3] = zFar;
 
-        // 2. Determine the original nadir forward vector (pointing exactly at 0,0,0)
-        const glm::vec3 nadirForward = glm::normalize(-pos); 
+		agents[i].camera = view;
 
-        // 3. Create a rotation matrix around the normalized velocity axis
-        const glm::vec3 rotAxis = glm::normalize(vel);
-        const glm::mat4 rotMatrix = glm::rotate(glm::mat4(1.0f), angleOffset, rotAxis);
-
-        // 4. Rotate the forward vector 
-        const glm::vec3 offNadirForward = glm::vec3(rotMatrix * glm::vec4(nadirForward, 0.0f));
-
-        // 5. Calculate the new target point in world space
-        const glm::vec3 target = pos + offNadirForward;
-        */
-        // 6. Generate the view matrix using the new target
-        glm::mat4 view = glm::lookAt(pos, glm::vec3{0.0, 0.0, 0.0}/*target*/, vel);
-        // ==========================================
-
-        view[0][3] = tanHalfFov;
-        view[1][3] = aspect;
-        view[2][3] = zNear;
-        view[3][3] = zFar;
-
-        agents[i].camera = view;
-
-        const auto col = getCosineColor(static_cast<double>(i));
-        std::memcpy(agents[i].data, col.data(), sizeof(col));
-        // no survey if no On
-        agents[i].data[3] = isOn ? OmegaStrength : 0.0f;
-    }
+		const auto col = getCosineColor(static_cast<double>(i));
+		std::memcpy(agents[i].data, col.data(), sizeof(col));
+		agents[i].data[3] = isOn ? OmegaStrength : 0.0f;
+	}
 }
 
 static inline void updateModel(glm::mat4& model, const libsgp4::DateTime& currentTime)
 {
-    const auto siderealAngle = currentTime.ToGreenwichSiderealTime();
-    const auto cosTime = static_cast<float>(std::cos(siderealAngle));
-    const auto sinTime = static_cast<float>(std::sin(siderealAngle));
+	const auto siderealAngle = currentTime.ToGreenwichSiderealTime();
+	const auto cosTime = static_cast<float>(std::cos(siderealAngle));
+	const auto sinTime = static_cast<float>(std::sin(siderealAngle));
 
-    model = glm::mat4{
-        cosTime, 0.0f, -sinTime, 0.0f, 
-        0.0f, 1.0f, 0.0f, 0.0f,
-        sinTime, 0.0f, cosTime, 0.0f, 
-        0.0f, 0.0f, 0.0f, 1.0f };
+	model = glm::mat4{
+		cosTime, 0.0f, -sinTime, 0.0f,
+		0.0f, 1.0f, 0.0f, 0.0f,
+		sinTime, 0.0f, cosTime, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f };
 }
 
 int Application::launch()
@@ -185,65 +150,132 @@ int Application::launch()
 	m_logger.cInfo("Application name is {}", Settings::appName);
 
 	Mesh mesh;
-    mesh.populateMesh(m_settings.meshResolution);
+	mesh.populateMesh(m_settings.meshResolution);
 
-    std::vector<libsgp4::SGP4> propagators; propagators.reserve(FLOCK_tle_data::tle_data.size());
-    std::vector<AgentData> agents(FLOCK_tle_data::tle_data.size());
-	glm::mat4 model = glm::mat4(1.0f);
-	float J_T = 0.0f;
-	float J_av = 0.0f;
+	std::vector<libsgp4::SGP4> propagators; propagators.reserve(FLOCK_tle_data::tle_data.size());
+	std::vector<AgentData> agents(FLOCK_tle_data::tle_data.size());
+	std::vector<std::string> activeNames; activeNames.reserve(FLOCK_tle_data::tle_data.size());
 
 	constexpr double SIMULATION_TIME_STEP = 1.0;
-    const libsgp4::DateTime startSimTime(2026, 6, 20, 10, 0, 0);
-    libsgp4::DateTime endSimTime(2026, 6, 20, 13, 0, 0);
-    //libsgp4::DateTime endSimTime(2026, 6, 20, 10, 0, 15);
+	const libsgp4::DateTime startSimTime(2026, 6, 20, 10, 0, 0);
+	const libsgp4::DateTime endSimTime = libsgp4::DateTime(2026, 6, 20, 13, 0, 0).AddSeconds(SIMULATION_TIME_STEP * 2.0);
+	const glm::mat4 initialModel = glm::mat4(1.0f);
 
-    // no activity here
-    /*const libsgp4::DateTime startSimTime(2026, 6, 20, 13, 0, 0);
-    libsgp4::DateTime endSimTime(2026, 6, 21, 10, 0, 0);*/
-
-    endSimTime = endSimTime.AddSeconds(SIMULATION_TIME_STEP*2);
-    libsgp4::DateTime simTime = startSimTime;
-
-    m_logger.cInfo("Active satellites: {}", FLOCK_tle_data::tle_data.size());
-    for (const auto& tle : FLOCK_tle_data::tle_data)
-    {
-        m_logger.cInfo("{} : {}", propagators.size() + 1, tle.Name());
-        propagators.emplace_back(tle);
-    }
-    agents.resize(propagators.size());
-    //agents.resize(1);
-
-	EngineInstance engine(m_settings, m_logger, J_T, J_av, mesh, agents, model);
-	while (!engine.shouldClose() && simTime <= endSimTime)
+	m_logger.cInfo("Active satellites: {}", FLOCK_tle_data::tle_data.size());
+	for (const auto& tle : FLOCK_tle_data::tle_data)
 	{
-        if (engine.isPaused())
-        {
-            engine.tick(static_cast<float>(SIMULATION_TIME_STEP));
-            const auto reportedSimTime = (simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2;
-            m_logger.cInfo("{} | J_T: {:.6f}", reportedSimTime, J_T);
-            continue;
-        }
-        updateAgents(agents, propagators, simTime);
-		updateModel(model, simTime);
-		engine.tick(static_cast<float>(SIMULATION_TIME_STEP));
-        const auto reportedSimTime = (simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2;
-        if constexpr (!Settings::headlessMode)
-            { m_logger.cInfo("{} | J_T: {:.6f}", reportedSimTime, J_T); }
-        simTime = simTime.AddSeconds(SIMULATION_TIME_STEP);
+		m_logger.cInfo("{} : {}", propagators.size() + 1, tle.Name());
+		propagators.emplace_back(tle);
+		activeNames.emplace_back(std::string(tle.Name()));
+	}
+	agents.resize(propagators.size());
+
+	const auto runSimulation = [&, startSimTime, endSimTime, initialModel](
+		std::vector<libsgp4::SGP4>& simulationPropagators,
+		std::vector<AgentData>& simulationAgents,
+		const std::vector<std::string>& simulationActiveNames) -> float
+	{
+		float simulationJ_T = 0.0f;
+		float simulationJ_av = 0.0f;
+		glm::mat4 simulationModel = initialModel;
+		libsgp4::DateTime simTime = startSimTime;
+
+		{
+			[[maybe_unused]] const auto activeNameCount = simulationActiveNames.size();
+			EngineInstance engine(m_settings, m_logger, simulationJ_T, simulationJ_av, mesh, simulationAgents, simulationModel);
+			while (!engine.shouldClose() && simTime <= endSimTime)
+			{
+				updateAgents(simulationAgents, simulationPropagators, simTime);
+				updateModel(simulationModel, simTime);
+				engine.tick(static_cast<float>(SIMULATION_TIME_STEP));
+				simTime = simTime.AddSeconds(SIMULATION_TIME_STEP);
+			}
+		}
+
+		return simulationJ_T;
+	};
+
+	const float baselineJ_T = runSimulation(propagators, agents, activeNames);
+	{
+		std::ostringstream baselineList;
+		for (std::size_t index = 0; index < activeNames.size(); ++index)
+		{
+			if (index != 0)
+				{ baselineList << ", "; }
+			baselineList << activeNames[index];
+		}
+
+		m_logger.cInfo(
+			"Baseline -> active satellites: {}, J_T: {:.6f}, constellation: {}",
+			agents.size(),
+			baselineJ_T,
+			baselineList.str());
 	}
 
-    m_logger.cInfo("Simulation completed");
-    const auto elapsedTime = (simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2;
-    //if constexpr (Settings::headlessMode)
-        { m_logger.cInfo("{} | J_T: {:.6f}", elapsedTime-SIMULATION_TIME_STEP, J_T); }
-    if (elapsedTime > 0.0)
-        { m_logger.cInfo("Final J_av: {:.6f}", J_av / elapsedTime); }
+	while (propagators.size() > 110)
+	{
+		float bestJ_T = std::numeric_limits<float>::infinity();
+		std::size_t bestIndex = 0;
+		std::string removedName;
 
-    // Once simulation is done pause to show final state
-    engine.setPause(true);
-    while(!engine.shouldClose() && engine.isPaused())
-        { engine.tick(static_cast<float>(SIMULATION_TIME_STEP)); }
+		for (std::size_t candidateIndex = 0; candidateIndex < propagators.size(); ++candidateIndex)
+		{
+			auto candidatePropagators = propagators;
+			auto candidateAgents = agents;
+			auto candidateNames = activeNames;
+
+			candidatePropagators.erase(candidatePropagators.begin() + static_cast<std::ptrdiff_t>(candidateIndex));
+			candidateAgents.erase(candidateAgents.begin() + static_cast<std::ptrdiff_t>(candidateIndex));
+			removedName = candidateNames[candidateIndex];
+			candidateNames.erase(candidateNames.begin() + static_cast<std::ptrdiff_t>(candidateIndex));
+
+			const float candidateJ_T = runSimulation(candidatePropagators, candidateAgents, candidateNames);
+			if (candidateJ_T < bestJ_T)
+			{
+				bestJ_T = candidateJ_T;
+				bestIndex = candidateIndex;
+				removedName = activeNames[candidateIndex];
+			}
+		}
+
+		propagators.erase(propagators.begin() + static_cast<std::ptrdiff_t>(bestIndex));
+		agents.erase(agents.begin() + static_cast<std::ptrdiff_t>(bestIndex));
+		activeNames.erase(activeNames.begin() + static_cast<std::ptrdiff_t>(bestIndex));
+
+		std::ostringstream activeList;
+		for (std::size_t index = 0; index < activeNames.size(); ++index)
+		{
+			if (index != 0)
+				{ activeList << ", "; }
+			activeList << activeNames[index];
+		}
+
+		m_logger.cInfo(
+			"Backward greedy step -> active satellites: {}, J_T: {:.6f}, removed: {}, remaining: {}",
+			agents.size(),
+			bestJ_T,
+			removedName,
+			activeList.str());
+	}
+
+	m_logger.cInfo(
+		"Optimization completed -> active satellites: {}, remaining constellation: {}",
+		agents.size(),
+		activeNames.empty() ? std::string{} : activeNames.front());
+
+	if (!activeNames.empty())
+	{
+		std::ostringstream activeCycle;
+		for (std::size_t index = 0; index < activeNames.size(); ++index)
+		{
+			if (index != 0)
+				{ activeCycle << " -> "; }
+			activeCycle << activeNames[index];
+		}
+		activeCycle << " -> " << activeNames.front();
+
+		m_logger.cInfo("Final constellation cycle: {}", activeCycle.str());
+	}
 
 	return EXIT_SUCCESS;
 }

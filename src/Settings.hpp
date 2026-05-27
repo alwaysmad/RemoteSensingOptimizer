@@ -22,7 +22,7 @@ public:
 	uint32_t windowWidth = 800;
 	uint32_t windowHeight = 600;
 
-	uint32_t meshResolution = 3400;
+	uint32_t meshResolution = 400;
 	// const double kXKMPER = 6378.135; // libsgp4::kXKMPER Earth radius in km
 	static constexpr double scaling = 1.0 / 6378.135; 
 
