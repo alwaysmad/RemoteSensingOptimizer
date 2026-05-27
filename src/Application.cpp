@@ -194,12 +194,12 @@ int Application::launch()
 	float J_av = 0.0f;
 
 	constexpr double SIMULATION_TIME_STEP = 1.0;
-    //const libsgp4::DateTime startSimTime(2026, 6, 20, 10, 0, 0);
-    //libsgp4::DateTime endSimTime(2026, 6, 20, 13, 0, 0);
+    const libsgp4::DateTime startSimTime(2026, 6, 20, 10, 0, 0);
+    libsgp4::DateTime endSimTime(2026, 6, 20, 13, 0, 0);
 
     // no activity here
-    const libsgp4::DateTime startSimTime(2026, 6, 20, 13, 0, 0);
-    libsgp4::DateTime endSimTime(2026, 6, 21, 10, 0, 0);
+    /*const libsgp4::DateTime startSimTime(2026, 6, 20, 13, 0, 0);
+    libsgp4::DateTime endSimTime(2026, 6, 21, 10, 0, 0);*/
 
     endSimTime = endSimTime.AddSeconds(SIMULATION_TIME_STEP2 * 2);
     libsgp4::DateTime simTime = startSimTime;
