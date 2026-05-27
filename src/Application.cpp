@@ -172,11 +172,11 @@ static inline void updateModel(glm::mat4& model, const libsgp4::DateTime& curren
     const auto cosTime = static_cast<float>(std::cos(siderealAngle));
     const auto sinTime = static_cast<float>(std::sin(siderealAngle));
 
-	model = glm::mat4{
-		cosTime, 0.0f, sinTime, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		-sinTime, 0.0f, cosTime, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f };
+    model = glm::mat4{
+        cosTime, 0.0f, -sinTime, 0.0f, 
+        0.0f, 1.0f, 0.0f, 0.0f,
+        sinTime, 0.0f, cosTime, 0.0f, 
+        0.0f, 0.0f, 0.0f, 1.0f };
 }
 
 int Application::launch()
@@ -194,9 +194,14 @@ int Application::launch()
 	float J_av = 0.0f;
 
 	constexpr double SIMULATION_TIME_STEP = 1.0;
-    const libsgp4::DateTime startSimTime(2026, 6, 20, 0, 0, 0);
-    libsgp4::DateTime endSimTime(2026, 6, 21, 0, 0, 0);
-    endSimTime = endSimTime.AddSeconds(2 * SIMULATION_TIME_STEP);
+    //const libsgp4::DateTime startSimTime(2026, 6, 20, 10, 0, 0);
+    //libsgp4::DateTime endSimTime(2026, 6, 20, 13, 0, 0);
+
+    // no activity here
+    const libsgp4::DateTime startSimTime(2026, 6, 20, 13, 0, 0);
+    libsgp4::DateTime endSimTime(2026, 6, 21, 10, 0, 0);
+
+    endSimTime = endSimTime.AddSeconds(SIMULATION_TIME_STEP2 * 2);
     libsgp4::DateTime simTime = startSimTime;
 
     m_logger.cInfo("Active satellites: {}", FLOCK_tle_data::tle_data.size());
@@ -219,18 +224,18 @@ int Application::launch()
 		engine.tick(static_cast<float>(SIMULATION_TIME_STEP));
         const auto reportedSimTime = (simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2;
         //if (reportedSimTime >= 0.0)
-            { m_logger.cInfo("{} | J_T: {}", reportedSimTime, J_T); }
+            { m_logger.cInfo("{} | J_T: {:.6f}", reportedSimTime, J_T); }
         simTime = simTime.AddSeconds(SIMULATION_TIME_STEP);
 	}
     
     // Once simulation is done pause to show final state
     engine.setPause(true);
-    while(!engine.shouldClose() || !engine.isPaused())
-        { engine.tick(static_cast<float>(SIMULATION_TIME_STEP)); continue; }
+    while(!engine.shouldClose() && engine.isPaused())
+        { engine.tick(static_cast<float>(SIMULATION_TIME_STEP)); }
 
     const auto elapsedTime = static_cast<float>((simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2);
     if (elapsedTime > 0.0)
-        { m_logger.cInfo("Final J_av: {}", J_av / elapsedTime); }
+        { m_logger.cInfo("Final J_av: {:.6f}", J_av / elapsedTime); }
 
 	return EXIT_SUCCESS;
 }
