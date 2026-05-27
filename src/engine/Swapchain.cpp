@@ -162,7 +162,7 @@ const std::optional<svk::SwapchainFrame> Swapchain::acquireNextImage(vk::Semapho
 			.semaphore = imageAvailableSemaphore,
 			.deviceMask = 1
 		});
-        const uint32_t imageIndex = result.second;
+        const uint32_t imageIndex = result.value;
         
         return svk::SwapchainFrame{
             .imageIndex = imageIndex,

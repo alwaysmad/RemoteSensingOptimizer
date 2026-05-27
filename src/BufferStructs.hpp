@@ -37,9 +37,7 @@ struct alignas(16) VertexCoords
     float values[4];
     VertexCoords() = default;
     explicit VertexCoords(const std::array<float, 4>& input)
-    {
-        std::copy(input.begin(), input.end(), values);
-    }
+        { std::copy(input.begin(), input.end(), values); }
 };
 
 struct alignas(16) VertexData
@@ -47,9 +45,7 @@ struct alignas(16) VertexData
     float values[4];
     VertexData() = default;
     explicit VertexData(const std::array<float, 4>& input)
-    {
-        std::copy(input.begin(), input.end(), values);
-    }
+        { std::copy(input.begin(), input.end(), values); }
 };
 
 struct Mesh
@@ -59,11 +55,30 @@ struct Mesh
 
     Mesh() = default;
 
+    static inline bool isMeshPointInGreenland(const glm::vec3& pos)
+    {
+        // 1. Latitude: Angle from the XZ equatorial plane
+        // Returns radians in the range [-pi/2, pi/2]
+        float latRad = std::asin(pos.y);
+
+        // 2. Longitude: Angle around the Y polar axis
+        // Based on your specific rotation matrix, -Z is East and +X is the Prime Meridian
+        // Returns radians in the range [-pi, pi]
+        float lonRad = std::atan2(-pos.z, pos.x);
+
+        // 3. Convert to degrees
+        constexpr float radToDeg = 180.0f / glm::pi<float>();
+        float lat = latRad * radToDeg;
+        float lon = lonRad * radToDeg;
+
+        // 4. Evaluate against the Greenland BBOX
+        return (lon >= -73.5f && lon <= -11.3f) && 
+            (lat >= 59.7f  && lat <= 83.7f);
+    }
+
     // Helper to calculate the exact solid angle of a rectangle on the z=1 face
     static inline float solidAngle(float x, float y)
-    {
-        return std::atan( (x * y) / std::sqrt(x * x + y * y + 1.0f) );
-    }
+        { return std::atan( (x * y) / std::sqrt(x * x + y * y + 1.0f) ); }
 
     // Populates a point-cloud cubesphere. 
     // 'resolution' is the number of cells per dimension on a single face.
@@ -144,8 +159,11 @@ struct Mesh
                     constexpr float w = 1.0f;
 
                     // 7. Add vertex to GPU arrays
-                    vertices.emplace_back(std::array<float, 4>{ pos.x, pos.y, pos.z, alpha });
-                    vertexData.emplace_back(std::array<float, 4>{ epsilon, v, s, w });
+                    if (isMeshPointInGreenland(pos))
+                    {
+                        vertices.emplace_back(std::array<float, 4>{ pos.x, pos.y, pos.z, alpha });
+                        vertexData.emplace_back(std::array<float, 4>{ epsilon, v, s, w });
+                    }
                 }
             }
             std::printf("[Mesh] generated face %d/6\n", face + 1);

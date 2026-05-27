@@ -354,7 +354,7 @@ void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKH
         // Core Features 1.0 (vk::PhysicalDeviceFeatures2)
         { 
             .features = { 
-                .largePoints = vk::True,       // <-- ADDED HERE
+                .largePoints = vk::True,
                 .samplerAnisotropy = vk::True, 
                 .shaderInt16 = vk::True 
             } 
@@ -378,6 +378,8 @@ void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKH
         .pNext = &featureChain.get<vk::PhysicalDeviceFeatures2>(),
         .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
         .pQueueCreateInfos = queueCreateInfos.data(),
+        .enabledLayerCount = 0,
+        .ppEnabledLayerNames = nullptr,
         .enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtensions.size()),
         .ppEnabledExtensionNames = requiredDeviceExtensions.data(),
     };
