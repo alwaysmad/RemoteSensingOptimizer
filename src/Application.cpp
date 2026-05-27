@@ -196,13 +196,13 @@ int Application::launch()
 	constexpr double SIMULATION_TIME_STEP = 1.0;
     const libsgp4::DateTime startSimTime(2026, 6, 20, 10, 0, 0);
     libsgp4::DateTime endSimTime(2026, 6, 20, 13, 0, 0);
-    //libsgp4::DateTime endSimTime(2026, 6, 20, 10, 0, 30);
+    //libsgp4::DateTime endSimTime(2026, 6, 20, 10, 0, 15);
 
     // no activity here
     /*const libsgp4::DateTime startSimTime(2026, 6, 20, 13, 0, 0);
     libsgp4::DateTime endSimTime(2026, 6, 21, 10, 0, 0);*/
 
-    endSimTime = endSimTime.AddSeconds(SIMULATION_TIME_STEP * 2);
+    endSimTime = endSimTime.AddSeconds(SIMULATION_TIME_STEP*2);
     libsgp4::DateTime simTime = startSimTime;
 
     m_logger.cInfo("Active satellites: {}", FLOCK_tle_data::tle_data.size());
@@ -228,19 +228,22 @@ int Application::launch()
 		updateModel(model, simTime);
 		engine.tick(static_cast<float>(SIMULATION_TIME_STEP));
         const auto reportedSimTime = (simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2;
-        //if (reportedSimTime >= 0.0)
+        if constexpr (!Settings::headlessMode)
             { m_logger.cInfo("{} | J_T: {:.6f}", reportedSimTime, J_T); }
         simTime = simTime.AddSeconds(SIMULATION_TIME_STEP);
 	}
-    
+
+    m_logger.cInfo("Simulation completed");
+    const auto elapsedTime = (simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2;
+    //if constexpr (Settings::headlessMode)
+        { m_logger.cInfo("{} | J_T: {:.6f}", elapsedTime-SIMULATION_TIME_STEP, J_T); }
+    if (elapsedTime > 0.0)
+        { m_logger.cInfo("Final J_av: {:.6f}", J_av / elapsedTime); }
+
     // Once simulation is done pause to show final state
     engine.setPause(true);
     while(!engine.shouldClose() && engine.isPaused())
         { engine.tick(static_cast<float>(SIMULATION_TIME_STEP)); }
-
-    const auto elapsedTime = static_cast<float>((simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2);
-    if (elapsedTime > 0.0)
-        { m_logger.cInfo("Final J_av: {:.6f}", J_av / elapsedTime); }
 
 	return EXIT_SUCCESS;
 }
