@@ -18,12 +18,12 @@ public:
 #endif
 	
 	std::string logPath = "rso.log";
-	//std::string deviceName = "Tesla P100-PCIE-12GB"; //"Intel(R) Iris(R) Xe Graphics (ADL GT2)";
-	std::string deviceName = "Intel(R) Iris(R) Xe Graphics (ADL GT2)";
+	std::string deviceName = "Tesla P100-PCIE-12GB"; //"Intel(R) Iris(R) Xe Graphics (ADL GT2)";
+	//std::string deviceName = "Intel(R) Iris(R) Xe Graphics (ADL GT2)";
 	uint32_t windowWidth = 800;
 	uint32_t windowHeight = 600;
 
-	uint32_t meshResolution = 40;
+	uint32_t meshResolution = 4000;
 	// const double kXKMPER = 6378.135; // libsgp4::kXKMPER Earth radius in km
 	static constexpr double scaling = 1.0 / 6378.135; 
 

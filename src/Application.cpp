@@ -156,7 +156,7 @@ int Application::launch()
 	std::vector<AgentData> agents(FLOCK_tle_data::tle_data.size());
 	std::vector<std::string> activeNames; activeNames.reserve(FLOCK_tle_data::tle_data.size());
 
-	constexpr double SIMULATION_TIME_STEP = 5.0; // TODO set to 1.0
+	constexpr double SIMULATION_TIME_STEP = 1.0; // TODO set to 1.0
 	const libsgp4::DateTime startSimTime(2026, 6, 20, 10, 0, 0);
 	const libsgp4::DateTime endSimTime = libsgp4::DateTime(2026, 6, 20, 13, 0, 0).AddSeconds(SIMULATION_TIME_STEP * 2.0);
 	const glm::mat4 initialModel = glm::mat4(1.0f);
@@ -180,12 +180,8 @@ int Application::launch()
 		std::vector<libsgp4::SGP4>& simulationPropagators,
 		std::vector<AgentData>& simulationAgents) -> float
 	{
-		simulationJ_T = 0.0f;
-		simulationJ_av = 0.0f;
-		simulationModel = initialModel;
+		// reset time
 		libsgp4::DateTime simTime = startSimTime;
-
-		// engine.reloadMesh();
 		while (!engine.shouldClose() && simTime <= endSimTime)
 		{
 			updateAgents(simulationAgents, simulationPropagators, simTime);
@@ -196,22 +192,10 @@ int Application::launch()
 		return simulationJ_T;
 	};
 
-	const float baselineJ_T = runSimulation(propagators, agents);
-	{
-		std::ostringstream baselineList;
-		for (std::size_t index = 0; index < activeNames.size(); ++index)
-		{
-			if (index != 0)
-				{ baselineList << ", "; }
-			baselineList << activeNames[index];
-		}
-
-		m_logger.cInfo(
-			"Baseline -> active satellites: {}, J_T: {:.6f}",
-			agents.size(),
-			baselineJ_T);
-	}
-	/*
+	// Run baseline simulation and log J_T
+	float baselineJ_T = runSimulation(propagators, agents);
+	m_logger.cInfo("Baseline -> active satellites: {}, J_T: {:.6f}", agents.size(), baselineJ_T);
+	
 	while (propagators.size() > 1)
 	{
 		float bestJ_T = std::numeric_limits<float>::infinity();
@@ -220,39 +204,53 @@ int Application::launch()
 
 		for (std::size_t candidateIndex = 0; candidateIndex < propagators.size(); ++candidateIndex)
 		{
+			// copy current arrays
 			auto candidatePropagators = propagators;
 			auto candidateAgents = agents;
-			auto candidateNames = activeNames;
-
+			
+			// remove candidate from copied arrays
 			candidatePropagators.erase(candidatePropagators.begin() + static_cast<std::ptrdiff_t>(candidateIndex));
 			candidateAgents.erase(candidateAgents.begin() + static_cast<std::ptrdiff_t>(candidateIndex));
-			candidateNames.erase(candidateNames.begin() + static_cast<std::ptrdiff_t>(candidateIndex));
 
 			// Swap into place so engine sees the modified vectors
 			propagators.swap(candidatePropagators);
 			agents.swap(candidateAgents);
-			activeNames.swap(candidateNames);
 
+			// run simulation and evaluate J_T
+			engine.reloadMesh();
 			const float candidateJ_T = runSimulation(propagators, agents);
-			m_logger.cDebug("{}: Tried to remove {}, got J_T: {:.6f}", propagators.size(), candidateNames.back(), candidateJ_T);
+			
+			// Log the candidate result
+			m_logger.cDebug("{}: Tried to remove {}, got J_T: {:.6f}", propagators.size(), activeNames[candidateIndex], candidateJ_T);
 
-			// Swap back to restore original for next iteration
-			propagators.swap(candidatePropagators);
-			agents.swap(candidateAgents);
-			activeNames.swap(candidateNames);
-
+			// Evaluate candinate
 			if (candidateJ_T < bestJ_T)
 			{
 				bestJ_T = candidateJ_T;
 				bestIndex = candidateIndex;
 				removedName = activeNames[candidateIndex];
+				if (bestJ_T - baselineJ_T < 0.000001)
+				{ // If satellite is not impactfull < 10^-6
+					// restore arrays
+					propagators.swap(candidatePropagators);
+					agents.swap(candidateAgents);
+					// exit early, good candidate already found
+					break;
+				}
 			}
+			// Swap back to restore original for next iteration
+			propagators.swap(candidatePropagators);
+			agents.swap(candidateAgents);
 		}
+		// update baseline for next iteration
+		baselineJ_T = bestJ_T;
 
+		// Remove the worst candidate from the real arrays
 		propagators.erase(propagators.begin() + static_cast<std::ptrdiff_t>(bestIndex));
 		agents.erase(agents.begin() + static_cast<std::ptrdiff_t>(bestIndex));
 		activeNames.erase(activeNames.begin() + static_cast<std::ptrdiff_t>(bestIndex));
 
+		// Report the result of this iteration
 		m_logger.cInfo(
 			"Backward greedy step -> active satellites: {}, J_T: {:.6f}, removed: {}",
 			agents.size(),
@@ -260,23 +258,18 @@ int Application::launch()
 			removedName);
 	}
 
-	m_logger.cInfo(
-		"Optimization completed -> active satellites: {}",
-		agents.size());
+	m_logger.cInfo("Optimization completed -> active satellites: {}", agents.size());
 
 	if (!activeNames.empty())
 	{
 		std::ostringstream activeCycle;
 		for (std::size_t index = 0; index < activeNames.size(); ++index)
 		{
-			if (index != 0)
-				{ activeCycle << " -> "; }
 			activeCycle << activeNames[index];
 		}
-		activeCycle << " -> " << activeNames.front();
 
-		m_logger.cInfo("Final constellation cycle: {}", activeCycle.str());
+		m_logger.cInfo("Final constellation: {}", activeCycle.str());
 	}
-	*/
+	
 	return EXIT_SUCCESS;
 }
