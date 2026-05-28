@@ -185,7 +185,7 @@ int Application::launch()
 		simulationModel = initialModel;
 		libsgp4::DateTime simTime = startSimTime;
 
-		engine.reloadMesh();
+		// engine.reloadMesh();
 		while (!engine.shouldClose() && simTime <= endSimTime)
 		{
 			updateAgents(simulationAgents, simulationPropagators, simTime);
@@ -211,7 +211,7 @@ int Application::launch()
 			agents.size(),
 			baselineJ_T);
 	}
-
+	/*
 	while (propagators.size() > 1)
 	{
 		float bestJ_T = std::numeric_limits<float>::infinity();
@@ -277,6 +277,6 @@ int Application::launch()
 
 		m_logger.cInfo("Final constellation cycle: {}", activeCycle.str());
 	}
-	
+	*/
 	return EXIT_SUCCESS;
 }
