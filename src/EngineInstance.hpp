@@ -80,7 +80,9 @@ public:
 		const Mesh& mesh,
 		const std::vector<AgentData>& agents,
 		const glm::mat4& model);
-	~EngineInstance();
+	
+	~EngineInstance()
+	{ if (m_device) { m_device->waitIdle(); } }
 
 	void tick(float timeStep);
 	[[nodiscard]] inline bool shouldClose() const
@@ -101,6 +103,7 @@ public:
 			{ if (m_camera) { return m_camera->setPause(paused); } }
 		return false;
 	}
+	void reloadMesh();
 
 private:
 	void updateUBO(uint32_t currentFrame, float timeStep);
