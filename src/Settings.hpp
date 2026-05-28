@@ -19,6 +19,7 @@ public:
 	
 	std::string logPath = "rso.log";
 	std::string deviceName = "Tesla P100-PCIE-12GB"; //"Intel(R) Iris(R) Xe Graphics (ADL GT2)";
+	//std::string deviceName = "Intel(R) Iris(R) Xe Graphics (ADL GT2)";
 	uint32_t windowWidth = 800;
 	uint32_t windowHeight = 600;
 

@@ -156,7 +156,7 @@ int Application::launch()
 	std::vector<AgentData> agents(FLOCK_tle_data::tle_data.size());
 	std::vector<std::string> activeNames; activeNames.reserve(FLOCK_tle_data::tle_data.size());
 
-	constexpr double SIMULATION_TIME_STEP = 1.0;
+	constexpr double SIMULATION_TIME_STEP = 1.0; // TODO set to 1.0
 	const libsgp4::DateTime startSimTime(2026, 6, 20, 10, 0, 0);
 	const libsgp4::DateTime endSimTime = libsgp4::DateTime(2026, 6, 20, 13, 0, 0).AddSeconds(SIMULATION_TIME_STEP * 2.0);
 	const glm::mat4 initialModel = glm::mat4(1.0f);
@@ -172,8 +172,7 @@ int Application::launch()
 
 	const auto runSimulation = [&, startSimTime, endSimTime, initialModel](
 		std::vector<libsgp4::SGP4>& simulationPropagators,
-		std::vector<AgentData>& simulationAgents,
-		const std::vector<std::string>& simulationActiveNames) -> float
+		std::vector<AgentData>& simulationAgents ) -> float
 	{
 		float simulationJ_T = 0.0f;
 		float simulationJ_av = 0.0f;
@@ -181,7 +180,6 @@ int Application::launch()
 		libsgp4::DateTime simTime = startSimTime;
 
 		{
-			[[maybe_unused]] const auto activeNameCount = simulationActiveNames.size();
 			EngineInstance engine(m_settings, m_logger, simulationJ_T, simulationJ_av, mesh, simulationAgents, simulationModel);
 			while (!engine.shouldClose() && simTime <= endSimTime)
 			{
@@ -194,7 +192,7 @@ int Application::launch()
 		return simulationJ_T;
 	};
 
-	const float baselineJ_T = runSimulation(propagators, agents, activeNames);
+	const float baselineJ_T = runSimulation(propagators, agents);
 	{
 		std::ostringstream baselineList;
 		for (std::size_t index = 0; index < activeNames.size(); ++index)
@@ -213,8 +211,8 @@ int Application::launch()
 	while (propagators.size() > 1)
 	{
 		float bestJ_T = std::numeric_limits<float>::infinity();
-		std::size_t bestIndex = 0;
-		std::string removedName;
+		std::size_t bestIndex = propagators.size(); // intentially out of bounds to catch errors
+		std::string removedName = "None";
 
 		for (std::size_t candidateIndex = 0; candidateIndex < propagators.size(); ++candidateIndex)
 		{
@@ -224,10 +222,11 @@ int Application::launch()
 
 			candidatePropagators.erase(candidatePropagators.begin() + static_cast<std::ptrdiff_t>(candidateIndex));
 			candidateAgents.erase(candidateAgents.begin() + static_cast<std::ptrdiff_t>(candidateIndex));
-			removedName = candidateNames[candidateIndex];
 			candidateNames.erase(candidateNames.begin() + static_cast<std::ptrdiff_t>(candidateIndex));
 
-			const float candidateJ_T = runSimulation(candidatePropagators, candidateAgents, candidateNames);
+			const float candidateJ_T = runSimulation(candidatePropagators, candidateAgents);
+			m_logger.cInfo( "Removed {}, got J_T: {:.6f}", activeNames[candidateIndex], candidateJ_T);
+
 			if (candidateJ_T < bestJ_T)
 			{
 				bestJ_T = candidateJ_T;
