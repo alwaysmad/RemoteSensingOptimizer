@@ -191,7 +191,6 @@ int Application::launch()
 				simTime = simTime.AddSeconds(SIMULATION_TIME_STEP);
 			}
 		}
-
 		return simulationJ_T;
 	};
 
@@ -206,10 +205,9 @@ int Application::launch()
 		}
 
 		m_logger.cInfo(
-			"Baseline -> active satellites: {}, J_T: {:.6f}, constellation: {}",
+			"Baseline -> active satellites: {}, J_T: {:.6f}",
 			agents.size(),
-			baselineJ_T,
-			baselineList.str());
+			baselineJ_T);
 	}
 
 	while (propagators.size() > 110)
@@ -242,26 +240,16 @@ int Application::launch()
 		agents.erase(agents.begin() + static_cast<std::ptrdiff_t>(bestIndex));
 		activeNames.erase(activeNames.begin() + static_cast<std::ptrdiff_t>(bestIndex));
 
-		std::ostringstream activeList;
-		for (std::size_t index = 0; index < activeNames.size(); ++index)
-		{
-			if (index != 0)
-				{ activeList << ", "; }
-			activeList << activeNames[index];
-		}
-
 		m_logger.cInfo(
-			"Backward greedy step -> active satellites: {}, J_T: {:.6f}, removed: {}, remaining: {}",
+			"Backward greedy step -> active satellites: {}, J_T: {:.6f}, removed: {}",
 			agents.size(),
 			bestJ_T,
-			removedName,
-			activeList.str());
+			removedName);
 	}
 
 	m_logger.cInfo(
-		"Optimization completed -> active satellites: {}, remaining constellation: {}",
-		agents.size(),
-		activeNames.empty() ? std::string{} : activeNames.front());
+		"Optimization completed -> active satellites: {}",
+		agents.size());
 
 	if (!activeNames.empty())
 	{
@@ -276,6 +264,6 @@ int Application::launch()
 
 		m_logger.cInfo("Final constellation cycle: {}", activeCycle.str());
 	}
-
+	
 	return EXIT_SUCCESS;
 }
