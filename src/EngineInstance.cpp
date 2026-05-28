@@ -79,7 +79,7 @@ EngineInstance::EngineInstance(
 	const vk::DeviceSize vertexBytes = static_cast<vk::DeviceSize>(sizeof(VertexCoords) * m_mesh.vertices.size());
 	const vk::DeviceSize vertexDataBytes = static_cast<vk::DeviceSize>(sizeof(VertexData) * m_mesh.vertexData.size());
 
-	{
+	/*{ // Log resource usage based on device limits and mesh size
 		const vk::PhysicalDeviceProperties properties = m_device->physicalDevice().getProperties();
 		const uint32_t maxSharedMemoryBytes = properties.limits.maxComputeSharedMemorySize;
 		const uint32_t maxUboBytes = properties.limits.maxUniformBufferRange;
@@ -93,7 +93,7 @@ EngineInstance::EngineInstance(
 			static_cast<double>(maxSharedMemoryBytes) / bytesPerKiB,
 			static_cast<double>(uboBytes) / bytesPerKiB,
 			static_cast<double>(maxUboBytes) / bytesPerKiB);
-	}
+	}*/
 
 	m_vertexBuffer.emplace(m_device->createBuffer(
 		vertexBytes,
