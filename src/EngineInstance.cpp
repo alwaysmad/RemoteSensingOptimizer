@@ -95,21 +95,25 @@ EngineInstance::EngineInstance(
 			static_cast<double>(maxUboBytes) / bytesPerKiB);
 	}*/
 
+	// Create device-local buffer for vertices
 	m_vertexBuffer.emplace(m_device->createBuffer(
 		vertexBytes,
 		vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer,
 		vk::MemoryPropertyFlagBits::eDeviceLocal,
 		{ svk::Device::TRANSFER, svk::Device::COMPUTE, svk::Device::GRAPHICS }));
+	// Create device-local buffer for vertex data
 	m_vertexDataBuffer.emplace(m_device->createBuffer(
 		vertexDataBytes,
 		vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eStorageBuffer,
 		vk::MemoryPropertyFlagBits::eDeviceLocal,
 		{ svk::Device::TRANSFER, svk::Device::COMPUTE }));
+	// Create device-local buffer for results
 	m_resultDeviceBuffer.emplace(m_device->createBuffer(
 		sizeof(float),
 		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst,
 		vk::MemoryPropertyFlagBits::eDeviceLocal,
 		{ svk::Device::TRANSFER, svk::Device::COMPUTE }));
+	// Create host-visible staging buffer for results
 	const vk::DeviceSize resultRingSize = sizeof(float) * svk::MAX_FRAMES_IN_FLIGHT;
 	m_resultStagingBuffer.emplace(m_device->createBuffer(
 		resultRingSize,
@@ -118,16 +122,17 @@ EngineInstance::EngineInstance(
 		{ svk::Device::TRANSFER }));
 	m_resultMap.emplace(m_resultStagingBuffer->map(0, resultRingSize));
 
-	{
+	{ // Create staging buffer for vertices
 		auto vertexStaging = m_device->createBuffer(
 			vertexBytes,
 			vk::BufferUsageFlagBits::eTransferSrc,
 			vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
 			{ svk::Device::TRANSFER });
-		{
+		{ // copy vertices to staging buffer
 			auto map = vertexStaging.map(0, vertexBytes);
 			std::memcpy(map.get(), m_mesh.vertices.data(), static_cast<size_t>(vertexBytes));
 		}
+		// Copy from staging buffer to device-local buffer using the Transfer Queue
 		m_transferRoutine->bakeCommands(
 			0,
 			vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
@@ -140,16 +145,17 @@ EngineInstance::EngineInstance(
 		m_device->transferQueue().waitIdle();
 	}
 
-	{
+	{ // Create staging buffer for vertex data
 		auto vertexDataStaging = m_device->createBuffer(
 			vertexDataBytes,
 			vk::BufferUsageFlagBits::eTransferSrc,
 			vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
 			{ svk::Device::TRANSFER });
-		{
+		{ // copy vertex data to staging buffer
 			auto map = vertexDataStaging.map(0, vertexDataBytes);
 			std::memcpy(map.get(), m_mesh.vertexData.data(), static_cast<size_t>(vertexDataBytes));
 		}
+		// Copy from staging buffer to device-local buffer using the Transfer Queue
 		m_transferRoutine->bakeCommands(
 			0,
 			vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
@@ -501,6 +507,60 @@ void EngineInstance::updateUBO(uint32_t currentFrame, float timeStep)
 		currentFrame,
 		nullptr,
 		*m_uboUpdatedSemaphores[currentFrame]);
+}
+
+void EngineInstance::reloadMesh()
+{
+	m_device->waitIdle();
+
+	const vk::DeviceSize vertexBytes = static_cast<vk::DeviceSize>(sizeof(VertexCoords) * m_mesh.vertices.size());
+	const vk::DeviceSize vertexDataBytes = static_cast<vk::DeviceSize>(sizeof(VertexData) * m_mesh.vertexData.size());
+
+	{ // Create staging buffer for vertices
+		auto vertexStaging = m_device->createBuffer(
+			vertexBytes,
+			vk::BufferUsageFlagBits::eTransferSrc,
+			vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+			{ svk::Device::TRANSFER });
+		{ // copy vertices to staging buffer
+			auto map = vertexStaging.map(0, vertexBytes);
+			std::memcpy(map.get(), m_mesh.vertices.data(), static_cast<size_t>(vertexBytes));
+		}
+		// Copy from staging buffer to device-local buffer using the Transfer Queue
+		m_transferRoutine->bakeCommands(
+			0,
+			vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+			vertexStaging,
+			*m_vertexBuffer,
+			0,
+			0,
+			vertexBytes);
+		m_transferRoutine->submitCommands(0);
+		m_device->transferQueue().waitIdle();
+	}
+
+	{ // Create staging buffer for vertex data
+		auto vertexDataStaging = m_device->createBuffer(
+			vertexDataBytes,
+			vk::BufferUsageFlagBits::eTransferSrc,
+			vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+			{ svk::Device::TRANSFER });
+		{ // copy vertex data to staging buffer
+			auto map = vertexDataStaging.map(0, vertexDataBytes);
+			std::memcpy(map.get(), m_mesh.vertexData.data(), static_cast<size_t>(vertexDataBytes));
+		}
+		// Copy from staging buffer to device-local buffer using the Transfer Queue
+		m_transferRoutine->bakeCommands(
+			0,
+			vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+			vertexDataStaging,
+			*m_vertexDataBuffer,
+			0,
+			0,
+			vertexDataBytes);
+		m_transferRoutine->submitCommands(0);
+		m_device->transferQueue().waitIdle();
+	}
 }
 
 EngineInstance::~EngineInstance()

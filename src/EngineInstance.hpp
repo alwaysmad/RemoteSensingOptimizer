@@ -101,6 +101,7 @@ public:
 			{ if (m_camera) { return m_camera->setPause(paused); } }
 		return false;
 	}
+	void reloadMesh();
 
 private:
 	void updateUBO(uint32_t currentFrame, float timeStep);

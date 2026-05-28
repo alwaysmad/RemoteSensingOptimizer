@@ -170,24 +170,28 @@ int Application::launch()
 	}
 	agents.resize(propagators.size());
 
+	// Create engine once, reused across all simulations
+	float simulationJ_T = 0.0f;
+	float simulationJ_av = 0.0f;
+	glm::mat4 simulationModel = initialModel;
+	EngineInstance engine(m_settings, m_logger, simulationJ_T, simulationJ_av, mesh, agents, simulationModel);
+
 	const auto runSimulation = [&, startSimTime, endSimTime, initialModel](
 		std::vector<libsgp4::SGP4>& simulationPropagators,
-		std::vector<AgentData>& simulationAgents ) -> float
+		std::vector<AgentData>& simulationAgents) -> float
 	{
-		float simulationJ_T = 0.0f;
-		float simulationJ_av = 0.0f;
-		glm::mat4 simulationModel = initialModel;
+		simulationJ_T = 0.0f;
+		simulationJ_av = 0.0f;
+		simulationModel = initialModel;
 		libsgp4::DateTime simTime = startSimTime;
 
+		engine.reloadMesh();
+		while (!engine.shouldClose() && simTime <= endSimTime)
 		{
-			EngineInstance engine(m_settings, m_logger, simulationJ_T, simulationJ_av, mesh, simulationAgents, simulationModel);
-			while (!engine.shouldClose() && simTime <= endSimTime)
-			{
-				updateAgents(simulationAgents, simulationPropagators, simTime);
-				updateModel(simulationModel, simTime);
-				engine.tick(static_cast<float>(SIMULATION_TIME_STEP));
-				simTime = simTime.AddSeconds(SIMULATION_TIME_STEP);
-			}
+			updateAgents(simulationAgents, simulationPropagators, simTime);
+			updateModel(simulationModel, simTime);
+			engine.tick(static_cast<float>(SIMULATION_TIME_STEP));
+			simTime = simTime.AddSeconds(SIMULATION_TIME_STEP);
 		}
 		return simulationJ_T;
 	};
@@ -224,8 +228,18 @@ int Application::launch()
 			candidateAgents.erase(candidateAgents.begin() + static_cast<std::ptrdiff_t>(candidateIndex));
 			candidateNames.erase(candidateNames.begin() + static_cast<std::ptrdiff_t>(candidateIndex));
 
-			const float candidateJ_T = runSimulation(candidatePropagators, candidateAgents);
-			m_logger.cDebug("{}: Tried to remove {}, got J_T: {:.6f}", propagators.size(), activeNames[candidateIndex], candidateJ_T);
+			// Swap into place so engine sees the modified vectors
+			propagators.swap(candidatePropagators);
+			agents.swap(candidateAgents);
+			activeNames.swap(candidateNames);
+
+			const float candidateJ_T = runSimulation(propagators, agents);
+			m_logger.cDebug("{}: Tried to remove {}, got J_T: {:.6f}", propagators.size(), candidateNames.back(), candidateJ_T);
+
+			// Swap back to restore original for next iteration
+			propagators.swap(candidatePropagators);
+			agents.swap(candidateAgents);
+			activeNames.swap(candidateNames);
 
 			if (candidateJ_T < bestJ_T)
 			{
