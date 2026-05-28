@@ -210,7 +210,7 @@ int Application::launch()
 			baselineJ_T);
 	}
 
-	while (propagators.size() > 110)
+	while (propagators.size() > 1)
 	{
 		float bestJ_T = std::numeric_limits<float>::infinity();
 		std::size_t bestIndex = 0;

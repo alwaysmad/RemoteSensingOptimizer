@@ -45,7 +45,7 @@ public:
     Device(Device&&) = delete;
     Device& operator=(Device&&) = delete;
 
-    ~Device() = default;
+    ~Device() { waitIdle(); }
 
     // Accessors
     [[nodiscard]] inline const vk::raii::PhysicalDevice& physicalDevice() const { return m_physicalDevice; }

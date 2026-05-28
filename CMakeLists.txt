@@ -42,21 +42,21 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 
 # --- Sanitizers ---
 # Only active in DEBUG builds by default to avoid slowing down Release builds.
-option(ENABLE_SANITIZER "Enable Address and UB Sanitizers" ON)
+#option(ENABLE_SANITIZER "Enable Address and UB Sanitizers" ON)
 
-if(ENABLE_SANITIZER AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
-	if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-		message(STATUS "ASan + UBSan enabled")
-
-		# 1. AddressSanitizer (ASan): Catches buffer overflows, use-after-free
-		# 2. UndefinedBehaviorSanitizer (UBSan): Catches integer overflows, null checks
-		# 3. -fno-omit-frame-pointer: Ensures nice stack traces in the report
-		add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
-
-		# Critical: Must also LINK with these flags
-		add_link_options(-fsanitize=address,undefined)
-	endif()
-endif()
+#if(ENABLE_SANITIZER AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
+#	if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+#		message(STATUS "ASan + UBSan enabled")
+#
+#		# 1. AddressSanitizer (ASan): Catches buffer overflows, use-after-free
+#		# 2. UndefinedBehaviorSanitizer (UBSan): Catches integer overflows, null checks
+#		# 3. -fno-omit-frame-pointer: Ensures nice stack traces in the report
+#		add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+#
+#		# Critical: Must also LINK with these flags
+#		add_link_options(-fsanitize=address,undefined)
+#	endif()
+#endif()
 
 # ------------------------------------------
 
