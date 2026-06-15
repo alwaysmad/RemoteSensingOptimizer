@@ -220,8 +220,6 @@ int Application::launch()
         if (engine.isPaused())
         {
             engine.tick(static_cast<float>(SIMULATION_TIME_STEP));
-            const auto reportedSimTime = (simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2;
-            m_logger.cInfo("{} | J_T: {:.6f}", reportedSimTime, J_T);
             continue;
         }
         updateAgents(agents, propagators, simTime);

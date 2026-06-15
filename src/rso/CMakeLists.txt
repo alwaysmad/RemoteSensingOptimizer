@@ -1,32 +1,32 @@
-# src/CMakeLists.txt
+# src/rso/CMakeLists.txt
 
 set(RSO_COMMON_SOURCES
-	engine/window/Camera.cpp
-	engine/window/WindowContext.hpp
-	engine/window/Window.hpp
-	engine/Buffer.hpp
-	engine/Command.hpp
-	engine/ComputePipeline.cpp
-	engine/ComputePipeline.hpp
-	engine/ComputeRoutine.cpp
-	engine/ComputeRoutine.hpp
-	engine/DepthResources.hpp
-	engine/Device.cpp
-	engine/Device.hpp
-	engine/GraphicsPipeline.cpp
-	engine/RenderTask.cpp
-	engine/RenderTask.hpp
-	engine/RenderRoutine.cpp
-	engine/RenderRoutine.hpp
-	engine/TransferRoutine.cpp
-	engine/TransferRoutine.hpp
-	engine/Image.hpp
-	engine/Instance.cpp
-	engine/Instance.hpp
-	engine/Logger.hpp
-	engine/Queue.hpp
-	engine/Swapchain.cpp
-	engine/Swapchain.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/window/Camera.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/window/WindowContext.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/window/Window.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/Buffer.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/Command.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/ComputePipeline.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/ComputePipeline.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/ComputeRoutine.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/ComputeRoutine.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/DepthResources.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/Device.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/Device.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/GraphicsPipeline.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/RenderTask.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/RenderTask.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/RenderRoutine.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/RenderRoutine.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/TransferRoutine.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/TransferRoutine.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/Image.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/Instance.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/Instance.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/Logger.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/Queue.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/Swapchain.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/Swapchain.hpp
 	Settings.hpp
 	BufferStructs.hpp
 	Application.hpp
@@ -54,6 +54,7 @@ function(add_rso_binary TARGET_NAME)
 		${vulkan-hpp_BINARY_DIR}
 		${sgp4_SOURCE_DIR}/libsgp4
 		${CMAKE_CURRENT_SOURCE_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}/..
 		${CMAKE_CURRENT_BINARY_DIR}
 	)
 	target_link_libraries(${TARGET_NAME} PRIVATE 
@@ -95,47 +96,47 @@ function(add_rso_binary TARGET_NAME)
 	<glm/gtc/matrix_transform.hpp> # NEW: For lookAt/perspective
 
 	# Project Local
-	"engine/Flags.hpp"
-	"engine/Frames.hpp"
-	"engine/Logger.hpp"
-	"engine/window/WindowContext.hpp"
-	"engine/window/Window.hpp"
-	"engine/window/Camera.hpp"
-	"engine/Queue.hpp"
-	"engine/Buffer.hpp"
-	"engine/Command.hpp"
-	"engine/Device.hpp"
-	"engine/GraphicsPipeline.hpp"
-	"engine/Image.hpp"
-	"engine/Swapchain.hpp"
-	"engine/Instance.hpp"
-	"engine/VulkanHelpers.hpp"
+	"${CMAKE_SOURCE_DIR}/src/engine/Flags.hpp"
+	"${CMAKE_SOURCE_DIR}/src/engine/Frames.hpp"
+	"${CMAKE_SOURCE_DIR}/src/engine/Logger.hpp"
+	"${CMAKE_SOURCE_DIR}/src/engine/window/WindowContext.hpp"
+	"${CMAKE_SOURCE_DIR}/src/engine/window/Window.hpp"
+	"${CMAKE_SOURCE_DIR}/src/engine/window/Camera.hpp"
+	"${CMAKE_SOURCE_DIR}/src/engine/Queue.hpp"
+	"${CMAKE_SOURCE_DIR}/src/engine/Buffer.hpp"
+	"${CMAKE_SOURCE_DIR}/src/engine/Command.hpp"
+	"${CMAKE_SOURCE_DIR}/src/engine/Device.hpp"
+	"${CMAKE_SOURCE_DIR}/src/engine/GraphicsPipeline.hpp"
+	"${CMAKE_SOURCE_DIR}/src/engine/Image.hpp"
+	"${CMAKE_SOURCE_DIR}/src/engine/Swapchain.hpp"
+	"${CMAKE_SOURCE_DIR}/src/engine/Instance.hpp"
+	"${CMAKE_SOURCE_DIR}/src/engine/VulkanHelpers.hpp"
 )
 
 endfunction()
 
 add_slang_shader_target(CompileMesh
-	SOURCES ${CMAKE_SOURCE_DIR}/shaders/mesh.slang
+	SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/shaders/mesh.slang
 	ENTRIES vertMain fragMain
-	DEPENDS ${CMAKE_SOURCE_DIR}/shaders/shared.slang
+	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared.slang
 )
 
 add_slang_shader_target(CompileComputeAlpha
-	SOURCES ${CMAKE_SOURCE_DIR}/shaders/compute_alpha.slang
+	SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/shaders/compute_alpha.slang
 	ENTRIES computeMain
-	DEPENDS ${CMAKE_SOURCE_DIR}/shaders/shared.slang
+	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared.slang
 )
 
 add_slang_shader_target(CompileSatellite
-	SOURCES ${CMAKE_SOURCE_DIR}/shaders/satellite.slang
+	SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/shaders/satellite.slang
 	ENTRIES vertMain fragMain
-	DEPENDS ${CMAKE_SOURCE_DIR}/shaders/shared.slang
+	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared.slang
 )
 
 add_slang_shader_target(CompileReduce
-	SOURCES ${CMAKE_SOURCE_DIR}/shaders/reduce.slang
+	SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/shaders/reduce.slang
 	ENTRIES reduceMain
-	DEPENDS ${CMAKE_SOURCE_DIR}/shaders/shared.slang
+	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared.slang
 )
 
 add_rso_binary(rso DEFINITIONS)

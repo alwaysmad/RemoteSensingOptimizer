@@ -109,7 +109,7 @@ set(CELESTRAK_TLE_URL "https://celestrak.org/NORAD/ELEMENTS/gp.php?GROUP=active&
 set(CELESTRAK_TLE_PREFIX "${FETCHCONTENT_BASE_DIR}/celestrak_tle")
 set(CELESTRAK_TLE_DOWNLOAD_DIR "${CELESTRAK_TLE_PREFIX}/download")
 set(CELESTRAK_TLE_DATA_FILE "${CELESTRAK_TLE_DOWNLOAD_DIR}/active.tle")
-set(FLOCK_TLE_HEADER_FILE "${CMAKE_BINARY_DIR}/src/FLOCK_tle_data.hpp")
+set(FLOCK_TLE_HEADER_FILE "${CMAKE_BINARY_DIR}/src/rso/FLOCK_tle_data.hpp")
 
 ExternalProject_Add(celestrak_tle_raw
 	URL ${CELESTRAK_TLE_URL}
@@ -188,5 +188,5 @@ function(add_slang_shader_target TARGET_NAME)
 	add_custom_target(${TARGET_NAME} DEPENDS ${OUTPUT_HEADER})
 endfunction()
 
-# Add our "src" directory where the executable lives
-add_subdirectory(src)
+# Add the RSO application directory
+add_subdirectory(src/rso)
