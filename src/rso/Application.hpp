@@ -1,8 +1,6 @@
 // src/Application.hpp
 #pragma once
 
-#include <vector>
-
 #include <glm/mat4x4.hpp>
 
 #include "BufferStructs.hpp"

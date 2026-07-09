@@ -4,7 +4,7 @@
 #include <filesystem> // std::filesystem::temp_directory_path
 
 #include <array>
-#include <chrono>
+#include <vector>
 #include <cmath>
 #include <algorithm>
 
@@ -233,7 +233,7 @@ int Application::launch()
 
     m_logger.cInfo("Simulation completed");
     const auto elapsedTime = (simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2;
-    //if constexpr (Settings::headlessMode)
+    if constexpr (Settings::headlessMode)
         { m_logger.cInfo("{} | J_T: {:.6f}", elapsedTime-SIMULATION_TIME_STEP, J_T); }
     if (elapsedTime > 0.0)
         { m_logger.cInfo("Final J_av: {:.6f}", J_av / elapsedTime); }
