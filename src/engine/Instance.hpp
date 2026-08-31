@@ -5,6 +5,8 @@
 #include <vector> // std::vector for required extensions
 #include <vulkan/vulkan_raii.hpp>
 
+#include "engine/Logger.hpp"
+
 namespace svk
 {
 class Instance

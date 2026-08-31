@@ -190,3 +190,95 @@ endfunction()
 
 # Add the RSO application directory
 add_subdirectory(src/rso)
+
+# === Triangle Example ===
+# Compile triangle shader
+add_slang_shader_target(CompileTriangle
+	SOURCES ${CMAKE_SOURCE_DIR}/src/triangle/shaders/triangle.slang
+	ENTRIES vertMain fragMain
+)
+
+# Build triangle binary
+set(TRIANGLE_COMMON_SOURCES
+	${CMAKE_SOURCE_DIR}/src/engine/window/WindowContext.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/window/Window.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/window/Camera.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/Buffer.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/Command.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/ComputePipeline.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/ComputePipeline.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/ComputeRoutine.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/ComputeRoutine.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/DepthResources.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/Device.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/Device.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/GraphicsPipeline.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/GraphicsPipeline.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/Image.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/Instance.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/Instance.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/Logger.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/Queue.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/RenderTask.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/RenderTask.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/RenderRoutine.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/RenderRoutine.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/Swapchain.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/Swapchain.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/TransferRoutine.cpp
+	${CMAKE_SOURCE_DIR}/src/engine/TransferRoutine.hpp
+)
+
+set(TRIANGLE_COMPILE_DEFINITIONS
+	$<$<NOT:$<CONFIG:Debug>>:NDEBUG>
+	VULKAN_HPP_NO_CONSTRUCTORS
+	GLFW_INCLUDE_VULKAN
+	GLM_FORCE_CXX20
+	GLM_FORCE_DEPTH_ZERO_TO_ONE
+	GLM_FORCE_RADIANS
+)
+
+add_executable(triangle src/triangle/main.cpp)
+target_sources(triangle PRIVATE ${TRIANGLE_COMMON_SOURCES})
+target_compile_definitions(triangle PRIVATE ${TRIANGLE_COMPILE_DEFINITIONS})
+target_include_directories(triangle PRIVATE
+	${vulkan-hpp_BINARY_DIR}
+	${CMAKE_SOURCE_DIR}/src
+	${CMAKE_SOURCE_DIR}/src/engine
+	${CMAKE_CURRENT_BINARY_DIR}
+)
+target_link_libraries(triangle PRIVATE 
+	Vulkan::Vulkan
+	glfw
+	glm::glm
+)
+
+target_precompile_headers(triangle PRIVATE
+	# STL
+	<vector>
+	<array>
+	<string>
+	<stdexcept>
+	<exception>
+	<fstream>
+	<iostream>
+	<mutex>
+	<string_view>
+	<format>
+	<optional>
+	<cstdlib>
+	<utility>
+	<algorithm>
+	<cstring>
+	<filesystem>
+	<chrono>
+	<limits>
+	<cstddef>
+
+	# Third Party
+	<vulkan/vulkan_raii.hpp>
+	<GLFW/glfw3.h>
+	<glm/glm.hpp>
+)
+
+add_dependencies(triangle CompileTriangle)
