@@ -6,7 +6,9 @@
 # RSO Dependencies
 # ============================================================================
 
-# === SGP4 Orbital Mechanics Library ===
+# === SGP4 Orbital Mechanics Library (Library Only) ===
+# Disable example binaries (sattrack, runtest, passpredict, csvprop)
+# We only need the libsgp4 classes, not the utilities
 if(NOT sgp4_POPULATED)
 	include(FetchContent)
 	FetchContent_Declare(
@@ -14,8 +16,11 @@ if(NOT sgp4_POPULATED)
 		GIT_REPOSITORY https://github.com/dnwrnr/sgp4.git
 		GIT_TAG        master
 	)
+	# Disable SGP4 example binaries and tests
+	set(BUILD_EXAMPLES OFF CACHE BOOL "Disable SGP4 example binaries" FORCE)
+	set(BUILD_TESTS OFF CACHE BOOL "Disable SGP4 tests" FORCE)
 	FetchContent_MakeAvailable(sgp4)
-	message(STATUS "RSO: SGP4 orbital mechanics library fetched")
+	message(STATUS "RSO: SGP4 orbital mechanics library fetched (library only, no binaries)")
 endif()
 
 # === Fetch Celestrak Active TLE Data ===

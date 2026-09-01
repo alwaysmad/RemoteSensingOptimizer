@@ -1,0 +1,13 @@
+source /opt/rh/gcc-toolset-13/enable
+
+# Release (optimized, ~2 min build)
+cmake -B build -DCMAKE_BUILD_TYPE=Release -j4
+cmake --build build -j4
+
+# Debug with sanitizers (slower, catches bugs)
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=ON -DENABLE_UBSAN=ON -j4
+cmake --build build -j4
+
+# Other modes
+cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo  # Optimized + debug symbols
+cmake -B build -DCMAKE_BUILD_TYPE=MinSizeRel      # Minimal binary size

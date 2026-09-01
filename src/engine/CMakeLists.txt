@@ -6,23 +6,38 @@
 # ============================================================================
 
 # === Vulkan SDK ===
-find_package(Vulkan REQUIRED)
-message(STATUS "Engine: Vulkan ${Vulkan_VERSION} found")
+# Vulkan is found at root level (system package) and available to all projects
+message(STATUS "Engine: Vulkan ${Vulkan_VERSION} available (found at root)")
+
+# === GLM Math Library ===
+if(NOT glm_POPULATED)
+	include(FetchContent)
+	FetchContent_Declare(
+		glm
+		GIT_REPOSITORY https://github.com/g-truc/glm.git
+		GIT_TAG        1.0.3
+	)
+	FetchContent_MakeAvailable(glm)
+	message(STATUS "Engine: GLM 1.0.3 fetched")
+endif()
+
+# === Vulkan.hpp C++ Bindings ===
+set(VULKAN_HPP_GIT_TAG "v${Vulkan_VERSION}")
+if(NOT vulkan-hpp_POPULATED)
+	include(FetchContent)
+	FetchContent_Declare(
+		vulkan-hpp
+		GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Hpp.git
+		GIT_TAG        ${VULKAN_HPP_GIT_TAG}
+	)
+	FetchContent_MakeAvailable(vulkan-hpp)
+	message(STATUS "Engine: vulkan-hpp ${VULKAN_HPP_GIT_TAG} fetched")
+endif()
 
 # === GLFW Window System (Abstract Layer) ===
 # To migrate to SDL: just replace find_package(glfw3) with SDL2
 find_package(glfw3 3.4 REQUIRED)
 message(STATUS "Engine: GLFW 3.4+ found (window abstraction)")
-
-# === GLM Math Library ===
-# GLM is fetched by root CMakeLists.txt via FetchContent
-# The glm::glm target is automatically available
-message(STATUS "Engine: GLM available (from root FetchContent)")
-
-# === Vulkan.hpp C++ Bindings ===
-# vulkan-hpp is fetched by root CMakeLists.txt via FetchContent
-# The vulkan-hpp target is automatically available
-message(STATUS "Engine: vulkan-hpp available (from root FetchContent)")
 
 # ============================================================================
 # SVK Engine PCH Headers
