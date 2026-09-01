@@ -21,8 +21,8 @@
 #include "engine/DepthResources.hpp"
 #include "engine/RenderRoutine.hpp"
 #include "engine/RenderTask.hpp"
-#include "window/Window.hpp"
-#include "window/WindowContext.hpp"
+#include "engine/window/Window.hpp"
+#include "engine/window/WindowContext.hpp"
 
 // Generated shader header
 #include "triangle.hpp"
