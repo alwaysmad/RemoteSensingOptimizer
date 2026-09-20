@@ -55,38 +55,101 @@ struct Mesh
 
     Mesh() = default;
 
+    static constexpr double kEarthRadiusKm = 6378.135;
+
     static inline bool isMeshPointInFrance(const glm::vec3& pos)
     {
         // 1. Latitude: Angle from the XZ equatorial plane
         // Returns radians in the range [-pi/2, pi/2]
-        float latRad = std::asin(pos.y);
+        const double latRad = std::asin(pos.y);
 
         // 2. Longitude: Angle around the Y polar axis
         // Based on your specific rotation matrix, -Z is East and +X is the Prime Meridian
         // Returns radians in the range [-pi, pi]
-        float lonRad = std::atan2(-pos.z, pos.x);
+        const double lonRad = std::atan2(-pos.z, pos.x);
 
         // 3. Convert to degrees
-        constexpr float radToDeg = 180.0f / glm::pi<float>();
-        float lat = latRad * radToDeg;
-        float lon = lonRad * radToDeg;
+        constexpr double radToDeg = 180.0 / glm::pi<double>();
+        const double lat = latRad * radToDeg;
+        const double lon = lonRad * radToDeg;
 
         // 4. Evaluate against the Metropolitan France BBOX
-        return (lon >= -5.5f && lon <= 9.6f) && 
-            (lat >= 41.3f && lat <= 51.1f);
+        return (lon >= -5.5 && lon <= 9.6) && 
+               (lat >= 41.3 && lat <= 51.1);
+    }
+
+    // Checks whether a normalized 3D mesh point lies inside a local surface rectangle
+    // centered at (centerLatDeg, centerLonDeg) with dimensions widthKm (East-West) x heightKm (North-South).
+    static inline bool isMeshPointInGeoRect(
+        double centerLatDeg,
+        double centerLonDeg,
+        double widthKm,
+        double heightKm,
+        const glm::dvec3& pos)
+    {
+        constexpr double degToRad = glm::pi<double>() / 180.0;
+        const double lat0 = centerLatDeg * degToRad;
+        const double lon0 = centerLonDeg * degToRad;
+
+        const double cosLat0 = std::cos(lat0);
+        const double sinLat0 = std::sin(lat0);
+        const double cosLon0 = std::cos(lon0);
+        const double sinLon0 = std::sin(lon0);
+
+        // 1. Center unit vector r0 adhering to your frame:
+        //    pos.x = cos(lat) * cos(lon)
+        //    pos.y = sin(lat)
+        //    pos.z = -cos(lat) * sin(lon)
+        const glm::dvec3 r0(
+            cosLat0 * cosLon0,
+            sinLat0,
+            -cosLat0 * sinLon0
+        );
+
+        // Must be on the forward-facing hemisphere relative to the center
+        const double cosAngle = glm::dot(pos, r0);
+        if (cosAngle <= 0.0) { return false; }
+
+        // 2. Unit tangent vector pointing East: d/d(lon) normalized
+        //    d(pos.x)/d(lon) = -cos(lat) * sin(lon)
+        //    d(pos.y)/d(lon) = 0
+        //    d(pos.z)/d(lon) = -cos(lat) * cos(lon)
+        const glm::dvec3 eastDir(-sinLon0, 0.0, -cosLon0);
+
+        // 3. Unit tangent vector pointing North: d/d(lat) normalized
+        //    d(pos.x)/d(lat) = -sin(lat) * cos(lon)
+        //    d(pos.y)/d(lat) = cos(lat)
+        //    d(pos.z)/d(lat) = sin(lat) * sin(lon)
+        const glm::dvec3 northDir(
+            -sinLat0 * cosLon0,
+            cosLat0,
+            sinLat0 * sinLon0
+        );
+
+        // 4. Central projection (Gnomonic) onto the tangent plane at distance R_E
+        //    r_plane = pos / (pos . r0)
+        //    This preserves great-circle geodesics as straight lines
+        const glm::dvec3 diff = (pos / cosAngle) - r0;
+
+        // 5. Calculate the east and north displacements in kilometers
+        // Mean volumetric Earth radius in kilometers (WGS-84 / IUGG standard)
+        const double deltaEastKm  = kEarthRadiusKm * glm::dot(diff, eastDir);
+        const double deltaNorthKm = kEarthRadiusKm * glm::dot(diff, northDir);
+
+        const double halfWidth  = widthKm * 0.5;
+        const double halfHeight = heightKm * 0.5;
+
+        return (std::abs(deltaEastKm) <= halfWidth) && (std::abs(deltaNorthKm) <= halfHeight);
     }
 
     // Helper to calculate the exact solid angle of a rectangle on the z=1 face
-    static inline float solidAngle(float x, float y)
-        { return std::atan( (x * y) / std::sqrt(x * x + y * y + 1.0f) ); }
+    static inline double solidAngle(double x, double y)
+        { return std::atan((x * y) / std::sqrt(x * x + y * y + 1.0)); }
 
     // Populates a point-cloud cubesphere. 
     // 'resolution' is the number of cells per dimension on a single face.
     inline void populateMesh(uint32_t resolution)
     {
-        vertices.clear();
-        vertexData.clear();
-
         const uint32_t cellsPerFace = resolution * resolution;
         const uint32_t totalCells = 6 * cellsPerFace;
         const size_t vertexBytes = static_cast<size_t>(totalCells) * sizeof(VertexCoords);
@@ -102,11 +165,18 @@ struct Mesh
         else
             { std::printf("[Mesh] total required memory: %.2f GB\n", totalGB); }
         
-        vertices.reserve(totalCells);
-        vertexData.reserve(totalCells);
+        // 4 * resolution * cellSize == 2 * pi * kEarthRadiusKm
+        const double maxCellSizeKm = (glm::pi<double>() * kEarthRadiusKm) / (2.0 * static_cast<double>(resolution));
+        const double maxCellSizeM  = maxCellSizeKm * 1000.0;
 
-        const float invRes = 1.0f / static_cast<float>(resolution);
-        const float pi_over_4 = glm::pi<float>() / 4.0f;
+        std::printf("[Mesh] total cells: %u\n", totalCells);
+        std::printf("[Mesh] maximum cell size: %.3f km (%.1f m)\n", maxCellSizeKm, maxCellSizeM);
+
+        vertices.clear(); vertices.reserve(totalCells);
+        vertexData.clear(); vertexData.reserve(totalCells);
+
+        const double invRes = 1.0 / static_cast<double>(resolution);
+        const double pi_over_4 = glm::pi<double>() / 4.0;
 
         for (int face = 0; face < 6; ++face)
         {
@@ -115,25 +185,25 @@ struct Mesh
                 for (uint32_t j = 0; j < resolution; ++j)
                 {
                     // 1. Grid coordinates mapped to [-1.0, 1.0]
-                    const float u0 = -1.0f + 2.0f * (static_cast<float>(i) * invRes);
-                    const float u1 = -1.0f + 2.0f * (static_cast<float>(i + 1) * invRes);
-                    const float v0 = -1.0f + 2.0f * (static_cast<float>(j) * invRes);
-                    const float v1 = -1.0f + 2.0f * (static_cast<float>(j + 1) * invRes);
+                    const double u0 = -1.0 + 2.0 * (static_cast<double>(i) * invRes);
+                    const double u1 = -1.0 + 2.0 * (static_cast<double>(i + 1) * invRes);
+                    const double v0 = -1.0 + 2.0 * (static_cast<double>(j) * invRes);
+                    const double v1 = -1.0 + 2.0 * (static_cast<double>(j + 1) * invRes);
 
-                    const float uCenter = (u0 + u1) * 0.5f;
-                    const float vCenter = (v0 + v1) * 0.5f;
+                    const double uCenter = (u0 + u1) * 0.5;
+                    const double vCenter = (v0 + v1) * 0.5;
 
                     // 2. Equi-angular Warp (minimizes area dispersion)
-                    const float x0 = std::tan(u0 * pi_over_4);
-                    const float x1 = std::tan(u1 * pi_over_4);
-                    const float y0 = std::tan(v0 * pi_over_4);
-                    const float y1 = std::tan(v1 * pi_over_4);
+                    const double x0 = std::tan(u0 * pi_over_4);
+                    const double x1 = std::tan(u1 * pi_over_4);
+                    const double y0 = std::tan(v0 * pi_over_4);
+                    const double y1 = std::tan(v1 * pi_over_4);
 
-                    const float xCenter = std::tan(uCenter * pi_over_4);
-                    const float yCenter = std::tan(vCenter * pi_over_4);
+                    const double xCenter = std::tan(uCenter * pi_over_4);
+                    const double yCenter = std::tan(vCenter * pi_over_4);
 
                     // 3. Exact surface area calculation (Solid Angle of the cell)
-                    const float area = solidAngle(x1, y1) - solidAngle(x0, y1) - solidAngle(x1, y0) + solidAngle(x0, y0);
+                    const double area = solidAngle(x1, y1) - solidAngle(x0, y1) - solidAngle(x1, y0) + solidAngle(x0, y0);
 
                     // 4. Map the 2D face coordinates to 3D cube coordinates based on the face index
                     glm::vec3 pos;
@@ -154,22 +224,30 @@ struct Mesh
                     constexpr float alpha = 1.0f;
                     constexpr float epsilon = 0.0f; //0.0004f;
                     constexpr float v = 1.0f;
-                    const float s = area;
+                    const float s = static_cast<float>(area);
                     constexpr float w = 1.0f;
 
                     // 7. Add vertex to GPU arrays
-                    if (isMeshPointInFrance(pos))
+                    //if (isMeshPointInFrance(pos) && !isMeshPointInGeoRect(48.8566, 2.3522, 500.0, 500.0, pos))
+                    if ( isMeshPointInGeoRect(50.4500, 30.5233, 300.0, 300.0, pos)  // Kiyv 300x300
+                      || isMeshPointInGeoRect(31.5075, 34.4597, 100.0, 300.0, pos)  // Gaza 100x300
+                      || isMeshPointInGeoRect(12.6392, 8.0025, 200.0, 200.0, pos) ) // Mali, Bamako 200x200
                     {
-                        vertices.emplace_back(std::array<float, 4>{ pos.x, pos.y, pos.z, alpha });
+                        vertices.emplace_back(std::array<float, 4>{
+                            static_cast<float>(pos.x),
+                            static_cast<float>(pos.y),
+                            static_cast<float>(pos.z),
+                            alpha
+                        });
                         vertexData.emplace_back(std::array<float, 4>{ epsilon, v, s, w });
-                        totalSurfaceArea += static_cast<double>(area);
+                        totalSurfaceArea += area;
                     }
                 }
             }
             std::printf("[Mesh] generated face %d/6\n", face + 1);
         }
-
-        std::printf("[Mesh] total generated surface area: %.6f\n", totalSurfaceArea);
+        std::printf("[Mesh] total generated surface area: %.10f (ideal: %.10f)\n", 
+            totalSurfaceArea, 4.0 * glm::pi<double>());
     }
 };
 

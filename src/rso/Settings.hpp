@@ -3,7 +3,7 @@
 
 #include <cstdint>     // uint32_t for window dimensions
 #include <string>      // std::string for paths and device names
-#include <string_view> // std::string_view for static app name
+//#include <string_view> // std::string_view for static app name
 
 struct Settings
 {
@@ -22,7 +22,7 @@ public:
 	uint32_t windowWidth = 800;
 	uint32_t windowHeight = 600;
 
-	uint32_t meshResolution = 2000;
+	uint32_t meshResolution = 3400;
 	// const double kXKMPER = 6378.135; // libsgp4::kXKMPER Earth radius in km
 	static constexpr double scaling = 1.0 / 6378.135; 
 

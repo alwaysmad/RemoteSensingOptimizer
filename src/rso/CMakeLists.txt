@@ -23,7 +23,11 @@ if(NOT sgp4_POPULATED)
 	message(STATUS "RSO: SGP4 orbital mechanics library fetched (library only, no binaries)")
 endif()
 
-# === Fetch Celestrak Active TLE Data ===
+# ============================================================================
+# TLE Data Generation (Both Celestrak FLOCK & Synthetic Constellation)
+# ============================================================================
+
+# === 1. Fetch & Filter Celestrak Active TLE Data ===
 set(CELESTRAK_TLE_URL "https://celestrak.org/NORAD/ELEMENTS/gp.php?GROUP=active&FORMAT=tle")
 set(CELESTRAK_TLE_PREFIX "${FETCHCONTENT_BASE_DIR}/celestrak_tle")
 set(CELESTRAK_TLE_DOWNLOAD_DIR "${CELESTRAK_TLE_PREFIX}/download")
@@ -56,6 +60,25 @@ add_custom_command(
 
 add_custom_target(flock_tle_data DEPENDS ${FLOCK_TLE_HEADER_FILE})
 add_dependencies(flock_tle_data celestrak_tle_raw)
+
+# === 2. Generate Synthetic SSO Constellation Header ===
+set(SYNTH_TLE_HEADER_FILE "${CMAKE_BINARY_DIR}/src/rso/SYNTH_tle_data.hpp")
+set(SYNTH_SAT_COUNT 10 CACHE STRING "Number of satellites for synthetic constellation")
+set(SYNTH_RAAN_START 0 CACHE STRING "Start RAAN in degrees [0, 360)")
+set(SYNTH_RAAN_SPAN 45 CACHE STRING "Total RAAN angular span in degrees")
+
+add_custom_command(
+	OUTPUT ${SYNTH_TLE_HEADER_FILE}
+	COMMAND ${CMAKE_COMMAND}
+		-DNUM_SATELLITES=${SYNTH_SAT_COUNT}
+		-DOUTPUT_HEADER_FILE=${SYNTH_TLE_HEADER_FILE}
+		-P ${CMAKE_SOURCE_DIR}/scripts/generate_synthetic_tle.cmake
+	DEPENDS ${CMAKE_SOURCE_DIR}/scripts/generate_synthetic_tle.cmake
+	COMMENT "Generating synthetic SSO constellation header (${SYNTH_SAT_COUNT} satellites)"
+	VERBATIM
+)
+
+add_custom_target(synth_tle_data DEPENDS ${SYNTH_TLE_HEADER_FILE})
 
 # ============================================================================
 # RSO Shaders
@@ -157,7 +180,7 @@ target_link_libraries(rso PRIVATE
 	glm::glm
 	sgp4
 )
-add_dependencies(rso flock_tle_data CompileMesh CompileComputeAlpha CompileSatellite CompileReduce)
+add_dependencies(rso flock_tle_data synth_tle_data CompileMesh CompileComputeAlpha CompileSatellite CompileReduce)
 
 # ============================================================================
 # Build RSO Headless (no GUI)
@@ -189,6 +212,6 @@ target_link_libraries(rso_headless PRIVATE
 	glm::glm
 	sgp4
 )
-add_dependencies(rso_headless flock_tle_data CompileMesh CompileComputeAlpha CompileSatellite CompileReduce)
+add_dependencies(rso_headless flock_tle_data synth_tle_data CompileMesh CompileComputeAlpha CompileSatellite CompileReduce)
 
 message(STATUS "RSO: Applications configured (rso + rso_headless with SGP4 and Celestrak TLE)")

@@ -17,7 +17,7 @@ file(APPEND "${OUTPUT_FILE}" "#pragma once\n")
 #file(APPEND "${OUTPUT_FILE}" "#define VULKAN_HPP_NO_CONSTRUCTORS\n")
 #file(APPEND "${OUTPUT_FILE}" "#include <vulkan/vulkan.hpp>\n\n")
 file(APPEND "${OUTPUT_FILE}" "namespace ${NAMESPACE} \n{\n")
-file(APPEND "${OUTPUT_FILE}" "static constexpr uint32_t code[] = { ${HEX_FORMATTED} };\n")
+file(APPEND "${OUTPUT_FILE}" "	static constexpr uint32_t code[] = { ${HEX_FORMATTED} };\n")
 
 # Generate the CreateInfo struct
 file(APPEND "${OUTPUT_FILE}" "	constexpr vk::ShaderModuleCreateInfo smci\n")

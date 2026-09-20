@@ -14,6 +14,7 @@
 #include <SGP4.h>
 
 #include "FLOCK_tle_data.hpp"
+#include "SYNTH_tle_data.hpp"
 #include "Application.hpp"
 #include "BufferStructs.hpp"
 #include "EngineInstance.hpp"
@@ -95,7 +96,7 @@ static inline float getSunElevationAngle(const glm::vec3& pos, const glm::vec3& 
 static inline void updateAgents(std::vector<AgentData>& agents, const std::vector<libsgp4::SGP4>& propagators, const libsgp4::DateTime& currentTime)
 {
     // specificatoins derived from SuperDove
-    constexpr float aspect = 32.5/ 19.6;
+    constexpr float aspect = 32.5 / 19.6;
     constexpr float tanHalfFov = 19.6 / 2.0 / 525.0; // TODO: remove last multiplier after testing
     constexpr float zNear = 400.0 * Settings::scaling;
     constexpr float zFar = 525.0 * Settings::scaling;
@@ -104,7 +105,7 @@ static inline void updateAgents(std::vector<AgentData>& agents, const std::vecto
     const std::size_t count = std::min(agents.size(), propagators.size());
 
     // Compute the Sun vector once for this time step
-    const glm::vec3 sunDir = getSunVector(currentTime);
+    //const glm::vec3 sunDir = getSunVector(currentTime);
 
     for (std::size_t i = 0; i < count; ++i)
     {
@@ -124,9 +125,10 @@ static inline void updateAgents(std::vector<AgentData>& agents, const std::vecto
             static_cast<float>(eciVelocity.z * Settings::scaling),
             static_cast<float>(-eciVelocity.y * Settings::scaling));
 
-        const float sunElevation = getSunElevationAngle(pos, sunDir);
+        //const float sunElevation = getSunElevationAngle(pos, sunDir);
         // FLOCK Satellite only works is sun elevation > 10
-        const bool isOn = (sunElevation > 10.0f);
+        //const bool isOn = (sunElevation > 10.0f);
+        const bool isOn = true; // For testing, keep it always on
         
         // ==========================================
         // Off-Nadir Pointing Calculation
@@ -184,29 +186,24 @@ int Application::launch()
 	// Declare start of the reign
 	m_logger.cInfo("Application name is {}", Settings::appName);
 
-	Mesh mesh;
-    mesh.populateMesh(m_settings.meshResolution);
+	Mesh mesh; mesh.populateMesh(m_settings.meshResolution);
 
-    std::vector<libsgp4::SGP4> propagators; propagators.reserve(FLOCK_tle_data::tle_data.size());
-    std::vector<AgentData> agents(FLOCK_tle_data::tle_data.size());
+    const auto& tle_data = SYNTH_tle_data::tle_data;
+
+    std::vector<libsgp4::SGP4> propagators; propagators.reserve(tle_data.size());
+    std::vector<AgentData> agents(tle_data.size());
 	glm::mat4 model = glm::mat4(1.0f);
 	float J_T = 0.0f;
 	float J_av = 0.0f;
 
 	constexpr double SIMULATION_TIME_STEP = 1.0;
-    const libsgp4::DateTime startSimTime(2026, 6, 20, 10, 0, 0);
-    libsgp4::DateTime endSimTime(2026, 6, 20, 13, 0, 0);
-    //libsgp4::DateTime endSimTime(2026, 6, 20, 10, 0, 15);
+    const libsgp4::DateTime startSimTime(2026, 9, 11, 10, 0, 0);
+    const auto endSimTime = libsgp4::DateTime(2026, 9, 18, 10, 0, 0).AddSeconds(SIMULATION_TIME_STEP*2);
 
-    // no activity here
-    /*const libsgp4::DateTime startSimTime(2026, 6, 20, 13, 0, 0);
-    libsgp4::DateTime endSimTime(2026, 6, 21, 10, 0, 0);*/
-
-    endSimTime = endSimTime.AddSeconds(SIMULATION_TIME_STEP*2);
     libsgp4::DateTime simTime = startSimTime;
 
-    m_logger.cInfo("Active satellites: {}", FLOCK_tle_data::tle_data.size());
-    for (const auto& tle : FLOCK_tle_data::tle_data)
+    m_logger.cInfo("Active satellites: {}", tle_data.size());
+    for (const auto& tle : tle_data)
     {
         m_logger.cInfo("{} : {}", propagators.size() + 1, tle.Name());
         propagators.emplace_back(tle);
@@ -218,10 +215,7 @@ int Application::launch()
 	while (!engine.shouldClose() && simTime <= endSimTime)
 	{
         if (engine.isPaused())
-        {
-            engine.tick(static_cast<float>(SIMULATION_TIME_STEP));
-            continue;
-        }
+            { engine.tick(static_cast<float>(SIMULATION_TIME_STEP)); continue; }
         updateAgents(agents, propagators, simTime);
 		updateModel(model, simTime);
 		engine.tick(static_cast<float>(SIMULATION_TIME_STEP));
