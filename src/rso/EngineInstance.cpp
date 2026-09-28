@@ -240,7 +240,7 @@ EngineInstance::EngineInstance(
 
 		m_computeRoutine->bakeCommands(
 			0,
-			vk::CommandBufferUsageFlagBits::eSimultaneousUse,
+			vk::CommandBufferUsageFlags{},
 			groupCountX,
 			groupCountY,
 			1);

@@ -14,7 +14,6 @@ namespace svk
 
 class Logger
 {
-	// Owned by Application - console (Herald) and file (Scribe) logging
 public:
 	// No copy
 	Logger(const Logger&) = delete;

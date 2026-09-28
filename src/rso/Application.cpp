@@ -40,9 +40,10 @@ Settings Application::configure(/*TODO parse cli args*/)
 
 static inline std::array<float, 4> getCosineColor(double offset)
 {
-	const float r = 0.5f + 0.5f * std::cos(offset);
-	const float g = 0.5f + 0.5f * std::cos(offset + 2.0f);
-	const float b = 0.5f + 0.5f * std::cos(offset + 4.0f);
+	// offset is double; std::cos returns double — cast explicitly at the boundary
+	const float r = static_cast<float>(0.5 + 0.5 * std::cos(offset));
+	const float g = static_cast<float>(0.5 + 0.5 * std::cos(offset + 2.0));
+	const float b = static_cast<float>(0.5 + 0.5 * std::cos(offset + 4.0));
 	return {r, g, b, 1.0f};
 }
 
@@ -95,12 +96,14 @@ static inline float getSunElevationAngle(const glm::vec3& pos, const glm::vec3& 
 
 static inline void updateAgents(std::vector<AgentData>& agents, const std::vector<libsgp4::SGP4>& propagators, const libsgp4::DateTime& currentTime)
 {
-    // specificatoins derived from SuperDove
-    constexpr float aspect = 32.5 / 19.6;
-    constexpr float tanHalfFov = 19.6 / 2.0 / 525.0; // TODO: remove last multiplier after testing
-    constexpr float zNear = 400.0 * Settings::scaling;
-    constexpr float zFar = 525.0 * Settings::scaling;
-    constexpr float OmegaStrength = (1.0 / (5.0 / 0.5)) * (19.6 * Settings::scaling * 32.5 * Settings::scaling); // 0.5 fps, 5 frames for 'full' survey
+    // Specifications derived from SuperDove sensor.
+    // Settings::scaling is constexpr double — arithmetic stays double, cast at the boundary.
+    constexpr float aspect       = static_cast<float>(32.5 / 19.6);
+    constexpr float tanHalfFov   = static_cast<float>(19.6 / 2.0 / 525.0); // TODO: remove /525 multiplier after testing
+    constexpr float zNear        = static_cast<float>(400.0 * Settings::scaling);
+    constexpr float zFar         = static_cast<float>(525.0 * Settings::scaling);
+    // 0.5 fps effective rate, 5 frames for 'full' survey pass
+    constexpr float OmegaStrength = static_cast<float>((1.0 / (5.0 / 0.5)) * (19.6 * Settings::scaling * 32.5 * Settings::scaling));
 
     const std::size_t count = std::min(agents.size(), propagators.size());
 

@@ -20,12 +20,51 @@ include(ExternalProject)
 find_package(Vulkan REQUIRED)
 message(STATUS "Vulkan SDK ${Vulkan_VERSION} found")
 
-# --- Find Slang Compiler ---
+# --- Find or Fetch Slang Compiler ---
+#
+# Pinned to v2026.18.3 — this version is known to work with this project.
+# A newer version is very likely fine, but is NOT guaranteed to be compatible.
+# To upgrade: change SLANG_TAG and SLANG_VER below and test a full build + run.
+#
+# If slangc is already on PATH (e.g. system or custom install), it will be
+# used directly and the download is skipped.
+
 find_program(SLANGC_EXECUTABLE slangc)
+
 if(NOT SLANGC_EXECUTABLE)
-	message(FATAL_ERROR "slangc not found! Please install Slang and add it to your PATH.")
+    set(SLANG_TAG "v2026.18.3")    # GitHub release tag  (has the v prefix)
+    set(SLANG_VER "2026.18.3")     # Archive filename version (no v prefix)
+    message(STATUS "slangc not found on PATH — fetching Slang ${SLANG_TAG}")
+
+    # Archive filename format: slang-<ver>-<os>-<arch>.tar.gz  (no v in filename)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set(SLANG_ARCHIVE "slang-${SLANG_VER}-linux-x86_64.tar.gz")
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+        set(SLANG_ARCHIVE "slang-${SLANG_VER}-windows-x86_64.zip")
+    else()
+        message(FATAL_ERROR "Unsupported platform for Slang auto-download: ${CMAKE_SYSTEM_NAME}")
+    endif()
+
+    FetchContent_Declare(slang
+        URL "https://github.com/shader-slang/slang/releases/download/${SLANG_TAG}/${SLANG_ARCHIVE}"
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    )
+    FetchContent_MakeAvailable(slang)
+
+    # The extracted binary lives at <base>/slang-src/bin/slangc (Linux)
+    find_program(SLANGC_EXECUTABLE slangc
+        HINTS "${slang_SOURCE_DIR}/bin"
+        NO_DEFAULT_PATH
+    )
+    if(NOT SLANGC_EXECUTABLE)
+        message(FATAL_ERROR "Slang downloaded but slangc binary not found in ${slang_SOURCE_DIR}/bin.\n"
+                            "Check the archive layout for Slang ${SLANG_TAG}.")
+    endif()
+    message(STATUS "Found Slang compiler (fetched): ${SLANGC_EXECUTABLE}")
+else()
+    message(STATUS "Found Slang compiler (system): ${SLANGC_EXECUTABLE}")
 endif()
-message(STATUS "Found Slang compiler: ${SLANGC_EXECUTABLE}")
+
 
 # ============================================================================
 # Common Build Helpers

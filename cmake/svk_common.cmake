@@ -64,19 +64,20 @@ function(add_slang_shader_target TARGET_NAME)
 
     add_custom_command(
         OUTPUT ${OUTPUT_HEADER}
-        COMMAND ${SLANGC_EXECUTABLE} ${ARG_SOURCES} 
-            -target spirv -profile spirv_1_4 -emit-spirv-directly 
-            -fvk-use-entrypoint-name ${ENTRY_POINT_FLAGS} 
+        COMMAND ${SLANGC_EXECUTABLE} ${ARG_SOURCES}
+            -target spirv -profile spirv_1_4 -emit-spirv-directly
+            -fvk-use-entrypoint-name ${ENTRY_POINT_FLAGS}
+            ${SLANGC_OPT_FLAGS}
             -o ${OUTPUT_SPV}
 
-        COMMAND ${CMAKE_COMMAND} 
-            -DINPUT_FILE=${OUTPUT_SPV} 
+        COMMAND ${CMAKE_COMMAND}
+            -DINPUT_FILE=${OUTPUT_SPV}
             -DOUTPUT_FILE=${OUTPUT_HEADER}
             -DNAMESPACE=${SHADER_NAME}
             -P ${CMAKE_SOURCE_DIR}/cmake/embed_spv.cmake
 
         DEPENDS ${ARG_SOURCES} ${CMAKE_SOURCE_DIR}/cmake/embed_spv.cmake ${ARG_DEPENDS}
-        COMMENT "Compiling and Embedding Slang Shader: ${SHADER_NAME}"
+        COMMENT "Compiling Slang shader: ${SHADER_NAME} [${SLANGC_OPT_FLAGS}]"
     )
 
     add_custom_target(${TARGET_NAME} DEPENDS ${OUTPUT_HEADER})
