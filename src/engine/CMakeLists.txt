@@ -18,13 +18,6 @@ if(NOT glm_POPULATED)
 		GIT_TAG        1.0.3
 	)
 	FetchContent_MakeAvailable(glm)
-	# Mark as SYSTEM so our -Wsign-conversion/-Wconversion flags
-	# don't fire inside GLM's template internals
-	get_target_property(GLM_INC glm::glm INTERFACE_INCLUDE_DIRECTORIES)
-	if(GLM_INC)
-		set_target_properties(glm::glm PROPERTIES
-			INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${GLM_INC}")
-	endif()
 	message(STATUS "Engine: GLM 1.0.3 fetched")
 endif()
 

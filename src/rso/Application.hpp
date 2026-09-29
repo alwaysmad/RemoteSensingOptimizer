@@ -61,7 +61,7 @@ public:
 
 	// Public so std::optional can create and destroy
 	// Since only 'run()' can make the Key, this is effectively private.
-	explicit Application(PassKey, Settings&& s) : m_settings(std::move(s)), m_logger(m_settings.logPath)
+	explicit Application(PassKey, Settings&& s) : m_settings(std::move(s)), m_logger(true, m_settings.logPath)
 		{ m_logger.cInfo("Application started"); }
 	~Application() { m_logger.cInfo("Application ended"); }
 };

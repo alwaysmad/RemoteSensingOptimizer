@@ -7,20 +7,21 @@
 # ============================================================================
 
 # === SGP4 Orbital Mechanics Library (Library Only) ===
-# Disable example binaries (sattrack, runtest, passpredict, csvprop)
-# We only need the libsgp4 classes, not the utilities
+# Pinned to v3.0 — the first versioned release of the library.
+# To upgrade: change GIT_TAG and verify the libsgp4 CMake target name is unchanged.
+# We only need the libsgp4 classes, not the example binaries (sattrack, runtest, etc.)
 if(NOT sgp4_POPULATED)
 	include(FetchContent)
 	FetchContent_Declare(
 		sgp4
 		GIT_REPOSITORY https://github.com/dnwrnr/sgp4.git
-		GIT_TAG        master
+		GIT_TAG        v3.0
 	)
 	# Disable SGP4 example binaries and tests
 	set(BUILD_EXAMPLES OFF CACHE BOOL "Disable SGP4 example binaries" FORCE)
 	set(BUILD_TESTS OFF CACHE BOOL "Disable SGP4 tests" FORCE)
 	FetchContent_MakeAvailable(sgp4)
-	message(STATUS "RSO: SGP4 orbital mechanics library fetched (library only, no binaries)")
+	message(STATUS "RSO: SGP4 v3.0 fetched (library only)")
 endif()
 
 # ============================================================================

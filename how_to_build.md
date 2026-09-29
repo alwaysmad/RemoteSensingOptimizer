@@ -87,7 +87,7 @@ perf report
 
 ---
 
-## 🔬 Profile-Guided Optimization (PGO) Workflow
+## Profile-Guided Optimization (PGO) Workflow
 
 > **Compiler:** GCC &bull; **Build Type:** `Bench`
 
@@ -108,7 +108,7 @@ cmake --build build_pgo -j$(nproc)
 
 ---
 
-## 🎛️ CMake Configuration Options
+## CMake Configuration Options
 
 Configure these options by passing `-D<OPTION>=<VALUE>` to the `cmake -B ...` configuration step.
 

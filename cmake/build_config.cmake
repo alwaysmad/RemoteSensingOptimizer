@@ -2,12 +2,6 @@
 # Build Configuration
 # ============================================================================
 
-# All FetchContent dependencies are treated as SYSTEM headers — their code is
-# not ours to fix, so we suppress warnings from it globally. This covers GLM,
-# googletest, sgp4, and any future fetched dependency.
-set(FETCHCONTENT_SYSTEM ON CACHE BOOL "Treat all FetchContent targets as SYSTEM" FORCE)
-
-
 # Compiler Version Check
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 13.0)
@@ -107,24 +101,35 @@ set(CMAKE_CXX_FLAGS_BENCH
 # -funroll-loops:        aggressive loop unrolling — benefits the compute_alpha inner loop
 # -fno-omit-frame-pointer: keep call stacks intact for `perf record` profiling
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    # PGO (Profile-Guided Optimization):
-    # Step 1: build with -DCMAKE_BUILD_TYPE=Bench -DENABLE_PGO_GENERATE=ON
-    # Step 2: run the binary (generates .gcda profile files)
-    # Step 3: rebuild with -DCMAKE_BUILD_TYPE=Bench -DENABLE_PGO_GENERATE=OFF
-    #         The compiler reads .gcda and optimizes hot paths accordingly.
-    option(ENABLE_PGO_GENERATE "Instrument binary for PGO profile generation" OFF)
-    if(ENABLE_PGO_GENERATE AND CMAKE_BUILD_TYPE STREQUAL "Bench")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_BUILD_TYPE STREQUAL "Bench")
+    # PGO (Profile-Guided Optimization) — both phases are explicit opt-in.
+    #
+    # Step 1 — instrument:  cmake -B build_bench -DCMAKE_BUILD_TYPE=Bench -DENABLE_PGO_GENERATE=ON
+    #                       cmake --build build_bench && ./build_bench/bin/rso_headless
+    # Step 2 — optimise:   cmake -B build_bench -DCMAKE_BUILD_TYPE=Bench -DENABLE_PGO_USE=ON
+    #                       cmake --build build_bench
+    #
+    # WARNING: -DENABLE_PGO_USE=ON without running Step 1 first produces
+    # '-Wmissing-profile' warnings and may miscompile. Collect .gcda data first.
+
+    option(ENABLE_PGO_GENERATE "Step 1: instrument binary to collect .gcda profile data" OFF)
+    option(ENABLE_PGO_USE      "Step 2: consume .gcda profile data (run Step 1 first)"   OFF)
+
+    if(ENABLE_PGO_GENERATE AND ENABLE_PGO_USE)
+        message(FATAL_ERROR "ENABLE_PGO_GENERATE and ENABLE_PGO_USE are mutually exclusive.")
+    elseif(ENABLE_PGO_GENERATE)
         add_compile_options(-fprofile-generate)
         add_link_options(-fprofile-generate)
-        message(STATUS "PGO: instrumentation build (run binary to collect .gcda files)")
-    elseif(NOT ENABLE_PGO_GENERATE AND CMAKE_BUILD_TYPE STREQUAL "Bench")
-        # Silently ignored if no .gcda files exist yet
+        message(STATUS "PGO: instrumentation build — run the binary to collect .gcda files")
+    elseif(ENABLE_PGO_USE)
         add_compile_options(-fprofile-use -fprofile-correction)
         add_link_options(-fprofile-use)
-        message(STATUS "PGO: using profile data (if .gcda files exist from prior run)")
+        message(STATUS "PGO: consuming profile data from prior instrumentation run")
+    else()
+        message(STATUS "PGO: disabled (use -DENABLE_PGO_GENERATE=ON or -DENABLE_PGO_USE=ON)")
     endif()
 endif()
+
 
 # ============================================================================
 # RelWithDebInfo — optimized + debug symbols for profiling (perf, valgrind)
