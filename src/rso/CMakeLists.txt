@@ -123,6 +123,7 @@ set(RSO_COMMON_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/Application.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/EngineInstance.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/EngineInstance.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/FileLogger.hpp
 	${CMAKE_SOURCE_DIR}/src/engine/window/Camera.cpp
 	${CMAKE_SOURCE_DIR}/src/engine/window/WindowContext.hpp
 	${CMAKE_SOURCE_DIR}/src/engine/window/Window.hpp
@@ -140,7 +141,7 @@ set(RSO_COMMON_SOURCES
 	${CMAKE_SOURCE_DIR}/src/engine/Image.hpp
 	${CMAKE_SOURCE_DIR}/src/engine/Instance.cpp
 	${CMAKE_SOURCE_DIR}/src/engine/Instance.hpp
-	${CMAKE_SOURCE_DIR}/src/engine/Logger.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/ConsoleLogger.hpp
 	${CMAKE_SOURCE_DIR}/src/engine/Queue.hpp
 	${CMAKE_SOURCE_DIR}/src/engine/RenderTask.cpp
 	${CMAKE_SOURCE_DIR}/src/engine/RenderTask.hpp

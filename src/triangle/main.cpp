@@ -11,7 +11,7 @@
 #include <glm/glm.hpp>
 
 // SVK Engine headers - order matters!
-#include "engine/Logger.hpp"
+#include "engine/ConsoleLogger.hpp"
 #include "engine/Instance.hpp"
 #include "engine/Device.hpp"
 #include "engine/Swapchain.hpp"
@@ -38,7 +38,7 @@ int main()
     try
     {
         // === 1. Setup Logger ===
-        svk::Logger logger("/tmp/triangle.log");
+        svk::ConsoleLogger logger;
         logger.cInfo("Triangle Example Starting...");
 
         // === 2. Create Vulkan Instance ===
@@ -169,11 +169,11 @@ int main()
     }
 	catch ( const std::exception& e )
 	{
-		std::cerr << svk::Logger::COLOR_RED << "Error: " << e.what() << svk::Logger::COLOR_RESET << std::endl;
+		std::cerr << svk::ConsoleLogger::COLOR_RED << "Error: " << e.what() << svk::ConsoleLogger::COLOR_RESET << std::endl;
 	}
 	catch ( ... )
 	{
-		std::cerr << svk::Logger::COLOR_RED << "An unknown error occurred." << svk::Logger::COLOR_RESET << std::endl;
+		std::cerr << svk::ConsoleLogger::COLOR_RED << "An unknown error occurred." << svk::ConsoleLogger::COLOR_RESET << std::endl;
 	}
 	return EXIT_FAILURE; // If error occured 
 }

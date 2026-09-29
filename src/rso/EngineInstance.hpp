@@ -12,7 +12,7 @@
 #include "engine/Buffer.hpp"
 #include "engine/Device.hpp"
 #include "engine/Instance.hpp"
-#include "engine/Logger.hpp"
+#include "engine/ConsoleLogger.hpp"
 #include "engine/ComputeRoutine.hpp"
 #include "engine/RenderRoutine.hpp"
 #include "engine/Swapchain.hpp"
@@ -25,7 +25,7 @@ class EngineInstance
 {
 private:
 	const Settings& m_settings;
-	const svk::Logger& m_logger;
+	const svk::ConsoleLogger& m_logger;
 	float& m_J_T;
 	float& m_J_av;
 	const Mesh& m_mesh;
@@ -74,7 +74,7 @@ public:
 
 	EngineInstance(
 		const Settings& settings,
-		const svk::Logger& logger,
+		const svk::ConsoleLogger& logger,
 		float& J_T,
 		float& J_av,
 		const Mesh& mesh,

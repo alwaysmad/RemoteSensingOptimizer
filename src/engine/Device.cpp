@@ -9,7 +9,7 @@
 #include "engine/Flags.hpp"
 #include "engine/Device.hpp"
 #include "engine/Instance.hpp"
-#include "engine/Logger.hpp"
+#include "engine/ConsoleLogger.hpp"
 
 namespace
 {
@@ -18,7 +18,7 @@ constexpr uint32_t kVulkanRecommendedMaxAllocations = 4096;
 constexpr uint32_t kAllocationHardWarning = 4086;
 constexpr uint32_t kAllocationNearWarning = 4000;
 
-inline void logAllocationPressure(const svk::Logger& logger, uint32_t currentCount)
+inline void logAllocationPressure(const svk::ConsoleLogger& logger, uint32_t currentCount)
 {
     if (currentCount >= kAllocationHardWarning)
     {
@@ -40,7 +40,7 @@ inline void selectPhysicalDevice(
     const vk::raii::Instance& instance,
     const std::string& requestedDeviceName,
     vk::raii::PhysicalDevice& outPhysicalDevice,
-    const svk::Logger& logger)
+    const svk::ConsoleLogger& logger)
 {
     // Find and pick physical device based on name and Vulkan 1.3 support
     const auto devices = instance.enumeratePhysicalDevices();
@@ -259,10 +259,10 @@ svk::Buffer Device::createBuffer(vk::DeviceSize size,
 
         if (size > kConventionalUboLimit)
         {
-            std::cerr << Logger::COLOR_YELLOW
+            std::cerr << ConsoleLogger::COLOR_YELLOW
                 << "[WARNING] Requested UBO size (" << size
                 << ") is larger than the conventional 64 KB budget."
-                << Logger::COLOR_RESET << std::endl;
+                << ConsoleLogger::COLOR_RESET << std::endl;
         }
     }
 
@@ -338,10 +338,10 @@ void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKH
     const auto props = m_physicalDevice.getProperties();
     if (props.deviceType != vk::PhysicalDeviceType::eDiscreteGpu)
     {
-        std::cerr << Logger::COLOR_YELLOW
+        std::cerr << ConsoleLogger::COLOR_YELLOW
             << "[WARNING] Selected device '" << deviceName
             << "' is NOT a discrete GPU."
-            << Logger::COLOR_RESET << std::endl;
+            << ConsoleLogger::COLOR_RESET << std::endl;
     }
 
     uint32_t graphicsQueueIndex, presentQueueIndex, computeQueueIndex, transferQueueIndex;

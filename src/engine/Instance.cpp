@@ -9,7 +9,7 @@
 
 #include "engine/Flags.hpp"
 #include "engine/Instance.hpp"
-#include "engine/Logger.hpp"
+#include "engine/ConsoleLogger.hpp"
 
 namespace
 {
@@ -31,7 +31,7 @@ namespace
 
 namespace svk
 {
-Instance::Instance(const std::string& appName, const std::vector<const char*>& extensions, const Logger& logger)
+Instance::Instance(const std::string& appName, const std::vector<const char*>& extensions, const ConsoleLogger& logger)
 {
 	const vk::ApplicationInfo appInfo {
 		.pApplicationName = appName.c_str(),
@@ -99,7 +99,7 @@ Instance::Instance(const std::string& appName, const std::vector<const char*>& e
 		.messageSeverity = severityFlags,
 		.messageType = messageTypeFlags,
 		.pfnUserCallback = &debugCallback,
-		.pUserData = static_cast<void*>(const_cast<Logger*>(&logger))
+		.pUserData = static_cast<void*>(const_cast<ConsoleLogger*>(&logger))
 	};
 
 	const vk::InstanceCreateInfo createInfo {
@@ -127,16 +127,16 @@ VKAPI_ATTR vk::Bool32 VKAPI_CALL Instance::debugCallback(
 	const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void* pUserData)
 {
-	const Logger* logger = static_cast<const Logger*>(pUserData);
+	const ConsoleLogger* logger = static_cast<const ConsoleLogger*>(pUserData);
 	const std::string typeStr = vk::to_string(type);
 	if (severity >= vk::DebugUtilsMessageSeverityFlagBitsEXT::eError)
 		{ logger->cError("{} {}", typeStr, pCallbackData->pMessage); }
 	else if (severity >= vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning)
 		{ logger->cWarn("{} {}", typeStr, pCallbackData->pMessage); }
 	else if (severity >= vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo)
-		{ logger->fInfo("{} {}", typeStr, pCallbackData->pMessage); }
+		{ logger->cInfo("{} {}", typeStr, pCallbackData->pMessage); }
 	else
-	{ logger->fDebug("{} {}", typeStr, pCallbackData->pMessage); }
+	{ logger->cDebug("{} {}", typeStr, pCallbackData->pMessage); }
 
 	return vk::False;
 }

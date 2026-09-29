@@ -113,7 +113,7 @@ set(SVK_PCH_HEADERS
     # SVK Engine Headers (using angle brackets so they rely on -I paths)
     <engine/Flags.hpp>
     <engine/Frames.hpp>
-    <engine/Logger.hpp>
+    <engine/ConsoleLogger.hpp>
     <engine/Queue.hpp>
     <engine/Buffer.hpp>
     <engine/Command.hpp>

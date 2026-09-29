@@ -8,7 +8,7 @@
 #include <utility>  // std::move in constructor
 
 #include "Settings.hpp"
-#include "engine/Logger.hpp"
+#include "engine/ConsoleLogger.hpp"
 
 class Application
 {
@@ -26,7 +26,7 @@ private:
 	// The privy council
 	static std::optional<Application> s_instance; // The throne
 	Settings m_settings; // Rulebook
-	svk::Logger m_logger; // Herald and Scribe
+	svk::ConsoleLogger m_logger; // Herald and Scribe
 
 	// The Imperial court
 	// TODO more
@@ -61,7 +61,7 @@ public:
 
 	// Public so std::optional can create and destroy
 	// Since only 'run()' can make the Key, this is effectively private.
-	explicit Application(PassKey, Settings&& s) : m_settings(std::move(s)), m_logger(true, m_settings.logPath)
+	explicit Application(PassKey, Settings&& s) : m_settings(std::move(s)), m_logger()
 		{ m_logger.cInfo("Application started"); }
 	~Application() { m_logger.cInfo("Application ended"); }
 };

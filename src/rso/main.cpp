@@ -5,7 +5,7 @@
 #include <iostream>  // std::cerr output
 
 #include "Application.hpp"
-#include "engine/Logger.hpp"
+#include "engine/ConsoleLogger.hpp"
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 {
@@ -15,11 +15,11 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 	}
 	catch ( const std::exception& e )
 	{
-		std::cerr << svk::Logger::COLOR_RED << "Error: " << e.what() << svk::Logger::COLOR_RESET << std::endl;
+		std::cerr << svk::ConsoleLogger::COLOR_RED << "Error: " << e.what() << svk::ConsoleLogger::COLOR_RESET << std::endl;
 	}
 	catch ( ... )
 	{
-		std::cerr << svk::Logger::COLOR_RED << "An unknown error occurred." << svk::Logger::COLOR_RESET << std::endl;
+		std::cerr << svk::ConsoleLogger::COLOR_RED << "An unknown error occurred." << svk::ConsoleLogger::COLOR_RESET << std::endl;
 	}
 	return EXIT_FAILURE; // If error occured 
 }

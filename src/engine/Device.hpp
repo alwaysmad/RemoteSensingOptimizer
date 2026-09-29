@@ -17,7 +17,7 @@ namespace svk
 {
 
 class Instance;
-class Logger;
+class ConsoleLogger;
 
 class Device
 {
@@ -30,12 +30,12 @@ public:
     };
 
     // 1. Headless Mode (Compute & Transfer Only)
-    Device(const svk::Instance& instance, const std::string& deviceName, const svk::Logger& logger)
+    Device(const svk::Instance& instance, const std::string& deviceName, const svk::ConsoleLogger& logger)
         : m_logger(logger), m_queues { svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device) }
         { initialize(instance, nullptr, deviceName); }
 
     // 2. Surfaced Mode (Graphics & Present Enabled)
-    Device(const svk::Instance& instance, const vk::raii::SurfaceKHR& surface, const std::string& deviceName, const svk::Logger& logger)
+    Device(const svk::Instance& instance, const vk::raii::SurfaceKHR& surface, const std::string& deviceName, const svk::ConsoleLogger& logger)
         : m_logger(logger), m_queues { svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device) }
         { initialize(instance, &surface, deviceName); }
 
@@ -91,7 +91,7 @@ private:
 
     vk::raii::PhysicalDevice m_physicalDevice = nullptr;
     vk::raii::Device m_device = nullptr;
-    const svk::Logger& m_logger;
+    const svk::ConsoleLogger& m_logger;
 
     std::array<uint32_t, 4> m_queueMapping { 0, 0, 0, 0 };
     std::array<svk::Queue, 4> m_queues;

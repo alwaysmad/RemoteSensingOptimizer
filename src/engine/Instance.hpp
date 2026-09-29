@@ -5,14 +5,14 @@
 #include <vector> // std::vector for required extensions
 #include <vulkan/vulkan_raii.hpp>
 
-#include "engine/Logger.hpp"
+#include "engine/ConsoleLogger.hpp"
 
 namespace svk
 {
 class Instance
 {
 public:
-	Instance(const std::string& appName, const std::vector<const char*>& requiredExtensions, const Logger& logger);
+	Instance(const std::string& appName, const std::vector<const char*>& requiredExtensions, const ConsoleLogger& logger);
 	~Instance() = default;
 
 	[[nodiscard]] inline const vk::raii::Instance& getInstance() const { return m_instance; }

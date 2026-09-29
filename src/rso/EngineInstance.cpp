@@ -15,7 +15,7 @@
 
 EngineInstance::EngineInstance(
 	const Settings& settings,
-	const svk::Logger& logger,
+	const svk::ConsoleLogger& logger,
 	float& J_T,
 	float& J_av,
 	const Mesh& mesh,
