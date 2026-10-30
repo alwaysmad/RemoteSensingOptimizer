@@ -117,6 +117,8 @@ EngineInstance::EngineInstance(
 		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
 		{ svk::Device::TRANSFER }));
 	m_resultMap.emplace(m_resultStagingBuffer->map(0, resultRingSize));
+	// zero-init the ring buffer to avoid reading uninitialized values on the first few frames
+	std::memset(m_resultMap->get(), 0, static_cast<size_t>(resultRingSize));
 
 	{
 		auto vertexStaging = m_device->createBuffer(

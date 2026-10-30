@@ -1,0 +1,45 @@
+# .clang-format — RSO / SVK code style
+# Apply: clang-format -i src/rso/*.cpp src/rso/*.hpp src/engine/*.cpp src/engine/*.hpp
+
+BasedOnStyle: LLVM
+
+# Indentation
+UseTab: ForIndentation
+TabWidth: 4
+IndentWidth: 4
+ContinuationIndentWidth: 4
+IndentCaseLabels: false
+NamespaceIndentation: None
+AccessModifierOffset: -4
+
+# Line length
+ColumnLimit: 120
+
+# Braces
+BreakBeforeBraces: Allman
+
+# Short forms
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortBlocksOnASingleLine: Empty
+AllowShortLambdasOnASingleLine: Inline
+AllowShortLoopsOnASingleLine: false
+
+# Alignment
+PointerAlignment: Left
+ReferenceAlignment: Left
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignTrailingComments: true
+
+# Includes
+IncludeBlocks: Preserve
+SortIncludes: CaseInsensitive
+
+# Misc
+Cpp11BracedListStyle: true
+SpaceAfterTemplateKeyword: false
+SpaceBeforeParens: ControlStatements
+BinPackArguments: false
+BinPackParameters: false
+AllowAllParametersOfDeclarationOnNextLine: true

@@ -31,6 +31,30 @@ struct VertexData
 };
 
 // ==========================================
+// Camera Packing Contract (CPU ↔ GPU)
+// ==========================================
+// The C++ side (Application.cpp) packs both view AND projection parameters
+// into a single float4x4 to compress satellite data to 64 bytes per agent.
+//
+// GLM is COLUMN-major: view[col][row]. Slang is ROW-major: c[row][col].
+// After memcpy across the boundary, GLM column N becomes Slang row N.
+//
+// The C++ side overwrites the 4th element of each GLM column (row 3):
+//   view[0][3] = tanHalfFov   → Slang c[3].x
+//   view[1][3] = aspect       → Slang c[3].y
+//   view[2][3] = zNear        → Slang c[3].z
+//   view[3][3] = zFar         → Slang c[3].w
+//
+// The original lookAt translation lives in GLM's 4th column (view[3][0..2]),
+// which maps to Slang c[0].w, c[1].w, c[2].w — these are NOT overwritten.
+//
+// unpackCamera: extracts projection params from c[3], restores c[3] to {0,0,0,1}.
+// getInvViewProj: uses c[i].w (i=0,1,2) as the preserved translation components.
+//
+// WARNING: If the C++ packing scheme changes, BOTH functions must be updated.
+// ==========================================
+
+// ==========================================
 // Helper: Unpack View & Proj Matrices
 // ==========================================
 void unpackCamera(float4x4 c, out float4x4 view, out float4x4 proj)

@@ -1,9 +1,12 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.24)
 
 # Set the base directory for FetchContent BEFORE project()
 set(FETCHCONTENT_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/_deps CACHE PATH "Base directory for FetchContent")
 
 project(RemoteSensingOptimizer LANGUAGES CXX)
+
+# Export compile_commands.json for clang-tidy and IDE integration
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ============================================================================
 # Global Build Configuration

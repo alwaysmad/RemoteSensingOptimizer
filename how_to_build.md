@@ -102,7 +102,7 @@ cmake --build build_pgo_gen -j$(nproc)
 ./build_pgo_gen/bin/rso_headless
 
 # Step 3: Rebuild using collected profile feedback
-cmake -B build_pgo -DCMAKE_BUILD_TYPE=Bench -DENABLE_PGO_GENERATE=OFF
+cmake -B build_pgo -DCMAKE_BUILD_TYPE=Bench -DENABLE_PGO_USE=ON
 cmake --build build_pgo -j$(nproc)
 ```
 
@@ -125,7 +125,7 @@ Configure these options by passing `-D<OPTION>=<VALUE>` to the `cmake -B ...` co
 
 | Option | Type / Unit | Default | Description |
 | :--- | :---: | :---: | :--- |
-| `SYNTH_SAT_COUNT` | Integer | `100` | Number of synthetic satellites generated in the test constellation. |
+| `SYNTH_SAT_COUNT` | Integer | `10` | Number of synthetic satellites generated in the test constellation. |
 | `SYNTH_RAAN_START` | Degrees (`0`–`360`) | `0` | Starting Right Ascension of the Ascending Node (RAAN). |
 | `SYNTH_RAAN_SPAN` | Degrees (`0`–`360`) | `45` | Total RAAN span across the generated constellation planes. |
 

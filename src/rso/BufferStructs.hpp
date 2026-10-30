@@ -19,6 +19,8 @@ struct alignas(16) AgentData
     glm::mat4 camera;
     float data[4];
 };
+static_assert(sizeof(AgentData) == 80, "AgentData must be 80 bytes (5x vec4) to match GPU shared.slang layout");
+static_assert(alignof(AgentData) == 16, "AgentData must be 16-byte aligned for GPU");
 
 struct alignas(16) UBO
 {
@@ -31,6 +33,8 @@ struct alignas(16) UBO
     uint32_t _padding0;
     AgentData agents[MAX_AGENTS];
 };
+static_assert(offsetof(UBO, agents) == 208, "UBO::agents offset must be 208 bytes to match GPU shared.slang layout");
+static_assert(sizeof(UBO) == 208 + MAX_AGENTS * sizeof(AgentData), "UBO total size must match GPU shared.slang layout");
 
 struct alignas(16) VertexCoords
 {
@@ -39,6 +43,7 @@ struct alignas(16) VertexCoords
     explicit VertexCoords(const std::array<float, 4>& input)
         { std::copy(input.begin(), input.end(), values); }
 };
+static_assert(sizeof(VertexCoords) == 16, "VertexCoords must be 16 bytes (1x vec4)");
 
 struct alignas(16) VertexData
 {
@@ -47,6 +52,7 @@ struct alignas(16) VertexData
     explicit VertexData(const std::array<float, 4>& input)
         { std::copy(input.begin(), input.end(), values); }
 };
+static_assert(sizeof(VertexData) == 16, "VertexData must be 16 bytes (1x vec4)");
 
 struct Mesh
 {

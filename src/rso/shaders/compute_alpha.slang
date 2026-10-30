@@ -76,7 +76,8 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
         float4 clipPos = mul(proj, viewPos);
         
         // Ensure the point is actually in front of the camera (w > 0)
-        if (clipPos.w >= 0.0)
+        // Strict inequality prevents division by zero when w == 0
+        if (clipPos.w > 0.0)
         {
             float3 ndc = clipPos.xyz / clipPos.w;
             
@@ -109,7 +110,8 @@ void computeMain(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadI
     }
 
     // 6. Backwards Euler Integration
-    Omega *= g_ubo.timeStep;
+    // Implicit (Backward) Euler discretization of dα/dt = ε(1−α) − Ω·v·α
+    // α_{n+1} = (f·α_n + ε) / (f + ε + Ω·v),  where f = 1/Δt
     float f = 1.0 / g_ubo.timeStep;
     float alpha_new = (f * alpha + epsilon) / (f + epsilon + Omega * v);
 

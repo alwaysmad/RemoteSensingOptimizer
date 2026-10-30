@@ -1,0 +1,39 @@
+# .clang-tidy — C++20 Vulkan compute / scientific simulation project
+# Run: clang-tidy -p build src/rso/Application.cpp
+# Requires: cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-pro-type-union-access,
+  -cppcoreguidelines-owning-memory,
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  performance-*,
+  readability-*,
+  -readability-magic-numbers,
+  -readability-identifier-length,
+  -readability-function-cognitive-complexity,
+  -readability-convert-member-functions-to-static,
+
+WarningsAsErrors: ''
+
+# Only check our own headers, not _deps/ or build-generated headers
+HeaderFilterRegex: 'src/(engine|rso|triangle)/'
+
+FormatStyle: file
+
+CheckOptions:
+  - key: readability-braces-around-statements.ShortStatementLines
+    value: 2
+  - key: cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor
+    value: true
+  - key: performance-unnecessary-value-param.AllowedTypes
+    value: 'vk::.*'

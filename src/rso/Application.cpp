@@ -2,10 +2,12 @@
 #include <cstdlib>    // EXIT_SUCCESS
 #include <cstring>
 #include <filesystem> // std::filesystem::temp_directory_path
+#include <iostream>   // std::cerr for SGP4 error reporting
 
 #include <array>
 #include <vector>
 #include <cmath>
+#include <numbers>
 #include <algorithm>
 
 #include <glm/ext/matrix_transform.hpp>
@@ -112,62 +114,72 @@ static inline void updateAgents(std::vector<AgentData>& agents, const std::vecto
 
     for (std::size_t i = 0; i < count; ++i)
     {
-        const libsgp4::Eci eci = propagators[i].FindPosition(currentTime);
+        try
+        {
+            const libsgp4::Eci eci = propagators[i].FindPosition(currentTime);
 
-        const libsgp4::Vector eciPosition = eci.Position();
-        const libsgp4::Vector eciVelocity = eci.Velocity();
+            const libsgp4::Vector eciPosition = eci.Position();
+            const libsgp4::Vector eciVelocity = eci.Velocity();
 
-        // Scale and swizzle axes (engine mapping: x, z, -y)
-        const glm::vec3 pos(
-            static_cast<float>(eciPosition.x * Settings::scaling),
-            static_cast<float>(eciPosition.z * Settings::scaling),
-            static_cast<float>(-eciPosition.y * Settings::scaling));
+            // Scale and swizzle axes (engine mapping: x, z, -y)
+            const glm::vec3 pos(
+                static_cast<float>(eciPosition.x * Settings::scaling),
+                static_cast<float>(eciPosition.z * Settings::scaling),
+                static_cast<float>(-eciPosition.y * Settings::scaling));
 
-        const glm::vec3 vel(
-            static_cast<float>(eciVelocity.x * Settings::scaling),
-            static_cast<float>(eciVelocity.z * Settings::scaling),
-            static_cast<float>(-eciVelocity.y * Settings::scaling));
+            const glm::vec3 vel(
+                static_cast<float>(eciVelocity.x * Settings::scaling),
+                static_cast<float>(eciVelocity.z * Settings::scaling),
+                static_cast<float>(-eciVelocity.y * Settings::scaling));
 
-        //const float sunElevation = getSunElevationAngle(pos, sunDir);
-        // FLOCK Satellite only works is sun elevation > 10
-        //const bool isOn = (sunElevation > 10.0f);
-        const bool isOn = true; // For testing, keep it always on
-        
-        // ==========================================
-        // Off-Nadir Pointing Calculation
-        // ==========================================
-        /*
-        // 1. Define angle (in degrees))
-        const float angleOffset = glm::radians(0.0f); 
+            //const float sunElevation = getSunElevationAngle(pos, sunDir);
+            // FLOCK Satellite only works is sun elevation > 10
+            //const bool isOn = (sunElevation > 10.0f);
+            const bool isOn = true; // For testing, keep it always on
+            
+            // ==========================================
+            // Off-Nadir Pointing Calculation
+            // ==========================================
+            /*
+            // 1. Define angle (in degrees))
+            const float angleOffset = glm::radians(0.0f); 
 
-        // 2. Determine the original nadir forward vector (pointing exactly at 0,0,0)
-        const glm::vec3 nadirForward = glm::normalize(-pos); 
+            // 2. Determine the original nadir forward vector (pointing exactly at 0,0,0)
+            const glm::vec3 nadirForward = glm::normalize(-pos); 
 
-        // 3. Create a rotation matrix around the normalized velocity axis
-        const glm::vec3 rotAxis = glm::normalize(vel);
-        const glm::mat4 rotMatrix = glm::rotate(glm::mat4(1.0f), angleOffset, rotAxis);
+            // 3. Create a rotation matrix around the normalized velocity axis
+            const glm::vec3 rotAxis = glm::normalize(vel);
+            const glm::mat4 rotMatrix = glm::rotate(glm::mat4(1.0f), angleOffset, rotAxis);
 
-        // 4. Rotate the forward vector 
-        const glm::vec3 offNadirForward = glm::vec3(rotMatrix * glm::vec4(nadirForward, 0.0f));
+            // 4. Rotate the forward vector 
+            const glm::vec3 offNadirForward = glm::vec3(rotMatrix * glm::vec4(nadirForward, 0.0f));
 
-        // 5. Calculate the new target point in world space
-        const glm::vec3 target = pos + offNadirForward;
-        */
-        // 6. Generate the view matrix using the new target
-        glm::mat4 view = glm::lookAt(pos, glm::vec3{0.0, 0.0, 0.0}/*target*/, vel);
-        // ==========================================
+            // 5. Calculate the new target point in world space
+            const glm::vec3 target = pos + offNadirForward;
+            */
+            // 6. Generate the view matrix using the new target
+            glm::mat4 view = glm::lookAt(pos, glm::vec3{0.0, 0.0, 0.0}/*target*/, vel);
+            // ==========================================
 
-        view[0][3] = tanHalfFov;
-        view[1][3] = aspect;
-        view[2][3] = zNear;
-        view[3][3] = zFar;
+            view[0][3] = tanHalfFov;
+            view[1][3] = aspect;
+            view[2][3] = zNear;
+            view[3][3] = zFar;
 
-        agents[i].camera = view;
+            agents[i].camera = view;
 
-        const auto col = getCosineColor(static_cast<double>(i));
-        std::memcpy(agents[i].data, col.data(), sizeof(col));
-        // no survey if no On
-        agents[i].data[3] = isOn ? OmegaStrength : 0.0f;
+            const auto col = getCosineColor(static_cast<double>(i));
+            std::memcpy(agents[i].data, col.data(), sizeof(col));
+            // no survey if no On
+            agents[i].data[3] = isOn ? OmegaStrength : 0.0f;
+        }
+        catch (const std::exception& e)
+        {
+            std::cerr << "[WARNING] SGP4 propagation failed for satellite " << i
+                      << ": " << e.what()
+                      << " — disabling this satellite for the current timestep.\n";
+            agents[i].data[3] = 0.0f;
+        }
     }
 }
 
@@ -198,10 +210,17 @@ int Application::launch()
 	glm::mat4 model = glm::mat4(1.0f);
 	float J_T = 0.0f;
 	float J_av = 0.0f;
+	// Ring buffer warmup: the result staging buffer uses MAX_FRAMES_IN_FLIGHT
+	// slots. The first N reads return zero (no GPU results yet). We must run
+	// N extra simulation steps to drain the pipeline, and exclude those
+	// warmup reads from the J_av accumulation.
+	constexpr uint32_t RING_WARMUP_STEPS = svk::MAX_FRAMES_IN_FLIGHT;
+	uint32_t stepIndex = 0;
 
 	constexpr double SIMULATION_TIME_STEP = 1.0;
     const libsgp4::DateTime startSimTime(2026, 9, 11, 10, 0, 0);
-    const auto endSimTime = libsgp4::DateTime(2026, 9, 18, 10, 0, 0).AddSeconds(SIMULATION_TIME_STEP*2);
+    const auto endSimTime = libsgp4::DateTime(2026, 9, 18, 10, 0, 0)
+        .AddSeconds(SIMULATION_TIME_STEP * RING_WARMUP_STEPS);
 
     libsgp4::DateTime simTime = startSimTime;
 
@@ -222,20 +241,27 @@ int Application::launch()
         updateAgents(agents, propagators, simTime);
 		updateModel(model, simTime);
 		engine.tick(static_cast<float>(SIMULATION_TIME_STEP));
-        const auto reportedSimTime = (simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2;
+		++stepIndex;
+        const auto reportedSimTime = (simTime - startSimTime).TotalSeconds()
+            - SIMULATION_TIME_STEP * RING_WARMUP_STEPS;
         if constexpr (!Settings::headlessMode)
-            { m_logger.cInfo("{} | J_T: {:.6f}", reportedSimTime, J_T); }
+        {
+            if (stepIndex > RING_WARMUP_STEPS)
+                { m_logger.cInfo("{} | J_T: {:.6f}", reportedSimTime, J_T); }
+        }
         simTime = simTime.AddSeconds(SIMULATION_TIME_STEP);
 	}
 
     m_logger.cInfo("Simulation completed");
-    const auto elapsedTime = (simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP*2;
+    // Effective simulation duration excludes warmup steps
+    const auto elapsedTime = (simTime - startSimTime).TotalSeconds()
+        - SIMULATION_TIME_STEP * RING_WARMUP_STEPS;
     if constexpr (Settings::headlessMode)
-        { m_logger.cInfo("{} | J_T: {:.6f}", elapsedTime-SIMULATION_TIME_STEP, J_T); }
+        { m_logger.cInfo("{} | J_T: {:.6f}", elapsedTime, J_T); }
     if (elapsedTime > 0.0)
         { m_logger.cInfo("Final J_av: {:.6f}", J_av / elapsedTime); }
 
-    // Once simulation is done pause to show final state
+    // Once simulation is done pause to show the final state
     engine.setPause(true);
     while(!engine.shouldClose() && engine.isPaused())
         { engine.tick(static_cast<float>(SIMULATION_TIME_STEP)); }
