@@ -11,7 +11,7 @@
 #include "engine/Queue.hpp"
 #include "engine/Command.hpp"
 #include "engine/ComputePipeline.hpp"
-#include "engine/Buffer.hpp" // Assuming svk::BufferBinding lives here or in BufferStructs
+#include "engine/Buffer.hpp" // svk::BufferBinding lives here
 
 namespace svk 
 {
@@ -35,6 +35,7 @@ public:
         const std::vector<vk::DescriptorSetLayoutBinding>& descriptorBindings,
         uint32_t bufferCount
     );
+    ~ComputeRoutine() = default;
 
     // Binds actual buffer memory to the specified Descriptor Set index
     template <typename C = std::optional<svk::BufferBinding>>

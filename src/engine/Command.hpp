@@ -3,10 +3,7 @@
 #include <cstddef>
 #include <vulkan/vulkan_raii.hpp>
 
-namespace svk
-{
-
-class Device;
+namespace svk { class Device; class Command; }
 
 // =========================================================================
 //  "A Spellbook where spells are written"
@@ -14,23 +11,15 @@ class Device;
 //  CRITICAL: Command Pools are NOT thread-safe. This object must be 
 //  thread-isolated (one per thread per queue family).
 // =========================================================================
-class Command
+class svk::Command
 {
-public:
-    Command(const Command&) = delete;
-    Command& operator=(const Command&) = delete;
-
-    Command(Command&&) noexcept = default;
-    Command& operator=(Command&&) noexcept = default;
-
-    ~Command() = default;
-
-    [[nodiscard]] inline const vk::raii::CommandBuffer& operator[](size_t index) const { return m_buffers[index]; }
-
 private:
-    friend class Device;
+    vk::raii::CommandPool m_pool = nullptr;
+    vk::raii::CommandBuffers m_buffers = nullptr;
 
-    Command(const vk::raii::Device& device,
+    // Only the Device class can create a Command
+    friend class Device;
+    explicit Command(const vk::raii::Device& device,
             uint32_t queueFamilyIndex,
             uint32_t count,
             vk::CommandPoolCreateFlags flags)
@@ -49,8 +38,14 @@ private:
             })
     {}
 
-    vk::raii::CommandPool m_pool = nullptr;
-    vk::raii::CommandBuffers m_buffers = nullptr;
-};
+public:
+    // No copy, but move is possible
+    Command(const Command&) = delete;
+    Command& operator=(const Command&) = delete;
+    Command(Command&&) noexcept = default;
+    Command& operator=(Command&&) noexcept = default;
 
-} // namespace svk
+    ~Command() = default;
+    // accessor
+    [[nodiscard]] const vk::raii::CommandBuffer& operator[](size_t index) const { return m_buffers[index]; }
+};

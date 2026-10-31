@@ -25,7 +25,6 @@ add_svk_binary(triangle
 		${CMAKE_SOURCE_DIR}/src/engine/window/Camera.cpp
 		${CMAKE_SOURCE_DIR}/src/engine/Buffer.hpp
 		${CMAKE_SOURCE_DIR}/src/engine/Command.hpp
-		${CMAKE_SOURCE_DIR}/src/engine/ComputePipeline.cpp
 		${CMAKE_SOURCE_DIR}/src/engine/ComputePipeline.hpp
 		${CMAKE_SOURCE_DIR}/src/engine/ComputeRoutine.cpp
 		${CMAKE_SOURCE_DIR}/src/engine/ComputeRoutine.hpp

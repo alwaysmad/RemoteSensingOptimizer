@@ -14,20 +14,21 @@ namespace svk { class Device; class Buffer; class BufferMap; struct BufferBindin
 class svk::BufferMap
 {
 private:
+    const vk::raii::DeviceMemory* m_memory = nullptr;
+    void* m_mapped = nullptr;
+
     // Only the Buffer class can create a BufferMap
     friend class Buffer;
     BufferMap(const vk::raii::DeviceMemory& memory, vk::DeviceSize offset, vk::DeviceSize size)
         : m_memory(&memory), m_mapped(memory.mapMemory(offset, size)) {}
-
-    const vk::raii::DeviceMemory* m_memory = nullptr;
-    void* m_mapped = nullptr;
 
 public:
     BufferMap(const BufferMap&) = delete;
     BufferMap& operator=(const BufferMap&) = delete;
 
     BufferMap(BufferMap&& other) noexcept
-        : m_memory(std::exchange(other.m_memory, nullptr)), m_mapped(std::exchange(other.m_mapped, nullptr)) {}
+        : m_memory(std::exchange(other.m_memory, nullptr)), 
+          m_mapped(std::exchange(other.m_mapped, nullptr)) {}
 
     BufferMap& operator=(BufferMap&& other) noexcept
     {
@@ -41,11 +42,7 @@ public:
         return *this;
     }
 
-    ~BufferMap()
-    {
-        if (m_memory != nullptr && m_mapped != nullptr)
-            { m_memory->unmapMemory(); }
-    }
+    ~BufferMap() { if (m_memory != nullptr && m_mapped != nullptr) { m_memory->unmapMemory(); } }
 
     [[nodiscard]] void* get() const { return m_mapped; }
 };
@@ -57,6 +54,13 @@ public:
 class svk::Buffer
 {
 private:
+    std::atomic<uint32_t>* m_allocCounter = nullptr; // points to the Device's allocation counter
+    vk::DeviceSize m_size = 0;
+    vk::BufferUsageFlags m_usage;
+
+    vk::raii::Buffer m_buffer = nullptr;
+    vk::raii::DeviceMemory m_memory = nullptr;
+
     // Only the Device class can create a Buffer
     friend class Device;
     // The handles are pre-allocated by the Device and sunk into this wrapper.
@@ -74,13 +78,6 @@ private:
         m_buffer.bindMemory(*m_memory, 0);
         m_allocCounter->fetch_add(1, std::memory_order_relaxed);
     }
-
-    std::atomic<uint32_t>* m_allocCounter = nullptr;
-    vk::DeviceSize m_size = 0;
-    vk::BufferUsageFlags m_usage;
-
-    vk::raii::Buffer m_buffer = nullptr;
-    vk::raii::DeviceMemory m_memory = nullptr;
 
 public:
     Buffer(const Buffer&) = delete;
