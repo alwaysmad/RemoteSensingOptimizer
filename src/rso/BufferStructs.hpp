@@ -63,7 +63,7 @@ struct Mesh
 
     static constexpr double kEarthRadiusKm = 6378.135;
 
-    static inline bool isMeshPointInFrance(const glm::vec3& pos)
+    static bool isMeshPointInFrance(const glm::vec3& pos)
     {
         // 1. Latitude: Angle from the XZ equatorial plane
         // Returns radians in the range [-pi/2, pi/2]
@@ -86,7 +86,7 @@ struct Mesh
 
     // Checks whether a normalized 3D mesh point lies inside a local surface rectangle
     // centered at (centerLatDeg, centerLonDeg) with dimensions widthKm (East-West) x heightKm (North-South).
-    static inline bool isMeshPointInGeoRect(
+    static bool isMeshPointInGeoRect(
         double centerLatDeg,
         double centerLonDeg,
         double widthKm,
@@ -149,12 +149,12 @@ struct Mesh
     }
 
     // Helper to calculate the exact solid angle of a rectangle on the z=1 face
-    static inline double solidAngle(double x, double y)
+    static double solidAngle(double x, double y)
         { return std::atan((x * y) / std::sqrt(x * x + y * y + 1.0)); }
 
     // Populates a point-cloud cubesphere. 
     // 'resolution' is the number of cells per dimension on a single face.
-    inline void populateMesh(uint32_t resolution)
+    void populateMesh(uint32_t resolution)
     {
         const uint32_t cellsPerFace = resolution * resolution;
         const uint32_t totalCells = 6 * cellsPerFace;
@@ -221,6 +221,7 @@ struct Mesh
                         case 3: pos = glm::vec3( xCenter, -1.0f, -yCenter); break; // -Y
                         case 4: pos = glm::vec3( xCenter, -yCenter,  1.0f); break; // +Z
                         case 5: pos = glm::vec3(-xCenter, -yCenter, -1.0f); break; // -Z
+                        default: break; // face ∈ [0,5] guaranteed by loop
                     }
 
                     // 5. Normalize to project onto the sphere

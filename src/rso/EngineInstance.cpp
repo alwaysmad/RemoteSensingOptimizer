@@ -29,7 +29,7 @@ EngineInstance::EngineInstance(
 	  m_agents(agents),
 	  m_model(model)
 {
-	if constexpr (!Settings::headlessMode)
+	if constexpr (!Settings::headlessMode) // NOLINT(bugprone-branch-clone)
 	{
 		m_windowContext.emplace();
 		m_instance.emplace(
@@ -475,7 +475,7 @@ void EngineInstance::tick(float timeStep)
 
 void EngineInstance::updateUBO(uint32_t currentFrame, float timeStep)
 {
-	if constexpr (!Settings::headlessMode)
+	if constexpr (!Settings::headlessMode) // NOLINT(bugprone-branch-clone)
 	{
 		m_ubo.view = m_camera->getView();
 		m_ubo.proj = m_camera->getProj();

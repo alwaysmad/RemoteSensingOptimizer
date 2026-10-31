@@ -48,14 +48,14 @@ public:
     ~Device() = default;
 
     // Accessors
-    [[nodiscard]] inline const vk::raii::PhysicalDevice& physicalDevice() const { return m_physicalDevice; }
-    [[nodiscard]] inline const vk::raii::Device& device() const { return m_device; }
+    [[nodiscard]] const vk::raii::PhysicalDevice& physicalDevice() const { return m_physicalDevice; }
+    [[nodiscard]] const vk::raii::Device& device() const { return m_device; }
 
     // The Laboratories
-    [[nodiscard]] inline const svk::Queue& transferQueue() const { return m_queues[m_queueMapping[TRANSFER]]; }
-    [[nodiscard]] inline const svk::Queue& computeQueue() const { return m_queues[m_queueMapping[COMPUTE]]; }
-    [[nodiscard]] inline const svk::Queue& graphicsQueue() const { return m_queues[m_queueMapping[GRAPHICS]]; }
-    [[nodiscard]] inline const svk::Queue& presentQueue() const { return m_queues[m_queueMapping[PRESENT]]; }
+    [[nodiscard]] const svk::Queue& transferQueue() const { return m_queues[m_queueMapping[TRANSFER]]; }
+    [[nodiscard]] const svk::Queue& computeQueue() const { return m_queues[m_queueMapping[COMPUTE]]; }
+    [[nodiscard]] const svk::Queue& graphicsQueue() const { return m_queues[m_queueMapping[GRAPHICS]]; }
+    [[nodiscard]] const svk::Queue& presentQueue() const { return m_queues[m_queueMapping[PRESENT]]; }
 
     // Factory Methods
     [[nodiscard]] svk::Buffer createBuffer( vk::DeviceSize size,
@@ -67,10 +67,10 @@ public:
                                         vk::MemoryPropertyFlags properties,
                                         vk::ImageAspectFlags aspectFlags) const;
 
-    [[nodiscard]] inline svk::Command createCommand(QueueType queueType, uint32_t count, vk::CommandPoolCreateFlags flags) const
+    [[nodiscard]] svk::Command createCommand(QueueType queueType, uint32_t count, vk::CommandPoolCreateFlags flags) const
         { return svk::Command(m_device, m_queueMapping[queueType], count, flags); }
     
-    inline void waitIdle() const
+    void waitIdle() const
     {
         // Unconditionally lock all 4 laboratories instantly to prevent deadlocks. 
         // This ensures no thread is mid-submission before we halt the GPU.

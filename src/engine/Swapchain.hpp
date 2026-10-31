@@ -45,7 +45,7 @@ public:
 
     // Acquires the next image. Returns std::nullopt if the swapchain is out of date.
     // The caller MUST provide the semaphore that Vulkan will signal when the image is ready.
-    [[nodiscard]] const std::optional<svk::SwapchainFrame> acquireNextImage(vk::Semaphore imageAvailableSemaphore) const;
+    [[nodiscard]] std::optional<svk::SwapchainFrame> acquireNextImage(vk::Semaphore imageAvailableSemaphore) const;
 
     // Submits the finished image to the Present queue.
     // Returns true on success, false if the swapchain is out of date/suboptimal.

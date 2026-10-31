@@ -6,6 +6,7 @@ Checks: >
   -*,
   bugprone-*,
   -bugprone-easily-swappable-parameters,
+  -bugprone-branch-clone,
   cppcoreguidelines-*,
   -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
@@ -16,12 +17,15 @@ Checks: >
   -cppcoreguidelines-owning-memory,
   modernize-*,
   -modernize-use-trailing-return-type,
+  -modernize-use-auto,
   performance-*,
   readability-*,
   -readability-magic-numbers,
   -readability-identifier-length,
   -readability-function-cognitive-complexity,
   -readability-convert-member-functions-to-static,
+  -readability-uppercase-literal-suffix,
+  -readability-math-missing-parentheses,
 
 WarningsAsErrors: ''
 

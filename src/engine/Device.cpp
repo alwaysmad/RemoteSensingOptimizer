@@ -344,7 +344,10 @@ void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKH
             << ConsoleLogger::COLOR_RESET << std::endl;
     }
 
-    uint32_t graphicsQueueIndex, presentQueueIndex, computeQueueIndex, transferQueueIndex;
+    uint32_t graphicsQueueIndex = 0;
+    uint32_t presentQueueIndex = 0;
+    uint32_t computeQueueIndex = 0;
+    uint32_t transferQueueIndex = 0;
 
     if (surface != nullptr)
     {

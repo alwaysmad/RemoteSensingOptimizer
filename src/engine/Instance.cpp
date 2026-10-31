@@ -99,7 +99,7 @@ Instance::Instance(const std::string& appName, const std::vector<const char*>& e
 		.messageSeverity = severityFlags,
 		.messageType = messageTypeFlags,
 		.pfnUserCallback = &debugCallback,
-		.pUserData = static_cast<void*>(const_cast<ConsoleLogger*>(&logger))
+		.pUserData = static_cast<void*>(const_cast<ConsoleLogger*>(&logger)) // NOLINT(cppcoreguidelines-pro-type-const-cast)
 	};
 
 	const vk::InstanceCreateInfo createInfo {

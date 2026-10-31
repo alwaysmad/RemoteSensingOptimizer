@@ -152,7 +152,7 @@ void Swapchain::buildSwapchain()
         { m_renderFinishedSemaphores.emplace_back(m_device.device(), vk::SemaphoreCreateInfo{}); }
 }
 
-const std::optional<svk::SwapchainFrame> Swapchain::acquireNextImage(vk::Semaphore imageAvailableSemaphore) const
+std::optional<svk::SwapchainFrame> Swapchain::acquireNextImage(vk::Semaphore imageAvailableSemaphore) const
 {
     try
     {
@@ -188,9 +188,7 @@ bool Swapchain::present(const svk::SwapchainFrame& frame) const
     
     const vk::Result result = m_presentQueue.present(presentInfo);
     
-    if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR)
-        { return false; }
-    return true;
+    return !(result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR);
 }
 
 } // namespace svk

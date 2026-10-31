@@ -83,19 +83,19 @@ public:
 	~EngineInstance();
 
 	void tick(float timeStep);
-	[[nodiscard]] inline bool shouldClose() const
+	[[nodiscard]] bool shouldClose() const
 	{
 		if constexpr (!Settings::headlessMode)
 			{ if (m_window) { return m_window->shouldClose(); } }
 		return false;
 	}
-	[[nodiscard]] inline bool isPaused() const
+	[[nodiscard]] bool isPaused() const
 	{
 		if constexpr (!Settings::headlessMode)
 			{ if (m_camera) { return m_camera->isPaused(); } }
 		return false;
 	}
-	inline bool setPause(bool paused)
+	bool setPause(bool paused)
 	{
 		if constexpr (!Settings::headlessMode)
 			{ if (m_camera) { return m_camera->setPause(paused); } }

@@ -4,9 +4,8 @@
 #include <stdexcept> // std::runtime_error on GLFW init failure
 #include <GLFW/glfw3.h>
 
-namespace svk
-{
-class WindowContext
+namespace svk { class WindowContext; }
+class svk::WindowContext
 {
 public:
 	WindowContext(const WindowContext&) = delete;
@@ -14,7 +13,7 @@ public:
 	WindowContext(WindowContext&& other) noexcept = delete;
 	WindowContext& operator=(WindowContext&& other) = delete;
 
-	WindowContext()
+	explicit WindowContext()
 	{
 		if (glfwInit() != GLFW_TRUE)
 			{ throw std::runtime_error("Failed to initialize GLFW"); }
@@ -25,11 +24,10 @@ public:
 
 	~WindowContext() { glfwTerminate(); }
 
-	[[nodiscard]] inline std::vector<const char*> getRequiredInstanceExtensions() const
+	[[nodiscard]] std::vector<const char*> getRequiredInstanceExtensions() const
 	{
 		uint32_t count = 0;
 		const char** extensions = glfwGetRequiredInstanceExtensions(&count);
 		return std::vector<const char*>(extensions, extensions + count);
 	}
 };
-}
