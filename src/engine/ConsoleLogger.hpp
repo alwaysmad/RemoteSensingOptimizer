@@ -61,8 +61,7 @@ private:
 		explicit StackMsg(std::format_string<Args...> fmt, Args&&... args) noexcept
 		{
 			constexpr std::size_t max_content_size = (SVK_CONSOLE_LOGGER_BUFFER_SIZE > 0) 
-				? SVK_CONSOLE_LOGGER_BUFFER_SIZE - 1 
-				: 0;
+				? SVK_CONSOLE_LOGGER_BUFFER_SIZE - 1 : 0;
 
 			const auto res = std::format_to_n(buf.data(), max_content_size, fmt, std::forward<Args>(args)...);
 			const auto total_needed = static_cast<std::size_t>(res.size);

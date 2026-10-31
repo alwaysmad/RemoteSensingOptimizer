@@ -136,7 +136,7 @@ VKAPI_ATTR vk::Bool32 VKAPI_CALL Instance::debugCallback(
 	else if (severity >= vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo)
 		{ logger->cInfo("{} {}", typeStr, pCallbackData->pMessage); }
 	else
-	{ logger->cDebug("{} {}", typeStr, pCallbackData->pMessage); }
+		{ logger->cDebug("{} {}", typeStr, pCallbackData->pMessage); }
 
 	return vk::False;
 }
