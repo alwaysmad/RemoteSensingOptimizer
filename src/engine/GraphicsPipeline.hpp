@@ -21,6 +21,11 @@ private:
     vk::raii::Pipeline m_pipeline = nullptr;
 
 public:
+    // Accessors
+    [[nodiscard]] const vk::raii::Pipeline& getPipeline() const { return m_pipeline; }
+    [[nodiscard]] const vk::raii::PipelineLayout& getPipelineLayout() const { return m_pipelineLayout; }
+    [[nodiscard]] const vk::raii::DescriptorSetLayout& getDescriptorSetLayout() const { return m_descriptorSetLayout; }
+
     // Ironclad Constraints: Non-Copyable
     GraphicsPipeline(const GraphicsPipeline&) = delete;
     GraphicsPipeline& operator=(const GraphicsPipeline&) = delete;
@@ -142,9 +147,4 @@ public:
     }
 
     ~GraphicsPipeline() = default;
-
-    // Accessors
-    [[nodiscard]] const vk::raii::Pipeline& getPipeline() const { return m_pipeline; }
-    [[nodiscard]] const vk::raii::PipelineLayout& getPipelineLayout() const { return m_pipelineLayout; }
-    [[nodiscard]] const vk::raii::DescriptorSetLayout& getDescriptorSetLayout() const { return m_descriptorSetLayout; }
 };

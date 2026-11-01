@@ -140,7 +140,6 @@ int main()
 
         // === 10. Main Render Loop ===
         uint32_t currentFrame = 0;
-
         while (!window.shouldClose())
         {
             window.pollEvents();
@@ -162,6 +161,7 @@ int main()
         logger.cInfo("Render loop ended");
 
         // === Cleanup (RAII handles destructions automatically) ===
+        // We must wait for the device to finish all operations before destroying resources that depend on it
         device.waitIdle();
         logger.cInfo("Triangle Example ended successfully");
 
