@@ -4,7 +4,6 @@
 #include <cassert> // assert for invariant checks in move operations
 #include <optional>
 #include <vector>
-#include <utility> // std::move for move assignment
 
 #include "BufferStructs.hpp"
 #include "Settings.hpp"

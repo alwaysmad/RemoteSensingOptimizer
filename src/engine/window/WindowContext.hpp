@@ -24,6 +24,7 @@ public:
 
 	~WindowContext() { glfwTerminate(); }
 
+	// To be passed to Instance ctor
 	[[nodiscard]] std::vector<const char*> getRequiredInstanceExtensions() const
 	{
 		uint32_t count = 0;

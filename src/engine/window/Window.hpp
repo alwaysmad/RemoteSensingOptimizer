@@ -35,6 +35,7 @@ public:
 		if (glfwCreateWindowSurface(*m_instance, m_window, nullptr, &surface) != VK_SUCCESS)
 		    { throw std::runtime_error("Failed to create window surface"); }
 
+		// Hand off the raw C handle to the RAII surface wrapper:
 		m_surface = vk::raii::SurfaceKHR(m_instance, surface);
 		m_lastTime = glfwGetTime();
 	}
@@ -46,7 +47,7 @@ public:
 	Window(Window&&) noexcept = delete;
 	Window& operator=(Window&&) noexcept = delete;
 
-	inline void updateFPS(const std::string& titlePrefix)
+	void updateFPS(const std::string& titlePrefix)
 	{
 		const double currentTime = glfwGetTime();
 		m_nbFrames++;
@@ -59,12 +60,12 @@ public:
 		}
 	}
 
-	[[nodiscard]] inline const vk::raii::SurfaceKHR& getSurface() const { return m_surface; }
-	[[nodiscard]] inline bool shouldClose() const { return static_cast<bool>(glfwWindowShouldClose(m_window)); }
-	inline void waitEvents() const { glfwWaitEvents(); }
-	inline void pollEvents() const { glfwPollEvents(); }
+	[[nodiscard]] const vk::raii::SurfaceKHR& getSurface() const { return m_surface; }
+	[[nodiscard]] bool shouldClose() const { return static_cast<bool>(glfwWindowShouldClose(m_window)); }
+	void waitEvents() const { glfwWaitEvents(); }
+	void pollEvents() const { glfwPollEvents(); }
 
-	[[nodiscard]] inline vk::Extent2D getExtent() const
+	[[nodiscard]] vk::Extent2D getExtent() const
 	{
 		int width = 0;
 		int height = 0;
@@ -72,7 +73,7 @@ public:
 		return vk::Extent2D{ static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
 	}
 
-	inline void setWindowTitle(const std::string& title) { glfwSetWindowTitle(m_window, title.c_str()); }
-	[[nodiscard]] inline double getTime() const { return glfwGetTime(); }
-	[[nodiscard]] inline GLFWwindow* getGLFWwindow() const { return m_window; }
+	void setWindowTitle(const std::string& title) { glfwSetWindowTitle(m_window, title.c_str()); }
+	[[nodiscard]] double getTime() const { return glfwGetTime(); }
+	[[nodiscard]] GLFWwindow* getGLFWwindow() const { return m_window; }
 };
