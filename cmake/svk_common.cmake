@@ -42,7 +42,7 @@ endfunction()
 # Shader compilation function (engine-owned)
 function(add_slang_shader_target TARGET_NAME)
     # parse arguments list
-    cmake_parse_arguments(ARG "" "" "SOURCES;ENTRIES;DEPENDS" ${ARGN})
+    cmake_parse_arguments(ARG "" "" "SOURCES;ENTRIES;DEPENDS;CAPABILITIES" ${ARGN})
 
     list(GET ARG_SOURCES 0 MAIN_SOURCE)
     get_filename_component(SHADER_NAME ${MAIN_SOURCE} NAME_WE)
@@ -62,11 +62,18 @@ function(add_slang_shader_target TARGET_NAME)
         set(ENTRY_POINT_FLAGS "-entry" "vertMain" "-entry" "fragMain")
     endif()
 
+    # Generate capability flags (e.g. spvAtomicFloat32AddEXT)
+    set(CAPABILITY_FLAGS "")
+    foreach(CAP ${ARG_CAPABILITIES})
+        list(APPEND CAPABILITY_FLAGS "-capability" "${CAP}")
+    endforeach()
+
     add_custom_command(
         OUTPUT ${OUTPUT_HEADER}
         COMMAND ${SLANGC_EXECUTABLE} ${ARG_SOURCES}
             -target spirv -profile spirv_1_4 -emit-spirv-directly
             -fvk-use-entrypoint-name ${ENTRY_POINT_FLAGS}
+            ${CAPABILITY_FLAGS}
             ${SLANGC_OPT_FLAGS}
             -o ${OUTPUT_SPV}
 
