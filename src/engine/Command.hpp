@@ -1,7 +1,6 @@
 // src/engine/Command.hpp
 #pragma once
 
-#include <cstddef>
 #include <vulkan/vulkan_raii.hpp>
 
 namespace svk { class Device; class Command; }

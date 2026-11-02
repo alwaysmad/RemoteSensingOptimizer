@@ -43,7 +43,6 @@ add_svk_binary(triangle
 		${CMAKE_SOURCE_DIR}/src/engine/RenderRoutine.hpp
 		${CMAKE_SOURCE_DIR}/src/engine/Swapchain.cpp
 		${CMAKE_SOURCE_DIR}/src/engine/Swapchain.hpp
-		${CMAKE_SOURCE_DIR}/src/engine/TransferRoutine.cpp
 		${CMAKE_SOURCE_DIR}/src/engine/TransferRoutine.hpp
 	SHADERS
 		CompileTriangle
