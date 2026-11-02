@@ -4,8 +4,9 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <initializer_list>
+#include <span>
 #include <string>
-#include <vector>
 #include <vulkan/vulkan_raii.hpp>
 
 #include "engine/Buffer.hpp"
@@ -62,6 +63,7 @@ private:
     mutable std::atomic<uint32_t> allocationCount { 0 };
 
 public:
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class)
     enum QueueType : uint32_t {
         TRANSFER = 0,
         COMPUTE = 1,
@@ -103,7 +105,13 @@ public:
     [[nodiscard]] svk::Buffer createBuffer( vk::DeviceSize size,
                                             vk::BufferUsageFlags usage,
                                             vk::MemoryPropertyFlags properties,
-                                            const std::vector<QueueType>& targetQueues) const;
+                                            std::span<const QueueType> targetQueues) const;
+
+    [[nodiscard]] svk::Buffer createBuffer( vk::DeviceSize size,
+                                            vk::BufferUsageFlags usage,
+                                            vk::MemoryPropertyFlags properties,
+                                            std::initializer_list<QueueType> targetQueues) const
+        { return createBuffer(size, usage, properties, std::span<const QueueType>(targetQueues.begin(), targetQueues.size())); }
     
     [[nodiscard]] svk::Image createImage(const vk::ImageCreateInfo& imageInfo,
                                         vk::MemoryPropertyFlags properties,

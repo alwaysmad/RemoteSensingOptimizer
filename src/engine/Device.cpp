@@ -1,5 +1,6 @@
 // src/engine/Device.cpp
 #include <algorithm>      // std::ranges::sort, std::ranges::unique
+#include <span>           // std::span
 #include <stdexcept>      // std::runtime_error
 #include <string>         // std::string
 #include <string_view>    // std::string_view
@@ -232,7 +233,7 @@ void svk::Device::pickSurfaceQueueFamilies(
 svk::Buffer svk::Device::createBuffer(vk::DeviceSize size,
                                  vk::BufferUsageFlags usage,
                                  vk::MemoryPropertyFlags properties,
-                                 const std::vector<QueueType>& targetQueues) const
+                                 std::span<const QueueType> targetQueues) const
 {
     logAllocationPressure(m_logger, allocationCount.load(std::memory_order_relaxed));
 

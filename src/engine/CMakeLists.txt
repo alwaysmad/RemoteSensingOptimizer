@@ -52,7 +52,6 @@ set(SVK_PCH_HEADERS
     <deque>
     <map>
     <unordered_map>
-    <set>
     <unordered_set>
     
     # STL - Strings & Format

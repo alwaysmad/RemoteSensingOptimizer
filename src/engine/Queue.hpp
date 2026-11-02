@@ -22,7 +22,7 @@ class svk::Queue
 private:
     const vk::raii::Device& m_device; // Locked permanently to the parent's member
     vk::raii::Queue m_queue = nullptr;
-    uint32_t m_queueFamilyIndex = UINT32_MAX;
+    uint32_t m_queueFamilyIndex = std::numeric_limits<uint32_t>::max();
     mutable std::mutex m_mutex;    
     
     friend class Device;
