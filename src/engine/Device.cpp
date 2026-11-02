@@ -1,42 +1,32 @@
 // src/engine/Device.cpp
-#include <algorithm> // std::ranges::none_of
-#include <cstring>   // std::strcmp
-#include <format>    // std::format
-#include <set>       // queue family dedupe
-#include <stdexcept> // std::runtime_error
-#include <vector>    // queue create infos
+#include <algorithm>      // std::ranges::sort, std::ranges::unique
+#include <stdexcept>      // std::runtime_error
+#include <string>         // std::string
+#include <string_view>    // std::string_view
+#include <unordered_set>  // std::unordered_set
+#include <vector>         // queue create infos
 
 #include "engine/Flags.hpp"
 #include "engine/Device.hpp"
 #include "engine/Instance.hpp"
 #include "engine/ConsoleLogger.hpp"
 
-namespace
-{
-constexpr float queuePriority = 1.0f;
-constexpr uint32_t kVulkanRecommendedMaxAllocations = 4096;
-constexpr uint32_t kAllocationHardWarning = 4086;
-constexpr uint32_t kAllocationNearWarning = 4000;
 
-inline void logAllocationPressure(const svk::ConsoleLogger& logger, uint32_t currentCount)
+void svk::Device::logAllocationPressure(const svk::ConsoleLogger& logger, uint32_t currentCount)
 {
     if (currentCount >= kAllocationHardWarning)
     {
-        logger.cWarn(
-            "[WARNING] Device allocation count is {} (very close to Vulkan limit {}).",
-            currentCount,
-            kVulkanRecommendedMaxAllocations);
+        logger.cWarn("[WARNING] Device allocation count is {} (very close to Vulkan limit {}).",
+            currentCount, kVulkanRecommendedMaxAllocations);
     }
     else if (currentCount >= kAllocationNearWarning)
     {
-        logger.cWarn(
-            "[WARNING] Device allocation count is {} (nearing Vulkan limit {}).",
-            currentCount,
-            kVulkanRecommendedMaxAllocations);
+        logger.cWarn("[WARNING] Device allocation count is {} (nearing Vulkan limit {}).",
+            currentCount, kVulkanRecommendedMaxAllocations);
     }
 }
 
-inline void selectPhysicalDevice(
+void svk::Device::selectPhysicalDevice(
     const vk::raii::Instance& instance,
     const std::string& requestedDeviceName,
     vk::raii::PhysicalDevice& outPhysicalDevice,
@@ -48,6 +38,7 @@ inline void selectPhysicalDevice(
     if (devices.empty())
         { throw std::runtime_error("Failed to find any device with Vulkan support"); }
 
+    // Log all available devices if debug
     if constexpr (svk::enableValidationLayers)
     {
         logger.cDebug("Available physical devices ({}):", devices.size());
@@ -56,40 +47,41 @@ inline void selectPhysicalDevice(
             const auto props = device.getProperties();
             logger.cDebug("  - {} (api {}.{}.{})",
                 std::string(props.deviceName),
-                VK_API_VERSION_MAJOR(props.apiVersion),
-                VK_API_VERSION_MINOR(props.apiVersion),
-                VK_API_VERSION_PATCH(props.apiVersion));
+                vk::apiVersionMajor(props.apiVersion),
+                vk::apiVersionMinor(props.apiVersion),
+                vk::apiVersionPatch(props.apiVersion));
         }
     }
 
     for (const auto& device : devices)
     { // Grab device with the provided name
-        if (std::strcmp(device.getProperties().deviceName, requestedDeviceName.c_str()) == 0)
+        if (std::string_view(device.getProperties().deviceName.data()) == requestedDeviceName)
             { outPhysicalDevice = device; break; }
     }
 
     if (*outPhysicalDevice == nullptr)
-    { // If not found, pick the first one
+    {
         if constexpr (svk::enableValidationLayers)
-        {
+        { // In debug, if not found, pick the first one
             outPhysicalDevice = devices.front();
             logger.cWarn("Requested device '{}' was not found; falling back to '{}'.",
                 requestedDeviceName,
                 std::string(outPhysicalDevice.getProperties().deviceName));
         }
-        else // or throw an error
-            { throw std::runtime_error(std::format("Could not find requested device: '{}'", requestedDeviceName)); }
+        else // In release, we throw an error
+            { throw std::runtime_error(std::string("Could not find requested device: '") + requestedDeviceName + "'"); }
     }
 
     if constexpr (svk::enableValidationLayers)
         { logger.cInfo("Selected device: '{}'", std::string(outPhysicalDevice.getProperties().deviceName)); }
 
+    // Ensure the selected device supports Vulkan 1.3
     if (outPhysicalDevice.getProperties().apiVersion < vk::ApiVersion13)
         { throw std::runtime_error("Selected device does not support Vulkan 1.3"); }
 
 }
 
-inline void pickHeadlessQueueFamilies(
+void svk::Device::pickHeadlessQueueFamilies(
     const vk::raii::PhysicalDevice& physicalDevice,
     uint32_t& outGraphics,
     uint32_t& outPresent,
@@ -98,50 +90,49 @@ inline void pickHeadlessQueueFamilies(
 {
     const auto queueFamilies = physicalDevice.getQueueFamilyProperties();
 
-    outGraphics = outPresent = outCompute = outTransfer = UINT32_MAX;
+    outGraphics = outPresent = outCompute = outTransfer = std::numeric_limits<uint32_t>::max();
 
     // Headless mode should never depend on surface-backed queue capabilities.
     for (uint32_t i = 0; i < queueFamilies.size(); ++i)
     {
-        const bool supportsCompute = (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) != vk::QueueFlags {};
-        if (supportsCompute && i != outGraphics)
-            { outCompute = i; break; }
+        const bool supportsCompute = (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) != vk::QueueFlags{};
+        if (supportsCompute && i != outGraphics) { outCompute = i; break; }
     }
 
     // Fallback: if no dedicated compute queue, use the graphics queue
-    if (outCompute == UINT32_MAX)
+    if (outCompute == std::numeric_limits<uint32_t>::max())
     {
-        if (outGraphics != UINT32_MAX)
-            { outCompute = outGraphics; }
+        if (outGraphics != std::numeric_limits<uint32_t>::max()) { outCompute = outGraphics; }
         else
         { // or find any compute queue if graphics is also unavailable / not picked
             for (uint32_t i = 0; i < queueFamilies.size(); ++i)
             {
-                if ((queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) != vk::QueueFlags {})
+                if ((queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) != vk::QueueFlags{})
                     { outCompute = i; break; }
             }
         }
     }
 
+    // Find Transfer (Dedicated if possible, or reuse compute/graphics)
     for (uint32_t i = 0; i < queueFamilies.size(); ++i)
-    { // 4. Find Transfer (Dedicated if possible, or reuse compute/graphics)
+    {
         const auto flags = queueFamilies[i].queueFlags;
-        const bool transfer = (flags & vk::QueueFlagBits::eTransfer) != vk::QueueFlags {};
-        const bool graphics = (flags & vk::QueueFlagBits::eGraphics) != vk::QueueFlags {};
-        const bool compute = (flags & vk::QueueFlagBits::eCompute) != vk::QueueFlags {};
-        if (transfer && !graphics && !compute)
-            { outTransfer = i; break; }
+        const bool transfer = (flags & vk::QueueFlagBits::eTransfer) != vk::QueueFlags{};
+        const bool graphics = (flags & vk::QueueFlagBits::eGraphics) != vk::QueueFlags{};
+        const bool compute = (flags & vk::QueueFlagBits::eCompute) != vk::QueueFlags{};
+        if (transfer && !graphics && !compute) { outTransfer = i; break; }
     }
 
-    // Fallbacks for transfer queue: prefer compute, then graphics
-    if (outTransfer == UINT32_MAX && outCompute != UINT32_MAX)
+    // Fallback for transfer queue: prefer compute, then graphics
+    if (outTransfer == std::numeric_limits<uint32_t>::max() && outCompute != std::numeric_limits<uint32_t>::max())
         { outTransfer = outCompute; }
-    if (outTransfer == UINT32_MAX)
+    if (outTransfer == std::numeric_limits<uint32_t>::max())
         { outTransfer = outGraphics; }
 
-    if (outCompute == UINT32_MAX)
+    // Check if we found all required queues
+    if (outCompute == std::numeric_limits<uint32_t>::max())
         { throw std::runtime_error("Failed to find compute queue family"); }
-    if (outTransfer == UINT32_MAX)
+    if (outTransfer == std::numeric_limits<uint32_t>::max())
         { throw std::runtime_error("Failed to find transfer queue family"); }
 
     // Route non-surface types to a valid queue for safety.
@@ -149,7 +140,7 @@ inline void pickHeadlessQueueFamilies(
     outPresent = outCompute;
 }
 
-inline void pickSurfaceQueueFamilies(
+void svk::Device::pickSurfaceQueueFamilies(
     const vk::raii::PhysicalDevice& physicalDevice,
     const vk::raii::SurfaceKHR& surface,
     uint32_t& outGraphics,
@@ -159,120 +150,115 @@ inline void pickSurfaceQueueFamilies(
 {
     const auto queueFamilies = physicalDevice.getQueueFamilyProperties();
 
-    outGraphics = outPresent = outCompute = outTransfer = UINT32_MAX;
+    outGraphics = outPresent = outCompute = outTransfer = std::numeric_limits<uint32_t>::max();
 
+    // 1. try to find a queue family that supports both graphics and present
     for (uint32_t i = 0; i < queueFamilies.size(); ++i)
     {
-        const bool supportsGraphics = (queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics) != vk::QueueFlags {};
-        const bool supportsPresent = physicalDevice.getSurfaceSupportKHR(i, surface);
-        if (supportsGraphics && supportsPresent)
-            { outGraphics = outPresent = i; break; }
+        const bool supportsGraphics = (queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics) != vk::QueueFlags{};
+        const bool supportsPresent = physicalDevice.getSurfaceSupportKHR(i, surface) == vk::True;
+        if (supportsGraphics && supportsPresent) { outGraphics = outPresent = i; break; }
     }
 
-    if (outGraphics == UINT32_MAX)
+    // 2. if not found, pick a dedicated graphics queue
+    if (outGraphics == std::numeric_limits<uint32_t>::max() )
     {
         for (uint32_t i = 0; i < queueFamilies.size(); ++i)
         {
-            if ((queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics) != vk::QueueFlags {})
+            if ((queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics) != vk::QueueFlags{})
                 { outGraphics = i; break; }
         }
     }
 
-    if (outPresent == UINT32_MAX)
+    // 3. if not found, pick a dedicated present queue
+    if (outPresent == std::numeric_limits<uint32_t>::max())
     {
         for (uint32_t i = 0; i < queueFamilies.size(); ++i)
         {
-            if (physicalDevice.getSurfaceSupportKHR(i, surface))
+            if (physicalDevice.getSurfaceSupportKHR(i, surface) == vk::True)
                 { outPresent = i; break; }
         }
     }
 
+    // 4. try to find a dedicated compute queue
     for (uint32_t i = 0; i < queueFamilies.size(); ++i)
     {
-        const bool supportsCompute = (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) != vk::QueueFlags {};
-        if (supportsCompute && i != outGraphics)
-            { outCompute = i; break; }
+        const bool supportsCompute = (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) != vk::QueueFlags{};
+        if (supportsCompute && i != outGraphics) { outCompute = i; break; }
     }
 
-    if (outCompute == UINT32_MAX)
+    // 5. Fallback: if no dedicated compute queue, try the graphics queue
+    if (outCompute == std::numeric_limits<uint32_t>::max())
     {
-        if (outGraphics != UINT32_MAX)
-            { outCompute = outGraphics; }
+        if (outGraphics != std::numeric_limits<uint32_t>::max()) { outCompute = outGraphics; }
         else
         {
             for (uint32_t i = 0; i < queueFamilies.size(); ++i)
             {
-                if ((queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) != vk::QueueFlags {})
+                if ((queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) != vk::QueueFlags{})
                     { outCompute = i; break; }
             }
         }
     }
 
+    // 6. try to find a dedicated transfer queue
     for (uint32_t i = 0; i < queueFamilies.size(); ++i)
     {
         const auto flags = queueFamilies[i].queueFlags;
-        const bool transfer = (flags & vk::QueueFlagBits::eTransfer) != vk::QueueFlags {};
-        const bool graphics = (flags & vk::QueueFlagBits::eGraphics) != vk::QueueFlags {};
-        const bool compute = (flags & vk::QueueFlagBits::eCompute) != vk::QueueFlags {};
+        const bool transfer = (flags & vk::QueueFlagBits::eTransfer) != vk::QueueFlags{};
+        const bool graphics = (flags & vk::QueueFlagBits::eGraphics) != vk::QueueFlags{};
+        const bool compute = (flags & vk::QueueFlagBits::eCompute) != vk::QueueFlags{};
         if (transfer && !graphics && !compute)
             { outTransfer = i; break; }
     }
 
-    if (outTransfer == UINT32_MAX && outCompute != UINT32_MAX)
+    // 7. Fallback for transfer queue: prefer compute, then graphics
+    if (outTransfer == std::numeric_limits<uint32_t>::max() && outCompute != std::numeric_limits<uint32_t>::max())
         { outTransfer = outCompute; }
-    if (outTransfer == UINT32_MAX)
+    if (outTransfer == std::numeric_limits<uint32_t>::max())
         { outTransfer = outGraphics; }
 
-    if (outGraphics == UINT32_MAX)
+    // 8. Check that all queues were found
+    if (outGraphics == std::numeric_limits<uint32_t>::max())
         { throw std::runtime_error("Failed to find graphics queue family"); }
-    if (outPresent == UINT32_MAX)
+    if (outPresent == std::numeric_limits<uint32_t>::max())
         { throw std::runtime_error("Failed to find queue family that can present to surface"); }
-    if (outCompute == UINT32_MAX)
+    if (outCompute == std::numeric_limits<uint32_t>::max())
         { throw std::runtime_error("Failed to find compute queue family"); }
-    if (outTransfer == UINT32_MAX)
+    if (outTransfer == std::numeric_limits<uint32_t>::max())
         { throw std::runtime_error("Failed to find transfer queue family"); }
 }
 
-} // namespace
-
-namespace svk
-{
-
-svk::Buffer Device::createBuffer(vk::DeviceSize size,
+svk::Buffer svk::Device::createBuffer(vk::DeviceSize size,
                                  vk::BufferUsageFlags usage,
                                  vk::MemoryPropertyFlags properties,
                                  const std::vector<QueueType>& targetQueues) const
 {
     logAllocationPressure(m_logger, allocationCount.load(std::memory_order_relaxed));
 
-    if ((usage & vk::BufferUsageFlagBits::eUniformBuffer) != vk::BufferUsageFlags {})
+    if ((usage & vk::BufferUsageFlagBits::eUniformBuffer) != vk::BufferUsageFlags{})
     {
-        constexpr vk::DeviceSize kConventionalUboLimit = 64ull * 1024ull; // 64 KB
         const vk::DeviceSize supportedLimit = m_physicalDevice.getProperties().limits.maxUniformBufferRange;
-
         if (size > supportedLimit)
         {
             throw std::runtime_error(
-                std::format( "Requested UBO size ({}) exceeds device maxUniformBufferRange ({})",
-                    size, supportedLimit));
+                std::string("Requested UBO size (") + std::to_string(size) +
+                ") exceeds device maxUniformBufferRange (" + std::to_string(supportedLimit) + ")");
         }
-
         if (size > kConventionalUboLimit)
-        {
-            std::cerr << ConsoleLogger::COLOR_YELLOW
-                << "[WARNING] Requested UBO size (" << size
-                << ") is larger than the conventional 64 KB budget."
-                << ConsoleLogger::COLOR_RESET << std::endl;
-        }
+            { m_logger.cWarn("Requested UBO size ({}) is larger than the conventional 64 KB budget.", size); }
     }
 
-    std::set<uint32_t> uniqueFamilies;
+    std::vector<uint32_t> uniqueFamiliesVector;
+    uniqueFamiliesVector.reserve(targetQueues.size());
     for (const QueueType queue : targetQueues)
     {
         const uint32_t queueSlot = m_queueMapping[queue];
-        uniqueFamilies.insert(m_queues[queueSlot].getFamilyIndex());
+        uniqueFamiliesVector.emplace_back(m_queues[queueSlot].getFamilyIndex());
     }
-    const std::vector<uint32_t> uniqueFamiliesVector(uniqueFamilies.begin(), uniqueFamilies.end());
+    std::ranges::sort(uniqueFamiliesVector);
+    const auto [first, last] = std::ranges::unique(uniqueFamiliesVector);
+    uniqueFamiliesVector.erase(first, last);
     
     const vk::BufferCreateInfo bufferInfo {
         .size = size,
@@ -295,7 +281,7 @@ svk::Buffer Device::createBuffer(vk::DeviceSize size,
     return svk::Buffer(std::move(buffer), std::move(memory), size, usage, allocationCount);
 }
 
-svk::Image Device::createImage(const vk::ImageCreateInfo& imageInfo,
+svk::Image svk::Device::createImage(const vk::ImageCreateInfo& imageInfo,
                               vk::MemoryPropertyFlags properties,
                               vk::ImageAspectFlags aspectFlags) const
 {
@@ -322,33 +308,31 @@ svk::Image Device::createImage(const vk::ImageCreateInfo& imageInfo,
         allocationCount );
 }
 
-uint32_t Device::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const {
+uint32_t svk::Device::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const
+{
     const auto memProperties = m_physicalDevice.getMemoryProperties();
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+    {
+        if (((typeFilter & (1u << i)) != 0u) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
             { return i; }
     }
     throw std::runtime_error("Failed to find suitable memory type");
 }
 
-void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKHR* surface, const std::string& deviceName)
+void svk::Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKHR* surface, const std::string& deviceName)
 {
     selectPhysicalDevice(instance.getInstance(), deviceName, m_physicalDevice, m_logger);
 
     const auto props = m_physicalDevice.getProperties();
     if (props.deviceType != vk::PhysicalDeviceType::eDiscreteGpu)
-    {
-        std::cerr << ConsoleLogger::COLOR_YELLOW
-            << "[WARNING] Selected device '" << deviceName
-            << "' is NOT a discrete GPU."
-            << ConsoleLogger::COLOR_RESET << std::endl;
-    }
+        { m_logger.cWarn("Selected device '{}' is NOT a discrete GPU.", deviceName); }
 
-    uint32_t graphicsQueueIndex = 0;
-    uint32_t presentQueueIndex = 0;
-    uint32_t computeQueueIndex = 0;
-    uint32_t transferQueueIndex = 0;
-
+    // Initialize queue family indices as unset
+    uint32_t graphicsQueueIndex = std::numeric_limits<uint32_t>::max();
+    uint32_t presentQueueIndex = std::numeric_limits<uint32_t>::max();
+    uint32_t computeQueueIndex = std::numeric_limits<uint32_t>::max();
+    uint32_t transferQueueIndex = std::numeric_limits<uint32_t>::max();
+    // Pick queue families
     if (surface != nullptr)
     {
         pickSurfaceQueueFamilies(
@@ -369,9 +353,12 @@ void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKH
             transferQueueIndex);
     }
 
-    std::set<uint32_t> uniqueQueueFamilies {
+    // Collect unique queue families and prepare queue create infos
+    std::vector<uint32_t> uniqueQueueFamilies {
         transferQueueIndex, computeQueueIndex, graphicsQueueIndex, presentQueueIndex };
-
+    std::ranges::sort(uniqueQueueFamilies);
+    const auto [first, last] = std::ranges::unique(uniqueQueueFamilies);
+    uniqueQueueFamilies.erase(first, last);
     std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
     queueCreateInfos.reserve(uniqueQueueFamilies.size());
     for (const auto queueFamily : uniqueQueueFamilies)
@@ -384,25 +371,28 @@ void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKH
             });
     }
 
+    // Prepare required device extensions
     std::vector<const char*> requiredDeviceExtensions;
     if (surface != nullptr)
-        { requiredDeviceExtensions.push_back(vk::KHRSwapchainExtensionName); }
-
+        { requiredDeviceExtensions.emplace_back(vk::KHRSwapchainExtensionName); }
+    // Check availability of required extensions
     const auto availableExtensions = m_physicalDevice.enumerateDeviceExtensionProperties();
+    std::unordered_set<std::string_view> availableExtensionSet;
+    availableExtensionSet.reserve(availableExtensions.size());
+    for (const auto& ext : availableExtensions)
+        { availableExtensionSet.emplace(ext.extensionName.data()); }
+
     if constexpr (svk::enableValidationLayers)
     {
         m_logger.cDebug("Available device extensions ({}):", availableExtensions.size());
         for (const auto& ext : availableExtensions)
-            { m_logger.cDebug("  - {}", std::string(ext.extensionName)); }
+            { m_logger.cDebug("  - {}", std::string_view(ext.extensionName.data())); }
     }
 
-    for (const auto requiredExtension : requiredDeviceExtensions) {
-        if (std::ranges::none_of(
-                availableExtensions,
-                [requiredExtension](const auto& extensionProperty) {
-                    return std::strcmp(extensionProperty.extensionName, requiredExtension) == 0;
-                }))
-            { throw std::runtime_error(std::format("Required device extension not supported: {}", requiredExtension)); }
+    for (const auto& requiredExtension : requiredDeviceExtensions)
+    {
+        if (!availableExtensionSet.contains(requiredExtension))
+            { throw std::runtime_error(std::string("Required device extension not supported: ") + requiredExtension); }
     }
 
     // --- 1. Feature Chain (Safe, automatic pNext linking) ---
@@ -451,7 +441,7 @@ void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKH
     // Build queue-family -> slot mapping and initialize each slot once.
     // --- Queue Mapping ---
     uint32_t currentSlot = 0;
-    // Iterate over the std::set we already built earlier in the function
+    // Iterate over the unique queue families we already built earlier in the function
     for (const uint32_t family : uniqueQueueFamilies)
     {
         // Boot the laboratory in the contiguous array
@@ -476,5 +466,3 @@ void Device::initialize(const svk::Instance& instance, const vk::raii::SurfaceKH
             m_queues[m_queueMapping[PRESENT]].getFamilyIndex());
     }
 }
-
-} // namespace svk

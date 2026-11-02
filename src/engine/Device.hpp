@@ -13,14 +13,54 @@
 #include "engine/Image.hpp"
 #include "engine/Queue.hpp"
 
-namespace svk
-{
+namespace svk { class ConsoleLogger; class Instance; class Device; }
 
-class Instance;
-class ConsoleLogger;
-
-class Device
+class svk::Device
 {
+private:
+    static constexpr float queuePriority = 1.0f;
+    static constexpr uint32_t kVulkanRecommendedMaxAllocations = 4096;
+    static constexpr uint32_t kAllocationHardWarning = 4086;
+    static constexpr uint32_t kAllocationNearWarning = 4000;
+    static constexpr vk::DeviceSize kConventionalUboLimit = 64ull * 1024ull; // 64 KB
+
+    static void logAllocationPressure(const svk::ConsoleLogger& logger, uint32_t currentCount);
+
+    static void selectPhysicalDevice(
+        const vk::raii::Instance& instance,
+        const std::string& requestedDeviceName,
+        vk::raii::PhysicalDevice& outPhysicalDevice,
+        const svk::ConsoleLogger& logger);
+
+    static void pickHeadlessQueueFamilies(
+        const vk::raii::PhysicalDevice& physicalDevice,
+        uint32_t& outGraphics,
+        uint32_t& outPresent,
+        uint32_t& outCompute,
+        uint32_t& outTransfer);
+
+    static void pickSurfaceQueueFamilies(
+        const vk::raii::PhysicalDevice& physicalDevice,
+        const vk::raii::SurfaceKHR& surface,
+        uint32_t& outGraphics,
+        uint32_t& outPresent,
+        uint32_t& outCompute,
+        uint32_t& outTransfer);
+
+    void initialize(const svk::Instance& instance, const vk::raii::SurfaceKHR* surface, const std::string& deviceName);
+
+    // private helper functions
+    [[nodiscard]] uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const;
+
+    vk::raii::PhysicalDevice m_physicalDevice = nullptr;
+    vk::raii::Device m_device = nullptr;
+    const svk::ConsoleLogger& m_logger;
+
+    std::array<uint32_t, 4> m_queueMapping { 0, 0, 0, 0 };
+    std::array<svk::Queue, 4> m_queues;
+
+    mutable std::atomic<uint32_t> allocationCount { 0 };
+
 public:
     enum QueueType : uint32_t {
         TRANSFER = 0,
@@ -31,12 +71,14 @@ public:
 
     // 1. Headless Mode (Compute & Transfer Only)
     Device(const svk::Instance& instance, const std::string& deviceName, const svk::ConsoleLogger& logger)
-        : m_logger(logger), m_queues { svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device) }
+        : m_logger(logger), m_queues { svk::Queue(m_device), svk::Queue(m_device), 
+         svk::Queue(m_device), svk::Queue(m_device) }
         { initialize(instance, nullptr, deviceName); }
 
     // 2. Surfaced Mode (Graphics & Present Enabled)
     Device(const svk::Instance& instance, const vk::raii::SurfaceKHR& surface, const std::string& deviceName, const svk::ConsoleLogger& logger)
-        : m_logger(logger), m_queues { svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device), svk::Queue(m_device) }
+        : m_logger(logger), m_queues { svk::Queue(m_device), svk::Queue(m_device),
+         svk::Queue(m_device), svk::Queue(m_device) }
         { initialize(instance, &surface, deviceName); }
 
     // Ironclad Constraints
@@ -82,21 +124,4 @@ public:
         );
         m_device.waitIdle();
     }
-
-private:
-    void initialize(const svk::Instance& instance, const vk::raii::SurfaceKHR* surface, const std::string& deviceName);
-
-    // private helper functions
-    [[nodiscard]] uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const;
-
-    vk::raii::PhysicalDevice m_physicalDevice = nullptr;
-    vk::raii::Device m_device = nullptr;
-    const svk::ConsoleLogger& m_logger;
-
-    std::array<uint32_t, 4> m_queueMapping { 0, 0, 0, 0 };
-    std::array<svk::Queue, 4> m_queues;
-
-    mutable std::atomic<uint32_t> allocationCount { 0 };
 };
-
-} // namespace svk
