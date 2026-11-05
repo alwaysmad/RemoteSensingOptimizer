@@ -6,141 +6,115 @@
 #include <glm/gtc/constants.hpp>
 
 svk::Camera::CameraState* svk::Camera::getCameraState(GLFWwindow* window)
-{
-	return reinterpret_cast<CameraState*>(glfwGetWindowUserPointer(window));
-}
+    { return reinterpret_cast<CameraState*>(glfwGetWindowUserPointer(window)); }
 
 void svk::Camera::updateViewAndProj(CameraState& state)
 {
-	// Spherical to Cartesian
-	// Y-Up coordinate system
-	const float x = static_cast<float>(state.radius * std::sin(state.phi) * std::sin(state.theta));
-	const float y = static_cast<float>(state.radius * std::cos(state.phi));
-	const float z = static_cast<float>(state.radius * std::sin(state.phi) * std::cos(state.theta));
+    // Spherical to Cartesian
+    // Y-Up coordinate system
+    const float x = static_cast<float>(state.radius * std::sin(state.phi) * std::sin(state.theta));
+    const float y = static_cast<float>(state.radius * std::cos(state.phi));
+    const float z = static_cast<float>(state.radius * std::sin(state.phi) * std::cos(state.theta));
 
-	const glm::vec3 eye(x, y, z);
-	const glm::vec3 center(0.0f, 0.0f, 0.0f);
-	const glm::vec3 up(0.0f, 1.0f, 0.0f);
+    const glm::vec3 eye(x, y, z);
+    const glm::vec3 center(0.0f, 0.0f, 0.0f);
+    const glm::vec3 up(0.0f, 1.0f, 0.0f);
 
-	glm::mat4 proj = CameraState::proj_unscaled;
-	const float minDim = static_cast<float>(std::min(state.width, state.height));
-	if (state.width != 0u)
-	{
-		proj[0][0] *= minDim / static_cast<float>(state.width);
-	}
-	if (state.height != 0u)
-	{
-		proj[1][1] *= minDim / static_cast<float>(state.height);
-	}
+    glm::mat4 proj = CameraState::proj_unscaled;
+    const float minDim = static_cast<float>(std::min(state.width, state.height));
+    if (state.width != 0u)
+        { proj[0][0] *= minDim / static_cast<float>(state.width); }
+    if (state.height != 0u)
+        { proj[1][1] *= minDim / static_cast<float>(state.height); }
 
-	state.view = glm::lookAt(eye, center, up);
-	state.proj = proj;
+    state.view = glm::lookAt(eye, center, up);
+    state.proj = proj;
 }
 
 svk::Camera::Camera(GLFWwindow* window, vk::Extent2D initialExtent) : m_window(window)
 {
-	m_state.width = initialExtent.width;
-	m_state.height = initialExtent.height;
-	updateViewAndProj(m_state);
+    m_state.width = initialExtent.width;
+    m_state.height = initialExtent.height;
+    updateViewAndProj(m_state);
 
-	glfwSetWindowUserPointer(window, &m_state);
-	glfwSetCursorPosCallback(window, cursorPositionCallback);
-	glfwSetMouseButtonCallback(window, mouseButtonCallback);
-	glfwSetScrollCallback(window, scrollCallback);
-	glfwSetKeyCallback(window, keyCallback);
-	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+    glfwSetWindowUserPointer(window, &m_state);
+    glfwSetCursorPosCallback(window, cursorPositionCallback);
+    glfwSetMouseButtonCallback(window, mouseButtonCallback);
+    glfwSetScrollCallback(window, scrollCallback);
+    glfwSetKeyCallback(window, keyCallback);
+    glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 }
 
 void svk::Camera::cursorPositionCallback(GLFWwindow* window, double xpos, double ypos)
 {
-	CameraState* state = getCameraState(window);
-	if (!static_cast<bool>(state) || !state->isDragging)
-	{
-		return;
-	}
+    CameraState* state = getCameraState(window);
+    if (!static_cast<bool>(state) || !state->isDragging) { return; }
 
-	// Delta movement
-	const double dx = xpos - state->lastX;
-	const double dy = ypos - state->lastY;
-	state->lastX = xpos;
-	state->lastY = ypos;
+    // Delta movement
+    const double dx = xpos - state->lastX;
+    const double dy = ypos - state->lastY;
+    state->lastX = xpos;
+    state->lastY = ypos;
 
-	// Update Angles
-	constexpr double sensitivity = 0.005;
-	state->theta -= dx * sensitivity;
-	state->phi -= dy * sensitivity;
+    // Update Angles
+    constexpr double sensitivity = 0.005;
+    state->theta -= dx * sensitivity;
+    state->phi -= dy * sensitivity;
 
-	// Clamp Phi (prevent flipping over the pole)
-	constexpr double epsilon = 0.01;
-	state->phi = std::max(epsilon, std::min(glm::pi<double>() - epsilon, state->phi));
+    // Clamp Phi (prevent flipping over the pole)
+    constexpr double epsilon = 0.01;
+    state->phi = std::max(epsilon, std::min(glm::pi<double>() - epsilon, state->phi));
 
-	updateViewAndProj(*state);
+    updateViewAndProj(*state);
 }
 
 void svk::Camera::mouseButtonCallback(GLFWwindow* window, int button, int action, [[maybe_unused]] int mods)
 {
-	CameraState* state = getCameraState(window);
-	if (!static_cast<bool>(state))
-	{
-		return;
-	}
+    CameraState* state = getCameraState(window);
+    if (!static_cast<bool>(state)) { return; }
 
-	if (button == GLFW_MOUSE_BUTTON_LEFT)
-	{
-		if (action == GLFW_PRESS)
-		{
-			state->isDragging = true;
-			glfwGetCursorPos(window, &state->lastX, &state->lastY);
-		}
-		else if (action == GLFW_RELEASE)
-		{
-			state->isDragging = false;
-		}
-	}
+    if (button == GLFW_MOUSE_BUTTON_LEFT)
+    {
+        if (action == GLFW_PRESS)
+        {
+            state->isDragging = true;
+            glfwGetCursorPos(window, &state->lastX, &state->lastY);
+        }
+        else if (action == GLFW_RELEASE)
+            { state->isDragging = false; }
+    }
 }
 
 void svk::Camera::scrollCallback(GLFWwindow* window, [[maybe_unused]] double xoffset, double yoffset)
 {
-	CameraState* state = getCameraState(window);
-	if (!static_cast<bool>(state))
-	{
-		return;
-	}
+    CameraState* state = getCameraState(window);
+    if (!static_cast<bool>(state)) { return; }
 
-	constexpr double zoomSpeed = 0.1;
-	state->radius -= yoffset * zoomSpeed;
+    constexpr double zoomSpeed = 0.1;
+    state->radius -= yoffset * zoomSpeed;
 
-	constexpr double minRadius = 0.5;
-	constexpr double maxRadius = 20.0;
-	state->radius = std::clamp(state->radius, minRadius, maxRadius);
+    constexpr double minRadius = 0.5;
+    constexpr double maxRadius = 20.0;
+    state->radius = std::clamp(state->radius, minRadius, maxRadius);
 
-	updateViewAndProj(*state);
+    updateViewAndProj(*state);
 }
 
-void svk::Camera::keyCallback(
-    GLFWwindow* window, int key, [[maybe_unused]] int scancode, int action, [[maybe_unused]] int mods)
+void svk::Camera::keyCallback(GLFWwindow* window, int key, [[maybe_unused]] int scancode, int action, [[maybe_unused]] int mods)
 {
-	CameraState* state = getCameraState(window);
-	if (!static_cast<bool>(state))
-	{
-		return;
-	}
+    CameraState* state = getCameraState(window);
+    if (!static_cast<bool>(state)) { return; }
 
-	if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
-	{
-		state->isPaused = !state->isPaused;
-	}
+    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
+        { state->isPaused = !state->isPaused; }
 }
 
 void svk::Camera::framebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
-	CameraState* state = getCameraState(window);
-	if (!static_cast<bool>(state))
-	{
-		return;
-	}
+    CameraState* state = getCameraState(window);
+    if (!static_cast<bool>(state)) { return; }
 
-	state->width = static_cast<uint32_t>(std::max(width, 0));
-	state->height = static_cast<uint32_t>(std::max(height, 0));
-	updateViewAndProj(*state);
+    state->width = static_cast<uint32_t>(std::max(width, 0));
+    state->height = static_cast<uint32_t>(std::max(height, 0));
+    updateViewAndProj(*state);
 }

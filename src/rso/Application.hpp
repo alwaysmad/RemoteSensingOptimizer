@@ -7,8 +7,8 @@
 #include <optional> // std::optional for singleton storage
 #include <utility>  // std::move in constructor
 
-#include "engine/ConsoleLogger.hpp"
 #include "Settings.hpp"
+#include "engine/ConsoleLogger.hpp"
 
 class Application
 {
@@ -18,17 +18,15 @@ private:
 	// Passkey (THE CROWN)
 	// A permission slip that only 'Application' can sign.
 	// Only run() can crown an emperor
-	class PassKey
-	{
+	class PassKey {
 		friend class Application; // Only App can create this
-	private:
-		explicit PassKey() = default;
+		private: explicit PassKey() = default;
 	};
 
 	// The privy council
 	static std::optional<Application> s_instance; // The throne
-	Settings m_settings;                          // Rulebook
-	svk::ConsoleLogger m_logger;                  // Herald and Scribe
+	Settings m_settings; // Rulebook
+	svk::ConsoleLogger m_logger; // Herald and Scribe
 
 	// The Imperial court
 	// TODO more
@@ -41,8 +39,8 @@ public:
 	// Delete copy/move to enforce singleton
 	Application(const Application&) = delete;
 	Application(Application&&) = delete;
-	Application& operator=(const Application&) = delete;
-	Application& operator=(Application&&) = delete;
+	Application& operator= (const Application&) = delete;
+	Application& operator= (Application&&) = delete;
 
 	// start the application
 	// 'crown emperor and start his reign'
@@ -64,8 +62,6 @@ public:
 	// Public so std::optional can create and destroy
 	// Since only 'run()' can make the Key, this is effectively private.
 	explicit Application(PassKey /*key*/, Settings&& s) : m_settings(std::move(s))
-	{
-		m_logger.cInfo("Application started");
-	}
+		{ m_logger.cInfo("Application started"); }
 	~Application() { m_logger.cInfo("Application ended"); }
 };
