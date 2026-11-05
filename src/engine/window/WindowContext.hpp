@@ -1,10 +1,13 @@
 #pragma once
 
-#include <vector>    // std::vector for required Vulkan extensions
-#include <stdexcept> // std::runtime_error on GLFW init failure
 #include <GLFW/glfw3.h>
+#include <stdexcept> // std::runtime_error on GLFW init failure
+#include <vector>    // std::vector for required Vulkan extensions
 
-namespace svk { class WindowContext; }
+namespace svk
+{
+class WindowContext;
+}
 class svk::WindowContext
 {
 public:
@@ -15,8 +18,7 @@ public:
 
 	explicit WindowContext()
 	{
-		if (glfwInit() != GLFW_TRUE)
-			{ throw std::runtime_error("Failed to initialize GLFW"); }
+		if (glfwInit() != GLFW_TRUE) { throw std::runtime_error("Failed to initialize GLFW"); }
 
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);

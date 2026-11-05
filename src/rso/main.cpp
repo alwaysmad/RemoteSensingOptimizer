@@ -13,13 +13,15 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv)
 	{
 		return Application::run(/* TODO pass args */); // returns EXIT_SUCCESS
 	}
-	catch ( const std::exception& e )
+	catch (const std::exception& e)
 	{
-		std::cerr << svk::ConsoleLogger::COLOR_RED << "Error: " << e.what() << svk::ConsoleLogger::COLOR_RESET << std::endl;
+		std::cerr << svk::ConsoleLogger::COLOR_RED << "Error: " << e.what() << svk::ConsoleLogger::COLOR_RESET
+		          << std::endl;
 	}
-	catch ( ... )
+	catch (...)
 	{
-		std::cerr << svk::ConsoleLogger::COLOR_RED << "An unknown error occurred." << svk::ConsoleLogger::COLOR_RESET << std::endl;
+		std::cerr << svk::ConsoleLogger::COLOR_RED << "An unknown error occurred." << svk::ConsoleLogger::COLOR_RESET
+		          << std::endl;
 	}
-	return EXIT_FAILURE; // If error occured 
+	return EXIT_FAILURE; // If error occured
 }
