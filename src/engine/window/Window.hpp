@@ -14,6 +14,7 @@ namespace svk
 {
 class Window;
 }
+
 class svk::Window
 {
 private:
@@ -37,7 +38,8 @@ public:
 		if (!static_cast<bool>(m_window)) { throw std::runtime_error("Failed to create GLFW window"); }
 
 		VkSurfaceKHR surface = VK_NULL_HANDLE;
-		if (static_cast<vk::Result>(glfwCreateWindowSurface(*m_instance, m_window, nullptr, &surface)) != vk::Result::eSuccess)
+		if (static_cast<vk::Result>(glfwCreateWindowSurface(*m_instance, m_window, nullptr, &surface)) !=
+		    vk::Result::eSuccess)
 		{
 			throw std::runtime_error("Failed to create window surface");
 		}

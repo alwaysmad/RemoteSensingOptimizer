@@ -2,6 +2,8 @@
 
 Comprehensive build and configuration guide for **Remote Sensing Optimizer (RSO)** and **SVK**.
 
+> For project overview, code style, `clang-format`, `clang-tidy`, and include architecture, see [README.md](README.md).
+
 ---
 
 ## Prerequisites

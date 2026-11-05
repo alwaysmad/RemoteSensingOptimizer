@@ -18,23 +18,6 @@ class Camera;
 // =========================================================================
 class svk::Camera
 {
-public:
-	// No move, no copy as GLFW callbacks are tied to a single instance of Camera
-	Camera(const Camera&) = delete;
-	Camera& operator=(const Camera&) = delete;
-	Camera(Camera&&) = delete;
-	Camera& operator=(Camera&&) = delete;
-
-	~Camera() = default;
-
-	explicit Camera(GLFWwindow* window, vk::Extent2D initialExtent);
-
-	// Accessors
-	[[nodiscard]] const glm::mat4& getView() const { return m_state.view; }
-	[[nodiscard]] const glm::mat4& getProj() const { return m_state.proj; }
-	[[nodiscard]] bool isPaused() const { return m_state.isPaused; }
-	bool setPause(bool paused) { return m_state.isPaused = paused; }
-
 private:
 	// =====================================================================
 	// Holds all mathematical state for the Arcball Camera.
@@ -64,7 +47,6 @@ private:
 		// For 45 deg, tan(22.5) approx 0.4142 -> f approx 2.4142
 		static constexpr float f = 2.41421356f;
 		static constexpr float near = 0.05f;
-
 		// clang-format off
         static constexpr glm::mat4 proj_unscaled = {
             f,        0.0f,  0.0f,  0.0f,  // Col 0 (Right)
@@ -90,4 +72,21 @@ private:
 	static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 	static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 	static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
+
+public:
+	// No move, no copy as GLFW callbacks are tied to a single instance of Camera
+	Camera(const Camera&) = delete;
+	Camera& operator=(const Camera&) = delete;
+	Camera(Camera&&) = delete;
+	Camera& operator=(Camera&&) = delete;
+
+	~Camera() = default;
+
+	explicit Camera(GLFWwindow* window, vk::Extent2D initialExtent);
+
+	// Accessors
+	[[nodiscard]] const glm::mat4& getView() const { return m_state.view; }
+	[[nodiscard]] const glm::mat4& getProj() const { return m_state.proj; }
+	[[nodiscard]] bool isPaused() const { return m_state.isPaused; }
+	bool setPause(bool paused) { return m_state.isPaused = paused; }
 };

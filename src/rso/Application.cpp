@@ -11,14 +11,12 @@
 #include <vector>
 
 #include <glm/ext/matrix_transform.hpp>
-#include <glm/gtc/constants.hpp>
 
 #include <SGP4.h>
 
 #include "Application.hpp"
 #include "BufferStructs.hpp"
 #include "EngineInstance.hpp"
-#include "FLOCK_tle_data.hpp"
 #include "SYNTH_tle_data.hpp"
 
 // Define the static Throne

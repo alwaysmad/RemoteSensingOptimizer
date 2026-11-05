@@ -33,10 +33,12 @@ void svk::Camera::updateViewAndProj(CameraState& state)
 
 svk::Camera::Camera(GLFWwindow* window, vk::Extent2D initialExtent) : m_window(window)
 {
+	// Initialize camera state
 	m_state.width = initialExtent.width;
 	m_state.height = initialExtent.height;
 	updateViewAndProj(m_state);
 
+	// Set GLFW callbacks
 	glfwSetWindowUserPointer(window, &m_state);
 	glfwSetCursorPosCallback(window, cursorPositionCallback);
 	glfwSetMouseButtonCallback(window, mouseButtonCallback);

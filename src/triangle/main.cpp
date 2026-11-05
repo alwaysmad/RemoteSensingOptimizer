@@ -6,18 +6,13 @@
 #include <stdexcept>
 #include <vector>
 
-#include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
 // SVK Engine headers - order matters!
 #include "engine/ConsoleLogger.hpp"
-#include "engine/DepthResources.hpp"
 #include "engine/Device.hpp"
 #include "engine/Frames.hpp"
-#include "engine/GraphicsPipeline.hpp"
 #include "engine/Instance.hpp"
-#include "engine/Queue.hpp"
 #include "engine/RenderRoutine.hpp"
 #include "engine/RenderTask.hpp"
 #include "engine/Swapchain.hpp"

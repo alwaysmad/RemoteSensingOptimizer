@@ -40,7 +40,7 @@ struct alignas(16) VertexCoords
 {
 	float values[4];
 	VertexCoords() = default;
-	explicit VertexCoords(const std::array<float, 4>& input) { std::copy(input.begin(), input.end(), values); }
+	explicit VertexCoords(const std::array<float, 4>& input) { std::ranges::copy(input, values); }
 };
 static_assert(sizeof(VertexCoords) == 16, "VertexCoords must be 16 bytes (1x vec4)");
 
@@ -48,7 +48,7 @@ struct alignas(16) VertexData
 {
 	float values[4];
 	VertexData() = default;
-	explicit VertexData(const std::array<float, 4>& input) { std::copy(input.begin(), input.end(), values); }
+	explicit VertexData(const std::array<float, 4>& input) { std::ranges::copy(input, values); }
 };
 static_assert(sizeof(VertexData) == 16, "VertexData must be 16 bytes (1x vec4)");
 

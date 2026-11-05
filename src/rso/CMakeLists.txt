@@ -158,7 +158,7 @@ set(RSO_COMMON_SOURCES
 
 # === Build RSO (GUI version) ===
 add_executable(rso ${RSO_COMMON_SOURCES})
-target_precompile_headers(rso PRIVATE ${SVK_PCH_HEADERS})
+# target_precompile_headers(rso PRIVATE ${SVK_PCH_HEADERS})
 target_include_directories(rso PRIVATE
 	${CMAKE_BINARY_DIR}
 	${CMAKE_SOURCE_DIR}/src
@@ -189,7 +189,7 @@ add_dependencies(rso flock_tle_data synth_tle_data CompileMesh CompileComputeAlp
 
 # === Build RSO Headless (no GUI) ===
 add_executable(rso_headless ${RSO_COMMON_SOURCES})
-target_precompile_headers(rso_headless PRIVATE ${SVK_PCH_HEADERS})
+# target_precompile_headers(rso_headless PRIVATE ${SVK_PCH_HEADERS})
 target_include_directories(rso_headless PRIVATE
 	${CMAKE_BINARY_DIR}
 	${CMAKE_SOURCE_DIR}/src

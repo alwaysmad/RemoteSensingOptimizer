@@ -4,8 +4,6 @@
 #include <cstring>
 #include <string>
 
-#include <glm/glm.hpp>
-
 #include "EngineInstance.hpp"
 
 #include "compute_alpha.hpp"
