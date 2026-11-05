@@ -3,49 +3,52 @@
 
 #include <vulkan/vulkan_raii.hpp>
 
-namespace svk { class Device; class Command; }
+namespace svk
+{
+class Device;
+class Command;
+} // namespace svk
 
 // =========================================================================
 //  "A Spellbook where spells are written"
 //  RAII wrapper for a Vulkan Command Pool and its Command Buffers.
-//  CRITICAL: Command Pools are NOT thread-safe. This object must be 
+//  CRITICAL: Command Pools are NOT thread-safe. This object must be
 //  thread-isolated (one per thread per queue family).
 // =========================================================================
 class svk::Command
 {
 private:
-    vk::raii::CommandPool m_pool = nullptr;
-    vk::raii::CommandBuffers m_buffers = nullptr;
+	vk::raii::CommandPool m_pool = nullptr;
+	vk::raii::CommandBuffers m_buffers = nullptr;
 
-    // Only the Device class can create a Command
-    friend class Device;
-    explicit Command(const vk::raii::Device& device,
-            uint32_t queueFamilyIndex,
-            uint32_t count,
-            vk::CommandPoolCreateFlags flags)
-        : m_pool(
-            device,
-            vk::CommandPoolCreateInfo {
-                .flags = flags,
-                .queueFamilyIndex = queueFamilyIndex,
-            }),
-          m_buffers(
-            device,
-            vk::CommandBufferAllocateInfo {
-                .commandPool = *m_pool,
-                .level = vk::CommandBufferLevel::ePrimary,
-                .commandBufferCount = count,
-            })
-    {}
+	// Only the Device class can create a Command
+	friend class Device;
+	explicit Command(const vk::raii::Device& device,
+	                 uint32_t queueFamilyIndex,
+	                 uint32_t count,
+	                 vk::CommandPoolCreateFlags flags)
+	    : m_pool(device,
+	             vk::CommandPoolCreateInfo{
+	                 .flags = flags,
+	                 .queueFamilyIndex = queueFamilyIndex,
+	             }),
+	      m_buffers(device,
+	                vk::CommandBufferAllocateInfo{
+	                    .commandPool = *m_pool,
+	                    .level = vk::CommandBufferLevel::ePrimary,
+	                    .commandBufferCount = count,
+	                })
+	{
+	}
 
 public:
-    // No copy, but move is possible
-    Command(const Command&) = delete;
-    Command& operator=(const Command&) = delete;
-    Command(Command&&) noexcept = default;
-    Command& operator=(Command&&) noexcept = default;
+	// No copy, but move is possible
+	Command(const Command&) = delete;
+	Command& operator=(const Command&) = delete;
+	Command(Command&&) noexcept = default;
+	Command& operator=(Command&&) noexcept = default;
 
-    ~Command() = default;
-    // accessor
-    [[nodiscard]] const vk::raii::CommandBuffer& operator[](size_t index) const { return m_buffers[index]; }
+	~Command() = default;
+	// accessor
+	[[nodiscard]] const vk::raii::CommandBuffer& operator[](size_t index) const { return m_buffers[index]; }
 };

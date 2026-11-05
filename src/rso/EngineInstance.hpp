@@ -6,19 +6,19 @@
 #include <vector>
 
 #include "BufferStructs.hpp"
-#include "Settings.hpp"
-#include "engine/Frames.hpp"
 #include "engine/Buffer.hpp"
-#include "engine/Device.hpp"
-#include "engine/Instance.hpp"
-#include "engine/ConsoleLogger.hpp"
 #include "engine/ComputeRoutine.hpp"
+#include "engine/ConsoleLogger.hpp"
+#include "engine/Device.hpp"
+#include "engine/Frames.hpp"
+#include "engine/Instance.hpp"
 #include "engine/RenderRoutine.hpp"
 #include "engine/Swapchain.hpp"
 #include "engine/TransferRoutine.hpp"
 #include "engine/window/Camera.hpp"
 #include "engine/window/Window.hpp"
 #include "engine/window/WindowContext.hpp"
+#include "Settings.hpp"
 
 class EngineInstance
 {
@@ -71,33 +71,47 @@ public:
 	EngineInstance(EngineInstance&&) = delete;
 	EngineInstance& operator=(EngineInstance&& other) = delete;
 
-	EngineInstance(
-		const Settings& settings,
-		const svk::ConsoleLogger& logger,
-		float& J_T,
-		float& J_av,
-		const Mesh& mesh,
-		const std::vector<AgentData>& agents,
-		const glm::mat4& model);
+	EngineInstance(const Settings& settings,
+	               const svk::ConsoleLogger& logger,
+	               float& J_T,
+	               float& J_av,
+	               const Mesh& mesh,
+	               const std::vector<AgentData>& agents,
+	               const glm::mat4& model);
 	~EngineInstance();
 
 	void tick(float timeStep);
 	[[nodiscard]] bool shouldClose() const
 	{
 		if constexpr (!Settings::headlessMode)
-			{ if (m_window) { return m_window->shouldClose(); } }
+		{
+			if (m_window)
+			{
+				return m_window->shouldClose();
+			}
+		}
 		return false;
 	}
 	[[nodiscard]] bool isPaused() const
 	{
 		if constexpr (!Settings::headlessMode)
-			{ if (m_camera) { return m_camera->isPaused(); } }
+		{
+			if (m_camera)
+			{
+				return m_camera->isPaused();
+			}
+		}
 		return false;
 	}
 	bool setPause(bool paused)
 	{
 		if constexpr (!Settings::headlessMode)
-			{ if (m_camera) { return m_camera->setPause(paused); } }
+		{
+			if (m_camera)
+			{
+				return m_camera->setPause(paused);
+			}
+		}
 		return false;
 	}
 
