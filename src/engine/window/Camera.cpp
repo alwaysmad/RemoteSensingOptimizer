@@ -5,20 +5,23 @@
 #include <GLFW/glfw3.h>
 #include <glm/gtc/constants.hpp>
 
-svk::Camera::CameraState* svk::Camera::getCameraState(GLFWwindow* window)
+// Needs GLFW includes to compile, but we don't want to expose GLFW in the header, so we use a forward declaration.
+inline svk::Camera::CameraState* svk::Camera::getCameraState(GLFWwindow* window)
 {
 	return reinterpret_cast<CameraState*>(glfwGetWindowUserPointer(window));
 }
 
 void svk::Camera::updateViewAndProj(CameraState& state)
 {
-	// Spherical to Cartesian
-	// Y-Up coordinate system
-	const float x = static_cast<float>(state.radius * std::sin(state.phi) * std::sin(state.theta));
-	const float y = static_cast<float>(state.radius * std::cos(state.phi));
-	const float z = static_cast<float>(state.radius * std::sin(state.phi) * std::cos(state.theta));
+	// Spherical to Cartesian, Y-up. Trig stays in double; only the final result is float.
+	const double sinPhi = std::sin(state.phi);
+	const double cosPhi = std::cos(state.phi);
+	const double sinTheta = std::sin(state.theta);
+	const double cosTheta = std::cos(state.theta);
 
-	const glm::vec3 eye(x, y, z);
+	const glm::vec3 eye(static_cast<float>(state.radius * sinPhi * sinTheta),
+	                    static_cast<float>(state.radius * cosPhi),
+	                    static_cast<float>(state.radius * sinPhi * cosTheta));
 	const glm::vec3 center(0.0f, 0.0f, 0.0f);
 	const glm::vec3 up(0.0f, 1.0f, 0.0f);
 
@@ -50,7 +53,9 @@ svk::Camera::Camera(GLFWwindow* window, vk::Extent2D initialExtent) : m_window(w
 void svk::Camera::cursorPositionCallback(GLFWwindow* window, double xpos, double ypos)
 {
 	CameraState* state = getCameraState(window);
-	if (!static_cast<bool>(state) || !state->isDragging) { return; }
+	if (!static_cast<bool>(state)) [[unlikely]] { return; }
+	
+	if (!state->isDragging) { return; }
 
 	// Delta movement
 	const double dx = xpos - state->lastX;
@@ -59,13 +64,11 @@ void svk::Camera::cursorPositionCallback(GLFWwindow* window, double xpos, double
 	state->lastY = ypos;
 
 	// Update Angles
-	constexpr double sensitivity = 0.005;
-	state->theta -= dx * sensitivity;
-	state->phi -= dy * sensitivity;
+	state->theta -= dx * kOrbitSensitivity;
+	state->phi -= dy * kOrbitSensitivity;
 
 	// Clamp Phi (prevent flipping over the pole)
-	constexpr double epsilon = 0.01;
-	state->phi = std::max(epsilon, std::min(glm::pi<double>() - epsilon, state->phi));
+	state->phi = std::clamp(state->phi, kPolarAngleMargin, glm::pi<double>() - kPolarAngleMargin);
 
 	updateViewAndProj(*state);
 }
@@ -73,7 +76,7 @@ void svk::Camera::cursorPositionCallback(GLFWwindow* window, double xpos, double
 void svk::Camera::mouseButtonCallback(GLFWwindow* window, int button, int action, [[maybe_unused]] int mods)
 {
 	CameraState* state = getCameraState(window);
-	if (!static_cast<bool>(state)) { return; }
+	if (!static_cast<bool>(state)) [[unlikely]] { return; }
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT)
 	{
@@ -89,14 +92,10 @@ void svk::Camera::mouseButtonCallback(GLFWwindow* window, int button, int action
 void svk::Camera::scrollCallback(GLFWwindow* window, [[maybe_unused]] double xoffset, double yoffset)
 {
 	CameraState* state = getCameraState(window);
-	if (!static_cast<bool>(state)) { return; }
+	if (!static_cast<bool>(state)) [[unlikely]] { return; }
 
-	constexpr double zoomSpeed = 0.1;
-	state->radius -= yoffset * zoomSpeed;
-
-	constexpr double minRadius = 0.5;
-	constexpr double maxRadius = 20.0;
-	state->radius = std::clamp(state->radius, minRadius, maxRadius);
+	state->radius -= yoffset * kZoomSensitivity;
+	state->radius = std::clamp(state->radius, kMinOrbitRadius, kMaxOrbitRadius);
 
 	updateViewAndProj(*state);
 }
@@ -105,7 +104,7 @@ void svk::Camera::keyCallback(
     GLFWwindow* window, int key, [[maybe_unused]] int scancode, int action, [[maybe_unused]] int mods)
 {
 	CameraState* state = getCameraState(window);
-	if (!static_cast<bool>(state)) { return; }
+	if (!static_cast<bool>(state)) [[unlikely]] { return; }
 
 	if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) { state->isPaused = !state->isPaused; }
 }
@@ -113,7 +112,7 @@ void svk::Camera::keyCallback(
 void svk::Camera::framebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
 	CameraState* state = getCameraState(window);
-	if (!static_cast<bool>(state)) { return; }
+	if (!static_cast<bool>(state)) [[unlikely]] { return; }
 
 	state->width = static_cast<uint32_t>(std::max(width, 0));
 	state->height = static_cast<uint32_t>(std::max(height, 0));

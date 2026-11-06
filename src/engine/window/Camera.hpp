@@ -72,6 +72,21 @@ private:
 	static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 	static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 	static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
+	
+	// =========================================================================
+	// Sensitivity & Navigation Limits
+	// =========================================================================
+	/// Sensitivity factor for mouse drag camera rotation / orbiting (radians per pixel).
+	static constexpr double kOrbitSensitivity = 0.005;
+	/// Small angular margin (radians) to clamp polar angle phi away from 0 and pi,
+	/// preventing camera flipping and gimbal lock over the vertical poles.
+	static constexpr double kPolarAngleMargin = 0.01;
+	/// Sensitivity factor for mouse scroll wheel zoom (radius delta per scroll unit).
+	static constexpr double kZoomSensitivity = 0.05;
+	/// Minimum allowed camera orbit radius (distance to focal center).
+	static constexpr double kMinOrbitRadius = 0.5;
+	/// Maximum allowed camera orbit radius (distance to focal center).
+	static constexpr double kMaxOrbitRadius = 20.0;
 
 public:
 	// No move, no copy as GLFW callbacks are tied to a single instance of Camera
