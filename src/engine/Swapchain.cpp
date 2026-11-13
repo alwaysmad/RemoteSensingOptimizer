@@ -1,12 +1,11 @@
 // engine/Swapchain.cpp
 #include "engine/Swapchain.hpp"
 
+#include <algorithm>
 #include <limits>
 #include <stdexcept>
 
-namespace svk
-{
-Swapchain::Swapchain(const svk::Device& device, const svk::Window& window)
+svk::Swapchain::Swapchain(const svk::Device& device, const svk::Window& window)
     : m_device(device), m_presentQueue(device.presentQueue()), m_window(window)
 {
 	chooseSurfaceFormat();
@@ -15,7 +14,7 @@ Swapchain::Swapchain(const svk::Device& device, const svk::Window& window)
 	buildSwapchain();
 }
 
-void Swapchain::chooseSurfaceFormat()
+void svk::Swapchain::chooseSurfaceFormat()
 {
 	const auto formats = m_device.physicalDevice().getSurfaceFormatsKHR(*m_window.getSurface());
 
@@ -32,7 +31,7 @@ void Swapchain::chooseSurfaceFormat()
 	throw std::runtime_error("Required surface format (eB8G8R8A8Srgb + eSrgbNonlinear) not supported");
 }
 
-void Swapchain::choosePresentMode()
+void svk::Swapchain::choosePresentMode()
 {
 	const auto presentModes = m_device.physicalDevice().getSurfacePresentModesKHR(*m_window.getSurface());
 
@@ -48,12 +47,13 @@ void Swapchain::choosePresentMode()
 	m_presentMode = vk::PresentModeKHR::eFifo;
 }
 
-void Swapchain::determineSharingMode()
+void svk::Swapchain::determineSharingMode()
 {
 	const uint32_t graphicsFamily = m_device.graphicsQueue().getFamilyIndex();
 	const uint32_t presentFamily = m_presentQueue.getFamilyIndex();
 
 	m_sharingQueueFamilyIndices.emplace_back(graphicsFamily);
+	m_sharingMode = vk::SharingMode::eExclusive;
 
 	if (graphicsFamily != presentFamily)
 	{
@@ -62,27 +62,27 @@ void Swapchain::determineSharingMode()
 	}
 }
 
-void Swapchain::recreate()
+void svk::Swapchain::recreate()
 {
 	m_device.waitIdle();
 
 	// Clear old RAII handles explicitly to destroy them
+	m_images.clear();
 	m_imageViews.clear();
 	m_renderFinishedSemaphores.clear();
 
 	buildSwapchain();
 }
 
-// =========================================================================
-//  buildSwapchain()
-// =========================================================================
-
-void Swapchain::buildSwapchain()
+void svk::Swapchain::buildSwapchain()
 {
 	const auto caps = m_device.physicalDevice().getSurfaceCapabilitiesKHR(*m_window.getSurface());
 
 	// Calculate extent
-	if (caps.currentExtent.width != std::numeric_limits<uint32_t>::max()) { m_extent = caps.currentExtent; }
+	if (caps.currentExtent.width != std::numeric_limits<uint32_t>::max()) [[unlikely]]
+	{
+		m_extent = caps.currentExtent;
+	}
 	else
 	{
 		const vk::Extent2D windowExtent = m_window.getExtent();
@@ -92,7 +92,7 @@ void Swapchain::buildSwapchain()
 
 	// Determine image count: Aim for triple buffering (3) for Mailbox mode
 	const uint32_t maxImages = (caps.maxImageCount == 0) ? std::numeric_limits<uint32_t>::max() : caps.maxImageCount;
-	uint32_t imageCount = std::clamp(3u, caps.minImageCount, maxImages);
+	const uint32_t imageCount = std::clamp(3U, caps.minImageCount, maxImages);
 
 	// Create info - reuse old swapchain if it exists
 	const vk::SwapchainCreateInfoKHR createInfo{.surface = *m_window.getSurface(),
@@ -144,7 +144,7 @@ void Swapchain::buildSwapchain()
 	}
 }
 
-std::optional<svk::SwapchainFrame> Swapchain::acquireNextImage(vk::Semaphore imageAvailableSemaphore) const
+std::optional<svk::SwapchainFrame> svk::Swapchain::acquireNextImage(vk::Semaphore imageAvailableSemaphore) const
 {
 	try
 	{
@@ -164,7 +164,7 @@ std::optional<svk::SwapchainFrame> Swapchain::acquireNextImage(vk::Semaphore ima
 	}
 }
 
-bool Swapchain::present(const svk::SwapchainFrame& frame) const
+bool svk::Swapchain::present(const svk::SwapchainFrame& frame) const
 {
 	const vk::PresentInfoKHR presentInfo{.waitSemaphoreCount = 1,
 	                                     .pWaitSemaphores = &frame.renderFinishedSemaphore,
@@ -176,5 +176,3 @@ bool Swapchain::present(const svk::SwapchainFrame& frame) const
 
 	return (result != vk::Result::eErrorOutOfDateKHR && result != vk::Result::eSuboptimalKHR);
 }
-
-} // namespace svk

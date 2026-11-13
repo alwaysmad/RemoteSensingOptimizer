@@ -10,10 +10,7 @@
 
 #include "engine/window/WindowContext.hpp"
 
-namespace svk
-{
-class Window;
-}
+namespace svk { class Window; }
 
 class svk::Window
 {

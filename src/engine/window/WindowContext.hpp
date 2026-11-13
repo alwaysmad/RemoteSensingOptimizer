@@ -4,10 +4,7 @@
 #include <stdexcept> // std::runtime_error on GLFW init failure
 #include <vector>    // std::vector for required Vulkan extensions
 
-namespace svk
-{
-class WindowContext;
-}
+namespace svk { class WindowContext; }
 class svk::WindowContext
 {
 public:

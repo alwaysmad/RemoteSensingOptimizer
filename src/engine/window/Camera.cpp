@@ -54,7 +54,7 @@ void svk::Camera::cursorPositionCallback(GLFWwindow* window, double xpos, double
 {
 	CameraState* state = getCameraState(window);
 	if (!static_cast<bool>(state)) [[unlikely]] { return; }
-	
+
 	if (!state->isDragging) { return; }
 
 	// Delta movement

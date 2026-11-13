@@ -6,10 +6,8 @@
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
 
-namespace svk
-{
-class GraphicsPipeline;
-}
+namespace svk { class GraphicsPipeline; }
+
 // =========================================================================
 //  "A Contract with the GPU Shader-Demon"
 //  RAII wrapper for the Graphics Pipeline, its Layout, and Descriptor bindings.

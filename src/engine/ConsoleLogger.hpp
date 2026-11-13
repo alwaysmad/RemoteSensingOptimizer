@@ -17,10 +17,7 @@
 #endif
 
 // Forward declaration inside the namespace
-namespace svk
-{
-class ConsoleLogger;
-}
+namespace svk { class ConsoleLogger; }
 
 // =============================================================================
 //  ConsoleLogger: High-performance, zero-heap, noexcept console logger

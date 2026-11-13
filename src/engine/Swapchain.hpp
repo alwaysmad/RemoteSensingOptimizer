@@ -6,23 +6,27 @@
 #include <vulkan/vulkan_raii.hpp>
 
 #include "engine/Device.hpp"
+#include "engine/Queue.hpp"
 #include "engine/window/Window.hpp"
 
 namespace svk
 {
+	struct SwapchainFrame;
+	class Swapchain;
+} // namespace svk
 
 // A read-only snapshot of the exact resources needed for this specific frame.
 // Handed down by the Swapchain to the RenderRoutine.
-struct SwapchainFrame
+struct svk::SwapchainFrame
 {
-	uint32_t imageIndex;
-	vk::Image image;
-	vk::ImageView imageView;
-	vk::Extent2D currentExtent;
-	vk::Semaphore renderFinishedSemaphore;
+	uint32_t imageIndex = 0;
+	vk::Image image = nullptr;
+	vk::ImageView imageView = nullptr;
+	vk::Extent2D currentExtent{};
+	vk::Semaphore renderFinishedSemaphore = nullptr;
 };
 
-class Swapchain
+class svk::Swapchain
 {
 public:
 	// "The portal's frame" - binds to the OS window and the Vulkan logical device.
@@ -39,7 +43,6 @@ public:
 	// =========================================================================
 	//  Core Operations
 	// =========================================================================
-
 	// Destroys current views/swapchain and rebuilds based on current window size.
 	void recreate();
 
@@ -54,9 +57,8 @@ public:
 	// =========================================================================
 	//  Accessors
 	// =========================================================================
-
-	[[nodiscard]] inline vk::Format getFormat() const { return m_imageFormat; }
-	[[nodiscard]] inline vk::Extent2D getExtent() const { return m_extent; }
+	[[nodiscard]] vk::Format getFormat() const { return m_imageFormat; }
+	[[nodiscard]] vk::Extent2D getExtent() const { return m_extent; }
 
 private:
 	const svk::Device& m_device;
@@ -71,7 +73,7 @@ private:
 	std::vector<uint32_t> m_sharingQueueFamilyIndices;
 
 	// Dynamic state (changes on resize)
-	vk::Extent2D m_extent;
+	vk::Extent2D m_extent{};
 	vk::raii::SwapchainKHR m_swapchain = nullptr;
 
 	// Handles owned by the swapchain
@@ -89,5 +91,3 @@ private:
 	void determineSharingMode();
 	void buildSwapchain();
 };
-
-} // namespace svk

@@ -9,7 +9,7 @@ TabWidth: 4
 IndentWidth: 4
 ContinuationIndentWidth: 4
 IndentCaseLabels: false
-NamespaceIndentation: None
+NamespaceIndentation: All
 AccessModifierOffset: -4
 
 # Line length
@@ -39,6 +39,7 @@ BraceWrapping:
   SplitEmptyNamespace: true
 
 # Short forms
+AllowShortNamespacesOnASingleLine: true
 AllowShortFunctionsOnASingleLine: All
 AllowShortIfStatementsOnASingleLine: WithoutElse
 AllowShortBlocksOnASingleLine: Always

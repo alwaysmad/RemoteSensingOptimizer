@@ -102,6 +102,7 @@ int main()
 
 		// === 9. Setup frame synchronization ===
 		std::vector<vk::raii::Fence> inFlightFences;
+		inFlightFences.reserve(svk::MAX_FRAMES_IN_FLIGHT);
 		for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
 		{
 			inFlightFences.emplace_back(device.device(),

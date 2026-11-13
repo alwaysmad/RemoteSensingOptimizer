@@ -7,10 +7,7 @@
 
 #include "engine/ConsoleLogger.hpp"
 
-namespace svk
-{
-class Instance;
-}
+namespace svk { class Instance; }
 
 class svk::Instance
 {

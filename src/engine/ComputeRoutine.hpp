@@ -16,62 +16,62 @@
 namespace svk
 {
 
-// =========================================================================
-//  "The Compute Wizard"
-//  Commands pure mathematical dispatch operations on the Compute Queue.
-// =========================================================================
-class ComputeRoutine
-{
-public:
-	// Ironclad Constraints
-	ComputeRoutine(const ComputeRoutine&) = delete;
-	ComputeRoutine& operator=(const ComputeRoutine&) = delete;
-	ComputeRoutine(ComputeRoutine&&) = default;
-	ComputeRoutine& operator=(ComputeRoutine&&) = default;
-
-	ComputeRoutine(const svk::Device& device,
-	               const vk::PipelineShaderStageCreateInfo& shaderStage,
-	               const std::vector<vk::DescriptorSetLayoutBinding>& descriptorBindings,
-	               uint32_t bufferCount);
-	~ComputeRoutine() = default;
-
-	// Binds actual buffer memory to the specified Descriptor Set index
-	template<typename C = std::optional<svk::BufferBinding>>
-	void registerBuffers(uint32_t setIndex,
-	                     const std::vector<svk::BufferBinding>& descriptorBindings,
-	                     C&& clearBuffer = std::nullopt)
+	// =========================================================================
+	//  "The Compute Wizard"
+	//  Commands pure mathematical dispatch operations on the Compute Queue.
+	// =========================================================================
+	class ComputeRoutine
 	{
-		m_clearBuffer = std::forward<C>(clearBuffer);
-		updateDescriptors(setIndex, descriptorBindings);
-	}
+	public:
+		// Ironclad Constraints
+		ComputeRoutine(const ComputeRoutine&) = delete;
+		ComputeRoutine& operator=(const ComputeRoutine&) = delete;
+		ComputeRoutine(ComputeRoutine&&) = default;
+		ComputeRoutine& operator=(ComputeRoutine&&) = default;
 
-	// Prepare the spell
-	void bakeCommands(uint32_t cmdIndex,
-	                  vk::CommandBufferUsageFlags usage,
-	                  uint32_t groupCountX,
-	                  uint32_t groupCountY = 1,
-	                  uint32_t groupCountZ = 1) const;
+		ComputeRoutine(const svk::Device& device,
+		               const vk::PipelineShaderStageCreateInfo& shaderStage,
+		               const std::vector<vk::DescriptorSetLayoutBinding>& descriptorBindings,
+		               uint32_t bufferCount);
+		~ComputeRoutine() = default;
 
-	// Cast the spell
-	void submitCommands(uint32_t cmdIndex,
-	                    vk::Semaphore waitSemaphore = nullptr,
-	                    vk::Semaphore signalSemaphore = nullptr,
-	                    vk::Fence fence = nullptr) const;
+		// Binds actual buffer memory to the specified Descriptor Set index
+		template<typename C = std::optional<svk::BufferBinding>>
+		void registerBuffers(uint32_t setIndex,
+		                     const std::vector<svk::BufferBinding>& descriptorBindings,
+		                     C&& clearBuffer = std::nullopt)
+		{
+			m_clearBuffer = std::forward<C>(clearBuffer);
+			updateDescriptors(setIndex, descriptorBindings);
+		}
 
-private:
-	void updateDescriptors(uint32_t setIndex, const std::vector<svk::BufferBinding>& descriptorBindings);
+		// Prepare the spell
+		void bakeCommands(uint32_t cmdIndex,
+		                  vk::CommandBufferUsageFlags usage,
+		                  uint32_t groupCountX,
+		                  uint32_t groupCountY = 1,
+		                  uint32_t groupCountZ = 1) const;
 
-	const svk::Device* m_device = nullptr;
-	const svk::Queue* m_computeQueue = nullptr;
+		// Cast the spell
+		void submitCommands(uint32_t cmdIndex,
+		                    vk::Semaphore waitSemaphore = nullptr,
+		                    vk::Semaphore signalSemaphore = nullptr,
+		                    vk::Fence fence = nullptr) const;
 
-	// The Contract and Memory
-	svk::ComputePipeline m_pipeline;
-	vk::raii::DescriptorPool m_descriptorPool = nullptr;
-	vk::raii::DescriptorSets m_descriptorSets = nullptr;
-	std::optional<svk::BufferBinding> m_clearBuffer;
+	private:
+		void updateDescriptors(uint32_t setIndex, const std::vector<svk::BufferBinding>& descriptorBindings);
 
-	// The Spellbook
-	svk::Command m_command;
-};
+		const svk::Device* m_device = nullptr;
+		const svk::Queue* m_computeQueue = nullptr;
+
+		// The Contract and Memory
+		svk::ComputePipeline m_pipeline;
+		vk::raii::DescriptorPool m_descriptorPool = nullptr;
+		vk::raii::DescriptorSets m_descriptorSets = nullptr;
+		std::optional<svk::BufferBinding> m_clearBuffer;
+
+		// The Spellbook
+		svk::Command m_command;
+	};
 
 } // namespace svk

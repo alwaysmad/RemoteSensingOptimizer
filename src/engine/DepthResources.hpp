@@ -9,10 +9,7 @@
 #include "engine/Device.hpp"
 #include "engine/Image.hpp"
 
-namespace svk
-{
-class DepthResources;
-}
+namespace svk { class DepthResources; }
 
 // =========================================================================
 //  Manages the lifecycle of depth buffers across window resizes and frames.

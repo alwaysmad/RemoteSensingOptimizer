@@ -8,10 +8,7 @@
 #include "engine/Device.hpp"
 #include "engine/Queue.hpp"
 
-namespace svk
-{
-class TransferRoutine;
-}
+namespace svk { class TransferRoutine; }
 
 // =========================================================================
 //

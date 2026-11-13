@@ -7,10 +7,7 @@
 
 struct GLFWwindow; // Forward declaration to avoid including glfw3.h in the header
 
-namespace svk
-{
-class Camera;
-}
+namespace svk { class Camera; }
 
 // =========================================================================
 // Because GLFW only has one user pointer
@@ -72,7 +69,7 @@ private:
 	static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 	static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 	static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
-	
+
 	// =========================================================================
 	// Sensitivity & Navigation Limits
 	// =========================================================================

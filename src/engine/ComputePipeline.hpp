@@ -5,10 +5,7 @@
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
 
-namespace svk
-{
-class ComputePipeline;
-}
+namespace svk { class ComputePipeline; }
 
 // =========================================================================
 //  "A Contract with the Compute Demon on the GPU"

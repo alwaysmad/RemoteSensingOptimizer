@@ -8,10 +8,10 @@
 
 namespace svk
 {
-class Device;
-class Buffer;
-class BufferMap;
-struct BufferBinding;
+	class Device;
+	class Buffer;
+	class BufferMap;
+	struct BufferBinding;
 } // namespace svk
 
 // =========================================================================

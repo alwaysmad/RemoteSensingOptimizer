@@ -6,10 +6,7 @@
 #include <utility> // std::move
 #include <vulkan/vulkan_raii.hpp>
 
-namespace svk
-{
-class Queue;
-}
+namespace svk { class Queue; }
 
 /**
  * @brief "A laboratory in the institute"

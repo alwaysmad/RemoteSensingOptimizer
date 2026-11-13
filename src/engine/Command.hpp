@@ -5,8 +5,8 @@
 
 namespace svk
 {
-class Device;
-class Command;
+	class Device;
+	class Command;
 } // namespace svk
 
 // =========================================================================
