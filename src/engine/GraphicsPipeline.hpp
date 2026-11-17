@@ -3,7 +3,9 @@
 
 #include <array>
 #include <cstdint>
-#include <vector>
+#include <initializer_list>
+#include <span>
+#include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
 namespace svk { class GraphicsPipeline; }
@@ -36,11 +38,11 @@ public:
 	GraphicsPipeline& operator=(GraphicsPipeline&&) noexcept = default;
 
 	GraphicsPipeline(const vk::raii::Device& device,
-	                 const std::vector<vk::PipelineShaderStageCreateInfo>& shaderStages,
+	                 std::span<const vk::PipelineShaderStageCreateInfo> shaderStages,
 	                 const vk::PipelineVertexInputStateCreateInfo& vertexInput,
 	                 vk::PrimitiveTopology topology,
 	                 vk::CullModeFlags cullMode,
-	                 const std::vector<vk::DescriptorSetLayoutBinding>& descriptorBindings,
+	                 std::span<const vk::DescriptorSetLayoutBinding> descriptorBindings,
 	                 vk::Format colorFormat,
 	                 vk::Format depthFormat)
 	{
@@ -53,9 +55,9 @@ public:
 
 		const vk::DescriptorSetLayout descriptorSetLayout = *m_descriptorSetLayout;
 		const vk::PipelineLayoutCreateInfo pipelineLayoutInfo{
-		    .setLayoutCount = 1,
+		    .setLayoutCount = 1U,
 		    .pSetLayouts = &descriptorSetLayout,
-		    .pushConstantRangeCount = 0,
+		    .pushConstantRangeCount = 0U,
 		    .pPushConstantRanges = nullptr,
 		};
 		m_pipelineLayout = vk::raii::PipelineLayout(device, pipelineLayoutInfo);
@@ -68,9 +70,9 @@ public:
 
 		// Viewport/Scissor (Dynamic states) (hardcoded)
 		constexpr vk::PipelineViewportStateCreateInfo viewportState{
-		    .viewportCount = 1,
+		    .viewportCount = 1U,
 		    .pViewports = nullptr,
-		    .scissorCount = 1,
+		    .scissorCount = 1U,
 		    .pScissors = nullptr,
 		};
 
@@ -82,7 +84,7 @@ public:
 		    .cullMode = cullMode,
 		    .frontFace = vk::FrontFace::eCounterClockwise,
 		    .depthBiasEnable = vk::False,
-		    .lineWidth = 1.0f,
+		    .lineWidth = 1.0F,
 		};
 
 		// Multisampling (hardcoded)
@@ -106,7 +108,7 @@ public:
 		};
 		constexpr vk::PipelineColorBlendStateCreateInfo colorBlending{
 		    .logicOpEnable = vk::False,
-		    .attachmentCount = 1,
+		    .attachmentCount = 1U,
 		    .pAttachments = &colorBlendAttachment,
 		};
 
@@ -122,7 +124,7 @@ public:
 
 		// Dynamic Rendering Info (Vulkan 1.3)
 		const vk::PipelineRenderingCreateInfo pipelineRenderingCreateInfo{
-		    .colorAttachmentCount = 1,
+		    .colorAttachmentCount = 1U,
 		    .pColorAttachmentFormats = &colorFormat,
 		    .depthAttachmentFormat = depthFormat,
 		};
@@ -144,6 +146,63 @@ public:
 
 		m_pipeline = vk::raii::Pipeline(device, nullptr, pipelineInfo);
 	}
+
+	GraphicsPipeline(const vk::raii::Device& device,
+	                 std::initializer_list<vk::PipelineShaderStageCreateInfo> shaderStages,
+	                 const vk::PipelineVertexInputStateCreateInfo& vertexInput,
+	                 vk::PrimitiveTopology topology,
+	                 vk::CullModeFlags cullMode,
+	                 std::span<const vk::DescriptorSetLayoutBinding> descriptorBindings,
+	                 vk::Format colorFormat,
+	                 vk::Format depthFormat)
+	    : GraphicsPipeline(
+	          device,
+	          std::span<const vk::PipelineShaderStageCreateInfo>(shaderStages.begin(), shaderStages.size()),
+	          vertexInput,
+	          topology,
+	          cullMode,
+	          descriptorBindings,
+	          colorFormat,
+	          depthFormat)
+	{}
+
+	GraphicsPipeline(const vk::raii::Device& device,
+	                 std::span<const vk::PipelineShaderStageCreateInfo> shaderStages,
+	                 const vk::PipelineVertexInputStateCreateInfo& vertexInput,
+	                 vk::PrimitiveTopology topology,
+	                 vk::CullModeFlags cullMode,
+	                 std::initializer_list<vk::DescriptorSetLayoutBinding> descriptorBindings,
+	                 vk::Format colorFormat,
+	                 vk::Format depthFormat)
+	    : GraphicsPipeline(
+	          device,
+	          shaderStages,
+	          vertexInput,
+	          topology,
+	          cullMode,
+	          std::span<const vk::DescriptorSetLayoutBinding>(descriptorBindings.begin(), descriptorBindings.size()),
+	          colorFormat,
+	          depthFormat)
+	{}
+
+	GraphicsPipeline(const vk::raii::Device& device,
+	                 std::initializer_list<vk::PipelineShaderStageCreateInfo> shaderStages,
+	                 const vk::PipelineVertexInputStateCreateInfo& vertexInput,
+	                 vk::PrimitiveTopology topology,
+	                 vk::CullModeFlags cullMode,
+	                 std::initializer_list<vk::DescriptorSetLayoutBinding> descriptorBindings,
+	                 vk::Format colorFormat,
+	                 vk::Format depthFormat)
+	    : GraphicsPipeline(
+	          device,
+	          std::span<const vk::PipelineShaderStageCreateInfo>(shaderStages.begin(), shaderStages.size()),
+	          vertexInput,
+	          topology,
+	          cullMode,
+	          std::span<const vk::DescriptorSetLayoutBinding>(descriptorBindings.begin(), descriptorBindings.size()),
+	          colorFormat,
+	          depthFormat)
+	{}
 
 	~GraphicsPipeline() = default;
 };
