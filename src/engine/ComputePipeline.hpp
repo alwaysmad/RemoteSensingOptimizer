@@ -34,23 +34,19 @@ public:
 	                const vk::PipelineShaderStageCreateInfo& computeShader,
 	                std::span<const vk::DescriptorSetLayoutBinding> descriptorBindings)
 	{
-		// Check if we need descripotor sets
-		const bool hasDescriptors = !descriptorBindings.empty();
+		// Per Vulkan spec §14.2.1, bindingCount can be 0 (pBindings is ignored).
+		// An empty descriptor set layout is fully valid and standard-compliant.
+		const vk::DescriptorSetLayoutCreateInfo layoutInfo{
+		    .bindingCount = static_cast<uint32_t>(descriptorBindings.size()),
+		    .pBindings = descriptorBindings.data(),
+		};
+		m_descriptorSetLayout = vk::raii::DescriptorSetLayout(device, layoutInfo);
 
-		if (hasDescriptors)
-		{ // Creating an empty descriptor set layout is not valid
-			const vk::DescriptorSetLayoutCreateInfo layoutInfo{
-			    .bindingCount = static_cast<uint32_t>(descriptorBindings.size()),
-			    .pBindings = descriptorBindings.data(),
-			};
-			m_descriptorSetLayout = vk::raii::DescriptorSetLayout(device, layoutInfo);
-		}
-
-		// PipelineLayout (no push constants; 0 or 1 descriptor set)
-		const vk::DescriptorSetLayout descriptorSetLayout = hasDescriptors ? *m_descriptorSetLayout : nullptr;
+		// PipelineLayout (no push constants; 1 descriptor set layout)
+		const vk::DescriptorSetLayout descriptorSetLayout = *m_descriptorSetLayout;
 		const vk::PipelineLayoutCreateInfo pipelineLayoutInfo{
-		    .setLayoutCount = hasDescriptors ? 1U : 0U,
-		    .pSetLayouts = hasDescriptors ? &descriptorSetLayout : nullptr,
+		    .setLayoutCount = 1U,
+		    .pSetLayouts = &descriptorSetLayout,
 		    .pushConstantRangeCount = 0U,
 		    .pPushConstantRanges = nullptr,
 		};

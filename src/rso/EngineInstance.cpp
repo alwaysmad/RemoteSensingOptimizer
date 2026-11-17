@@ -142,8 +142,7 @@ EngineInstance::EngineInstance(const Settings& settings,
 
 	{
 		const vk::DeviceSize rawSize = sizeof(UBO);
-		const vk::DeviceSize alignment =
-		    m_device->physicalDevice().getProperties().limits.minUniformBufferOffsetAlignment;
+		const vk::DeviceSize alignment = m_device->physicalDevice().getProperties().limits.minUniformBufferOffsetAlignment;
 		m_uboFrameSize = (rawSize + alignment - 1) / alignment * alignment;
 
 		const vk::DeviceSize stagingTotalSize = m_uboFrameSize * svk::MAX_FRAMES_IN_FLIGHT;
@@ -208,7 +207,7 @@ EngineInstance::EngineInstance(const Settings& settings,
 		                                  });
 
 		const uint32_t totalGroups = (static_cast<uint32_t>(m_mesh.vertices.size()) + 255) / 256;
-		constexpr uint32_t MAX_GROUPS = 65535u;
+		constexpr uint32_t MAX_GROUPS = 65535U;
 		const uint32_t groupCountX = std::min(totalGroups, MAX_GROUPS);
 		const uint32_t groupCountY = (totalGroups + MAX_GROUPS - 1) / MAX_GROUPS;
 
@@ -263,7 +262,7 @@ EngineInstance::EngineInstance(const Settings& settings,
 		}
 
 		const uint32_t totalGroups = (static_cast<uint32_t>(m_mesh.vertices.size()) + 255) / 256;
-		constexpr uint32_t MAX_GROUPS = 65535u;
+		constexpr uint32_t MAX_GROUPS = 65535U;
 		const uint32_t groupCountX = std::min(totalGroups, MAX_GROUPS);
 		const uint32_t groupCountY = (totalGroups + MAX_GROUPS - 1) / MAX_GROUPS;
 

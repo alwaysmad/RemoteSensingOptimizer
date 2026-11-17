@@ -37,6 +37,7 @@ void RenderRoutine::draw(uint32_t currentFrame, vk::Fence fence, vk::Semaphore w
 	const auto frameOpt = m_swapchain->acquireNextImage(*m_imageAvailableSemaphores[currentFrame]);
 	if (!frameOpt.has_value())
 	{
+		// If no frame is available, submit a dummy command to consume the wait semaphore and signal the fence, then recreate the swapchain
 		m_graphicsQueue->dummySubmit(fence, waitSemaphore);
 		m_swapchain->recreate();
 		return;
@@ -181,10 +182,7 @@ void RenderRoutine::draw(uint32_t currentFrame, vk::Fence fence, vk::Semaphore w
 	m_graphicsQueue->submit(finalSubmitInfo, fence);
 
 	// 14. Present
-	if (!m_swapchain->present(frame)) // if not optimal or out of date
-	{
-		m_swapchain->recreate();
-	}
+	if (!m_swapchain->present(frame)) { m_swapchain->recreate(); } // if not optimal or out of date
 }
 
 } // namespace svk

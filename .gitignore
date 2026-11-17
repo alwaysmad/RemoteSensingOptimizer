@@ -1,5 +1,6 @@
 # CMake build directory
 build/
+build_debug/
 
 # clangd cache
 .cache/

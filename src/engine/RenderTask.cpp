@@ -17,18 +17,13 @@ RenderTask::RenderTask(const vk::raii::Device& device,
     : m_device(&device),
       m_pipeline(device, shaderStages, vertexInput, topology, cullMode, descriptorBindings, colorFormat, depthFormat)
 {
-	std::vector<vk::DescriptorPoolSize> poolSizes = svk::deduceDescriptorPoolSizes(descriptorBindings);
-	if (poolSizes.empty())
-	{
-		poolSizes.emplace_back(vk::DescriptorPoolSize{
-		    .type = vk::DescriptorType::eUniformBuffer,
-		    .descriptorCount = 1,
-		});
-	}
+	const std::vector<vk::DescriptorPoolSize> poolSizes = svk::deduceDescriptorPoolSizes(descriptorBindings);
 
+	// Per Vulkan spec §14.2.2 & vk.xml, poolSizeCount can be 0 when no descriptors are required.
+	// maxSets must be > 0. Allocating an empty descriptor set layout consumes 0 descriptors.
 	const vk::DescriptorPoolCreateInfo poolInfo{
 	    .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-	    .maxSets = 1,
+	    .maxSets = 1U,
 	    .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
 	    .pPoolSizes = poolSizes.data(),
 	};
@@ -37,7 +32,7 @@ RenderTask::RenderTask(const vk::raii::Device& device,
 	const vk::DescriptorSetLayout layout = *m_pipeline.getDescriptorSetLayout();
 	const vk::DescriptorSetAllocateInfo allocInfo{
 	    .descriptorPool = *m_descriptorPool,
-	    .descriptorSetCount = 1,
+	    .descriptorSetCount = 1U,
 	    .pSetLayouts = &layout,
 	};
 	m_descriptorSets = vk::raii::DescriptorSets(device, allocInfo);
@@ -62,7 +57,7 @@ void RenderTask::updateDescriptors(const std::vector<svk::BufferBinding>& descri
 		    .dstSet = *m_descriptorSets[0],
 		    .dstBinding = descriptorBindings[i].binding,
 		    .dstArrayElement = 0,
-		    .descriptorCount = 1,
+		    .descriptorCount = 1U,
 		    .descriptorType = descriptorBindings[i].deduceDescriptorType(),
 		    .pBufferInfo = &bufferInfos[i],
 		};
@@ -84,11 +79,8 @@ void RenderTask::recordCommands(const vk::raii::CommandBuffer& cmd) const
 		cmd.bindIndexBuffer(m_indexBufferBinding->buffer, 0, vk::IndexType::eUint32);
 	}
 
-	if (!m_descriptorSets.empty())
-	{
-		cmd.bindDescriptorSets(
-		    vk::PipelineBindPoint::eGraphics, *m_pipeline.getPipelineLayout(), 0, {*m_descriptorSets[0]}, nullptr);
-	}
+	cmd.bindDescriptorSets(
+	    vk::PipelineBindPoint::eGraphics, *m_pipeline.getPipelineLayout(), 0, {*m_descriptorSets[0]}, nullptr);
 
 	if (m_indexBufferBinding.has_value()) { cmd.drawIndexed(m_count, m_instanceCount, 0, 0, 0); }
 	else

@@ -46,7 +46,8 @@ public:
 	                 vk::Format colorFormat,
 	                 vk::Format depthFormat)
 	{
-		// DescriptorSetLayout and PipelineLayout (arg)
+		// Per Vulkan spec §14.2.1, bindingCount can be 0 (pBindings is ignored).
+		// An empty descriptor set layout is fully valid and standard-compliant.
 		const vk::DescriptorSetLayoutCreateInfo layoutInfo{
 		    .bindingCount = static_cast<uint32_t>(descriptorBindings.size()),
 		    .pBindings = descriptorBindings.data(),
@@ -147,6 +148,8 @@ public:
 		m_pipeline = vk::raii::Pipeline(device, nullptr, pipelineInfo);
 	}
 
+	~GraphicsPipeline() = default;
+
 	GraphicsPipeline(const vk::raii::Device& device,
 	                 std::initializer_list<vk::PipelineShaderStageCreateInfo> shaderStages,
 	                 const vk::PipelineVertexInputStateCreateInfo& vertexInput,
@@ -204,5 +207,4 @@ public:
 	          depthFormat)
 	{}
 
-	~GraphicsPipeline() = default;
 };

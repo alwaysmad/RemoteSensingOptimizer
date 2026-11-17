@@ -25,40 +25,27 @@ svk::ComputeRoutine::ComputeRoutine(const svk::Device& device,
       m_command(
           device.createCommand(svk::Device::COMPUTE, bufferCount, vk::CommandPoolCreateFlagBits::eResetCommandBuffer))
 {
-	const std::vector<vk::DescriptorPoolSize> poolSizes = svk::deduceDescriptorPoolSizes(descriptorBindings);
-	if (!poolSizes.empty())
-	{
-		std::vector<vk::DescriptorPoolSize> scaledPoolSizes = poolSizes;
-		for (vk::DescriptorPoolSize& poolSize : scaledPoolSizes) { poolSize.descriptorCount *= bufferCount; }
+	std::vector<vk::DescriptorPoolSize> scaledPoolSizes = svk::deduceDescriptorPoolSizes(descriptorBindings);
+	for (vk::DescriptorPoolSize& poolSize : scaledPoolSizes) { poolSize.descriptorCount *= bufferCount; }
 
-		const vk::DescriptorPoolCreateInfo poolInfo{
-		    .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-		    .maxSets = bufferCount,
-		    .poolSizeCount = static_cast<uint32_t>(scaledPoolSizes.size()),
-		    .pPoolSizes = scaledPoolSizes.data(),
-		};
-		m_descriptorPool = vk::raii::DescriptorPool(device.device(), poolInfo);
+	// Per Vulkan spec §14.2.2 & vk.xml, poolSizeCount can be 0 when no descriptors are required.
+	// maxSets must be > 0. Allocating an empty descriptor set layout consumes 0 descriptors.
+	const vk::DescriptorPoolCreateInfo poolInfo{
+	    .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+	    .maxSets = bufferCount,
+	    .poolSizeCount = static_cast<uint32_t>(scaledPoolSizes.size()),
+	    .pPoolSizes = scaledPoolSizes.data(),
+	};
+	m_descriptorPool = vk::raii::DescriptorPool(device.device(), poolInfo);
 
-		std::vector<vk::DescriptorSetLayout> layouts(bufferCount, *m_pipeline.getDescriptorSetLayout());
-		const vk::DescriptorSetAllocateInfo allocInfo{
-		    .descriptorPool = *m_descriptorPool,
-		    .descriptorSetCount = bufferCount,
-		    .pSetLayouts = layouts.data(),
-		};
-		m_descriptorSets = vk::raii::DescriptorSets(device.device(), allocInfo);
-	}
+	const std::vector<vk::DescriptorSetLayout> layouts(bufferCount, *m_pipeline.getDescriptorSetLayout());
+	const vk::DescriptorSetAllocateInfo allocInfo{
+	    .descriptorPool = *m_descriptorPool,
+	    .descriptorSetCount = bufferCount,
+	    .pSetLayouts = layouts.data(),
+	};
+	m_descriptorSets = vk::raii::DescriptorSets(device.device(), allocInfo);
 }
-
-svk::ComputeRoutine::ComputeRoutine(const svk::Device& device,
-                                    const vk::PipelineShaderStageCreateInfo& shaderStage,
-                                    std::initializer_list<vk::DescriptorSetLayoutBinding> descriptorBindings,
-                                    uint32_t bufferCount)
-    : ComputeRoutine(
-          device,
-          shaderStage,
-          std::span<const vk::DescriptorSetLayoutBinding>(descriptorBindings.begin(), descriptorBindings.size()),
-          bufferCount)
-{}
 
 void svk::ComputeRoutine::registerBuffers(uint32_t setIndex,
                                           std::span<const svk::BufferBinding> descriptorBindings,
@@ -93,32 +80,6 @@ void svk::ComputeRoutine::registerBuffers(uint32_t setIndex,
 	m_device->device().updateDescriptorSets(writes, nullptr);
 }
 
-void svk::ComputeRoutine::registerBuffers(uint32_t setIndex,
-                                          std::initializer_list<svk::BufferBinding> descriptorBindings,
-                                          std::span<const BufferClear> clearBuffers)
-{
-	registerBuffers(setIndex,
-	                std::span<const svk::BufferBinding>(descriptorBindings.begin(), descriptorBindings.size()),
-	                clearBuffers);
-}
-
-void svk::ComputeRoutine::registerBuffers(uint32_t setIndex,
-                                          std::span<const svk::BufferBinding> descriptorBindings,
-                                          std::initializer_list<BufferClear> clearBuffers)
-{
-	registerBuffers(
-	    setIndex, descriptorBindings, std::span<const BufferClear>(clearBuffers.begin(), clearBuffers.size()));
-}
-
-void svk::ComputeRoutine::registerBuffers(uint32_t setIndex,
-                                          std::initializer_list<svk::BufferBinding> descriptorBindings,
-                                          std::initializer_list<BufferClear> clearBuffers)
-{
-	registerBuffers(setIndex,
-	                std::span<const svk::BufferBinding>(descriptorBindings.begin(), descriptorBindings.size()),
-	                std::span<const BufferClear>(clearBuffers.begin(), clearBuffers.size()));
-}
-
 void svk::ComputeRoutine::bakeCommands(uint32_t cmdIndex,
                                        vk::CommandBufferUsageFlags usage,
                                        uint32_t groupCountX,
@@ -149,14 +110,8 @@ void svk::ComputeRoutine::bakeCommands(uint32_t cmdIndex,
 
 	cmd.bindPipeline(vk::PipelineBindPoint::eCompute, *m_pipeline.getPipeline());
 
-	if (!m_descriptorSets.empty())
-	{
-		cmd.bindDescriptorSets(vk::PipelineBindPoint::eCompute,
-		                       *m_pipeline.getPipelineLayout(),
-		                       0,
-		                       {*m_descriptorSets[cmdIndex]},
-		                       nullptr);
-	}
+	cmd.bindDescriptorSets(
+	    vk::PipelineBindPoint::eCompute, *m_pipeline.getPipelineLayout(), 0, {*m_descriptorSets[cmdIndex]}, nullptr);
 
 	cmd.dispatch(groupCountX, groupCountY, groupCountZ);
 	cmd.end();
@@ -192,4 +147,41 @@ void svk::ComputeRoutine::submitCommands(uint32_t cmdIndex,
 	};
 
 	m_computeQueue->submit(submitInfo, fence);
+}
+
+svk::ComputeRoutine::ComputeRoutine(const svk::Device& device,
+                                    const vk::PipelineShaderStageCreateInfo& shaderStage,
+                                    std::initializer_list<vk::DescriptorSetLayoutBinding> descriptorBindings,
+                                    uint32_t bufferCount)
+    : ComputeRoutine(
+          device,
+          shaderStage,
+          std::span<const vk::DescriptorSetLayoutBinding>(descriptorBindings.begin(), descriptorBindings.size()),
+          bufferCount)
+{}
+
+void svk::ComputeRoutine::registerBuffers(uint32_t setIndex,
+                                          std::initializer_list<svk::BufferBinding> descriptorBindings,
+                                          std::span<const BufferClear> clearBuffers)
+{
+	registerBuffers(setIndex,
+	                std::span<const svk::BufferBinding>(descriptorBindings.begin(), descriptorBindings.size()),
+	                clearBuffers);
+}
+
+void svk::ComputeRoutine::registerBuffers(uint32_t setIndex,
+                                          std::span<const svk::BufferBinding> descriptorBindings,
+                                          std::initializer_list<BufferClear> clearBuffers)
+{
+	registerBuffers(
+	    setIndex, descriptorBindings, std::span<const BufferClear>(clearBuffers.begin(), clearBuffers.size()));
+}
+
+void svk::ComputeRoutine::registerBuffers(uint32_t setIndex,
+                                          std::initializer_list<svk::BufferBinding> descriptorBindings,
+                                          std::initializer_list<BufferClear> clearBuffers)
+{
+	registerBuffers(setIndex,
+	                std::span<const svk::BufferBinding>(descriptorBindings.begin(), descriptorBindings.size()),
+	                std::span<const BufferClear>(clearBuffers.begin(), clearBuffers.size()));
 }
