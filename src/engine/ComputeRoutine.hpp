@@ -17,8 +17,8 @@
 
 namespace svk
 {
-	struct BufferClear;
-	class ComputeRoutine;
+struct BufferClear;
+class ComputeRoutine;
 } // namespace svk
 
 // =========================================================================

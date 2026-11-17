@@ -16,9 +16,9 @@
 
 namespace svk
 {
-	class ConsoleLogger;
-	class Instance;
-	class Device;
+class ConsoleLogger;
+class Instance;
+class Device;
 } // namespace svk
 
 class svk::Device

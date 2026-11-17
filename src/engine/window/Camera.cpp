@@ -27,8 +27,8 @@ void svk::Camera::updateViewAndProj(CameraState& state)
 
 	glm::mat4 proj = CameraState::proj_unscaled;
 	const float minDim = static_cast<float>(std::min(state.width, state.height));
-	if (state.width != 0u) { proj[0][0] *= minDim / static_cast<float>(state.width); }
-	if (state.height != 0u) { proj[1][1] *= minDim / static_cast<float>(state.height); }
+	if (state.width != 0U) { proj[0][0] *= minDim / static_cast<float>(state.width); }
+	if (state.height != 0U) { proj[1][1] *= minDim / static_cast<float>(state.height); }
 
 	state.view = glm::lookAt(eye, center, up);
 	state.proj = proj;
@@ -64,8 +64,8 @@ void svk::Camera::cursorPositionCallback(GLFWwindow* window, double xpos, double
 	state->lastY = ypos;
 
 	// Update Angles
-	state->theta -= dx * kOrbitSensitivity;
-	state->phi -= dy * kOrbitSensitivity;
+	state->theta -= dx * kOrbitSensitivity * state->radius;
+	state->phi -= dy * kOrbitSensitivity * state->radius;
 
 	// Clamp Phi (prevent flipping over the pole)
 	state->phi = std::clamp(state->phi, kPolarAngleMargin, glm::pi<double>() - kPolarAngleMargin);

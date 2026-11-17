@@ -11,8 +11,8 @@
 
 namespace svk
 {
-	struct SwapchainFrame;
-	class Swapchain;
+struct SwapchainFrame;
+class Swapchain;
 } // namespace svk
 
 // A read-only snapshot of the exact resources needed for this specific frame.

@@ -7,8 +7,8 @@
 
 namespace svk
 {
-	class Device;
-	class Image;
+class Device;
+class Image;
 } // namespace svk
 
 class svk::Image
