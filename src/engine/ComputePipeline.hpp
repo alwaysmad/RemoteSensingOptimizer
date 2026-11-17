@@ -2,7 +2,8 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
+#include <initializer_list>
+#include <span>
 #include <vulkan/vulkan_raii.hpp>
 
 namespace svk { class ComputePipeline; }
@@ -31,21 +32,26 @@ public:
 
 	ComputePipeline(const vk::raii::Device& device,
 	                const vk::PipelineShaderStageCreateInfo& computeShader,
-	                const std::vector<vk::DescriptorSetLayoutBinding>& descriptorBindings)
+	                std::span<const vk::DescriptorSetLayoutBinding> descriptorBindings)
 	{
-		// DescriptorSetLayout
-		const vk::DescriptorSetLayoutCreateInfo layoutInfo{
-		    .bindingCount = static_cast<uint32_t>(descriptorBindings.size()),
-		    .pBindings = descriptorBindings.data(),
-		};
-		m_descriptorSetLayout = vk::raii::DescriptorSetLayout(device, layoutInfo);
+		// Check if we need descripotor sets
+		const bool hasDescriptors = !descriptorBindings.empty();
 
-		// PipelineLayout (no push constants, one descriptor set)
-		const vk::DescriptorSetLayout descriptorSetLayout = *m_descriptorSetLayout;
+		if (hasDescriptors)
+		{ // Creating an empty descriptor set layout is not valid
+			const vk::DescriptorSetLayoutCreateInfo layoutInfo{
+			    .bindingCount = static_cast<uint32_t>(descriptorBindings.size()),
+			    .pBindings = descriptorBindings.data(),
+			};
+			m_descriptorSetLayout = vk::raii::DescriptorSetLayout(device, layoutInfo);
+		}
+
+		// PipelineLayout (no push constants; 0 or 1 descriptor set)
+		const vk::DescriptorSetLayout descriptorSetLayout = hasDescriptors ? *m_descriptorSetLayout : nullptr;
 		const vk::PipelineLayoutCreateInfo pipelineLayoutInfo{
-		    .setLayoutCount = 1,
-		    .pSetLayouts = &descriptorSetLayout,
-		    .pushConstantRangeCount = 0,
+		    .setLayoutCount = hasDescriptors ? 1U : 0U,
+		    .pSetLayouts = hasDescriptors ? &descriptorSetLayout : nullptr,
+		    .pushConstantRangeCount = 0U,
 		    .pPushConstantRanges = nullptr,
 		};
 		m_pipelineLayout = vk::raii::PipelineLayout(device, pipelineLayoutInfo);
@@ -58,6 +64,15 @@ public:
 
 		m_pipeline = vk::raii::Pipeline(device, nullptr, pipelineInfo);
 	}
+
+	ComputePipeline(const vk::raii::Device& device,
+	                const vk::PipelineShaderStageCreateInfo& computeShader,
+	                std::initializer_list<vk::DescriptorSetLayoutBinding> descriptorBindings)
+	    : ComputePipeline(
+	          device,
+	          computeShader,
+	          std::span<const vk::DescriptorSetLayoutBinding>(descriptorBindings.begin(), descriptorBindings.size()))
+	{}
 
 	~ComputePipeline() = default;
 

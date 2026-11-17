@@ -259,7 +259,7 @@ EngineInstance::EngineInstance(const Settings& settings,
 			                                     svk::BufferBinding(*m_vertexDataBuffer, 2),
 			                                     svk::BufferBinding(*m_resultDeviceBuffer, 3),
 			                                 },
-			                                 svk::BufferBinding(*m_resultDeviceBuffer, 3));
+			                                 {*m_resultDeviceBuffer});
 		}
 
 		const uint32_t totalGroups = (static_cast<uint32_t>(m_mesh.vertices.size()) + 255) / 256;
