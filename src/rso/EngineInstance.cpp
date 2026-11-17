@@ -104,6 +104,8 @@ EngineInstance::EngineInstance(const Settings& settings,
 	std::memset(m_resultMap->get(), 0, static_cast<size_t>(resultRingSize));
 
 	{
+		// Create a staging buffer for vertex data and copy the mesh vertices into it, then transfer to the device-local
+		// vertex buffer
 		auto vertexStaging =
 		    m_device->createBuffer(vertexBytes,
 		                           vk::BufferUsageFlagBits::eTransferSrc,
@@ -120,6 +122,8 @@ EngineInstance::EngineInstance(const Settings& settings,
 	}
 
 	{
+		// Create a staging buffer for vertex data and copy the mesh vertex data into it, then transfer to the
+		// device-local vertex data buffer
 		auto vertexDataStaging =
 		    m_device->createBuffer(vertexDataBytes,
 		                           vk::BufferUsageFlagBits::eTransferSrc,
@@ -141,8 +145,10 @@ EngineInstance::EngineInstance(const Settings& settings,
 	}
 
 	{
+		// Create UBO and staging-UBO buffeers; bake transfer commands for them
 		const vk::DeviceSize rawSize = sizeof(UBO);
-		const vk::DeviceSize alignment = m_device->physicalDevice().getProperties().limits.minUniformBufferOffsetAlignment;
+		const vk::DeviceSize alignment =
+		    m_device->physicalDevice().getProperties().limits.minUniformBufferOffsetAlignment;
 		m_uboFrameSize = (rawSize + alignment - 1) / alignment * alignment;
 
 		const vk::DeviceSize stagingTotalSize = m_uboFrameSize * svk::MAX_FRAMES_IN_FLIGHT;
@@ -198,20 +204,31 @@ EngineInstance::EngineInstance(const Settings& settings,
 		        .stageFlags = vk::ShaderStageFlagBits::eCompute,
 		    },
 		};
-		m_computeRoutine.emplace(*m_device, computeStage, computeDescriptorBindings, 1);
-		m_computeRoutine->registerBuffers(0,
-		                                  {
-		                                      svk::BufferBinding(*m_uboDeviceBuffer, 0),
-		                                      svk::BufferBinding(*m_vertexBuffer, 1),
-		                                      svk::BufferBinding(*m_vertexDataBuffer, 2),
-		                                  });
+		// Ring-buffer per frame-in-flight rather than using eSimultaneousUse:
+		// Hardware vendors (NVIDIA, Arm, PowerVR) advise against VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT
+		// due to driver-side tracking overhead, state cloning, or queue serialization.
+		// Dedicated per-frame command buffers maintain architectural symmetry with m_reduceRoutine
+		// and guarantee race-free execution across in-flight frames.
+		m_computeRoutine.emplace(*m_device, computeStage, computeDescriptorBindings, svk::MAX_FRAMES_IN_FLIGHT);
+		for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
+		{
+			m_computeRoutine->registerBuffers(i,
+			                                  {
+			                                      svk::BufferBinding(*m_uboDeviceBuffer, 0),
+			                                      svk::BufferBinding(*m_vertexBuffer, 1),
+			                                      svk::BufferBinding(*m_vertexDataBuffer, 2),
+			                                  });
+		}
 
 		const uint32_t totalGroups = (static_cast<uint32_t>(m_mesh.vertices.size()) + 255) / 256;
 		constexpr uint32_t MAX_GROUPS = 65535U;
 		const uint32_t groupCountX = std::min(totalGroups, MAX_GROUPS);
 		const uint32_t groupCountY = (totalGroups + MAX_GROUPS - 1) / MAX_GROUPS;
 
-		m_computeRoutine->bakeCommands(0, vk::CommandBufferUsageFlags{}, groupCountX, groupCountY, 1);
+		for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
+		{
+			m_computeRoutine->bakeCommands(i, vk::CommandBufferUsageFlags{}, groupCountX, groupCountY, 1);
+		}
 	}
 
 	{
@@ -323,9 +340,8 @@ EngineInstance::EngineInstance(const Settings& settings,
 			                                                       descriptorBindings,
 			                                                       m_swapchain->getFormat(),
 			                                                       m_renderRoutine->getDepthFormat());
-			meshTask.m_active = true;
-			meshTask.registerBuffers(std::vector<svk::BufferBinding>{svk::BufferBinding(*m_uboDeviceBuffer, 0)},
-			                         std::vector<svk::BufferBinding>{svk::BufferBinding(*m_vertexBuffer, 0)},
+			meshTask.registerBuffers({svk::BufferBinding(*m_uboDeviceBuffer, 0)},
+			                         {svk::BufferBinding(*m_vertexBuffer, 0)},
 			                         std::nullopt,
 			                         static_cast<uint32_t>(m_mesh.vertices.size()),
 			                         1);
@@ -362,9 +378,8 @@ EngineInstance::EngineInstance(const Settings& settings,
 			                                                            descriptorBindings,
 			                                                            m_swapchain->getFormat(),
 			                                                            m_renderRoutine->getDepthFormat());
-			satelliteTask.m_active = true;
-			satelliteTask.registerBuffers(std::vector<svk::BufferBinding>{svk::BufferBinding(*m_uboDeviceBuffer, 0)},
-			                              std::vector<svk::BufferBinding>{},
+			satelliteTask.registerBuffers({svk::BufferBinding(*m_uboDeviceBuffer, 0)},
+			                              {},
 			                              std::nullopt,
 			                              32,
 			                              static_cast<uint32_t>(m_agents.size()));
@@ -405,7 +420,7 @@ void EngineInstance::tick(float timeStep)
 	m_J_av += reducedResult * timeStep;
 
 	m_computeRoutine->submitCommands(
-	    0, *m_uboUpdatedSemaphores[m_currentFrame], *m_computeFinishedSemaphores[m_currentFrame]);
+	    m_currentFrame, *m_uboUpdatedSemaphores[m_currentFrame], *m_computeFinishedSemaphores[m_currentFrame]);
 
 	m_reduceRoutine->submitCommands(
 	    m_currentFrame, *m_computeFinishedSemaphores[m_currentFrame], *m_reduceFinishedSemaphores[m_currentFrame]);

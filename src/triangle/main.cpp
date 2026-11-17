@@ -79,7 +79,7 @@ int main()
 			// No descriptor bindings needed for this simple example
 			const std::vector<vk::DescriptorSetLayoutBinding> descriptorBindings;
 
-			// Emplace and activate the triangle render task
+			// Emplace the triangle render task
 			auto& triangleTask =
 			    renderRoutine.m_tasks.emplace_back(device.device(),
 			                                       shaderStages,
@@ -89,14 +89,9 @@ int main()
 			                                       descriptorBindings,
 			                                       swapchain.getFormat(),
 			                                       renderRoutine.getDepthFormat());
-			triangleTask.m_active = true;
 
 			// Register buffers: no vertex buffers, no index buffer, just draw 3 vertices
-			triangleTask.registerBuffers(std::vector<svk::BufferBinding>{}, // No descriptor bindings
-			                             std::vector<svk::BufferBinding>{}, // No vertex buffers
-			                             std::nullopt,                      // No index buffer
-			                             3,                                 // Vertex count (triangle)
-			                             1);                                // Instance count
+			triangleTask.registerBuffers({}, {}, std::nullopt, 3, 1);
 		}
 		logger.cInfo("Triangle RenderTask created and registered");
 

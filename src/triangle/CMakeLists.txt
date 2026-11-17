@@ -37,7 +37,6 @@ add_svk_binary(triangle
 		${CMAKE_SOURCE_DIR}/src/engine/Instance.hpp
 		${CMAKE_SOURCE_DIR}/src/engine/ConsoleLogger.hpp
 		${CMAKE_SOURCE_DIR}/src/engine/Queue.hpp
-		${CMAKE_SOURCE_DIR}/src/engine/RenderTask.cpp
 		${CMAKE_SOURCE_DIR}/src/engine/RenderTask.hpp
 		${CMAKE_SOURCE_DIR}/src/engine/RenderRoutine.cpp
 		${CMAKE_SOURCE_DIR}/src/engine/RenderRoutine.hpp
