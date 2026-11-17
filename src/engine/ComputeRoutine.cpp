@@ -16,10 +16,10 @@
 #include "engine/Queue.hpp"
 #include "engine/VulkanHelpers.hpp"
 
-inline svk::ComputeRoutine::ComputeRoutine(const svk::Device& device,
-                                           const vk::PipelineShaderStageCreateInfo& shaderStage,
-                                           std::span<const vk::DescriptorSetLayoutBinding> descriptorBindings,
-                                           uint32_t bufferCount)
+svk::ComputeRoutine::ComputeRoutine(const svk::Device& device,
+                                    const vk::PipelineShaderStageCreateInfo& shaderStage,
+                                    std::span<const vk::DescriptorSetLayoutBinding> descriptorBindings,
+                                    uint32_t bufferCount)
     : m_device(&device), m_computeQueue(&device.computeQueue()),
       m_pipeline(device.device(), shaderStage, descriptorBindings), m_clearBuffers(bufferCount),
       m_command(
@@ -49,10 +49,10 @@ inline svk::ComputeRoutine::ComputeRoutine(const svk::Device& device,
 	}
 }
 
-inline svk::ComputeRoutine::ComputeRoutine(const svk::Device& device,
-                                           const vk::PipelineShaderStageCreateInfo& shaderStage,
-                                           std::initializer_list<vk::DescriptorSetLayoutBinding> descriptorBindings,
-                                           uint32_t bufferCount)
+svk::ComputeRoutine::ComputeRoutine(const svk::Device& device,
+                                    const vk::PipelineShaderStageCreateInfo& shaderStage,
+                                    std::initializer_list<vk::DescriptorSetLayoutBinding> descriptorBindings,
+                                    uint32_t bufferCount)
     : ComputeRoutine(
           device,
           shaderStage,
@@ -60,9 +60,9 @@ inline svk::ComputeRoutine::ComputeRoutine(const svk::Device& device,
           bufferCount)
 {}
 
-inline void svk::ComputeRoutine::registerBuffers(uint32_t setIndex,
-                                                 std::span<const svk::BufferBinding> descriptorBindings,
-                                                 std::span<const BufferClear> clearBuffers)
+void svk::ComputeRoutine::registerBuffers(uint32_t setIndex,
+                                          std::span<const svk::BufferBinding> descriptorBindings,
+                                          std::span<const BufferClear> clearBuffers)
 {
 	if (setIndex < m_clearBuffers.size()) { m_clearBuffers[setIndex].assign(clearBuffers.begin(), clearBuffers.end()); }
 
@@ -93,37 +93,37 @@ inline void svk::ComputeRoutine::registerBuffers(uint32_t setIndex,
 	m_device->device().updateDescriptorSets(writes, nullptr);
 }
 
-inline void svk::ComputeRoutine::registerBuffers(uint32_t setIndex,
-                                                 std::initializer_list<svk::BufferBinding> descriptorBindings,
-                                                 std::span<const BufferClear> clearBuffers)
+void svk::ComputeRoutine::registerBuffers(uint32_t setIndex,
+                                          std::initializer_list<svk::BufferBinding> descriptorBindings,
+                                          std::span<const BufferClear> clearBuffers)
 {
 	registerBuffers(setIndex,
 	                std::span<const svk::BufferBinding>(descriptorBindings.begin(), descriptorBindings.size()),
 	                clearBuffers);
 }
 
-inline void svk::ComputeRoutine::registerBuffers(uint32_t setIndex,
-                                                 std::span<const svk::BufferBinding> descriptorBindings,
-                                                 std::initializer_list<BufferClear> clearBuffers)
+void svk::ComputeRoutine::registerBuffers(uint32_t setIndex,
+                                          std::span<const svk::BufferBinding> descriptorBindings,
+                                          std::initializer_list<BufferClear> clearBuffers)
 {
 	registerBuffers(
 	    setIndex, descriptorBindings, std::span<const BufferClear>(clearBuffers.begin(), clearBuffers.size()));
 }
 
-inline void svk::ComputeRoutine::registerBuffers(uint32_t setIndex,
-                                                 std::initializer_list<svk::BufferBinding> descriptorBindings,
-                                                 std::initializer_list<BufferClear> clearBuffers)
+void svk::ComputeRoutine::registerBuffers(uint32_t setIndex,
+                                          std::initializer_list<svk::BufferBinding> descriptorBindings,
+                                          std::initializer_list<BufferClear> clearBuffers)
 {
 	registerBuffers(setIndex,
 	                std::span<const svk::BufferBinding>(descriptorBindings.begin(), descriptorBindings.size()),
 	                std::span<const BufferClear>(clearBuffers.begin(), clearBuffers.size()));
 }
 
-inline void svk::ComputeRoutine::bakeCommands(uint32_t cmdIndex,
-                                              vk::CommandBufferUsageFlags usage,
-                                              uint32_t groupCountX,
-                                              uint32_t groupCountY,
-                                              uint32_t groupCountZ) const
+void svk::ComputeRoutine::bakeCommands(uint32_t cmdIndex,
+                                       vk::CommandBufferUsageFlags usage,
+                                       uint32_t groupCountX,
+                                       uint32_t groupCountY,
+                                       uint32_t groupCountZ) const
 {
 	const vk::raii::CommandBuffer& cmd = m_command[cmdIndex];
 	cmd.begin(vk::CommandBufferBeginInfo{.flags = usage});
@@ -161,11 +161,10 @@ inline void svk::ComputeRoutine::bakeCommands(uint32_t cmdIndex,
 	cmd.dispatch(groupCountX, groupCountY, groupCountZ);
 	cmd.end();
 }
-
-inline void svk::ComputeRoutine::submitCommands(uint32_t cmdIndex,
-                                                vk::Semaphore waitSemaphore,
-                                                vk::Semaphore signalSemaphore,
-                                                vk::Fence fence) const
+void svk::ComputeRoutine::submitCommands(uint32_t cmdIndex,
+                                         vk::Semaphore waitSemaphore,
+                                         vk::Semaphore signalSemaphore,
+                                         vk::Fence fence) const
 {
 	const vk::raii::CommandBuffer& cmd = m_command[cmdIndex];
 
