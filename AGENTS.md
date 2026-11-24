@@ -4,7 +4,30 @@ This file is automatically loaded into the agent context for all tasks in this r
 
 ---
 
-## 1. Environment & Compiler (AlmaLinux 9 / GCC 13)
+## 1. Project Identity & Core Philosophy (`svk` & `rso`)
+
+- **What `svk` Is:** `svk` is a **resource-oriented C++20 + Vulkan 1.3 engine for scientific computation** with optional rudimentary visualization.
+- **Fragile, Precise, and Optimized:** `svk` is **not** a general-purpose game engine. Prefer explicit contracts, minimal state, deterministic execution, and fail-fast invariants over defensive bloat or runtime indirection. Numerical accuracy of scientific computation always takes priority over visualization polish.
+- **Command Baking as Standard Practice:** Because scientific compute workloads execute identical dispatch/transfer topologies hundreds of thousands of times, **pre-baking command buffers** (`bakeCommands` upfront, `submitCommands` in the hot loop) is the expected default pattern—avoid unnecessary per-step CPU command re-recording.
+- **Static Library + Optimized Specialized Executables:**
+  - `svk` is compiled as static library targets (`svk_core` without GLFW, `svk_window` with GLFW) shared across `rso`, `rso_headless`, `triangle`, and future executables, relying on LTO + section garbage collection (`-ffunction-sections -fdata-sections -Wl,--gc-sections`) so each final binary stays minimal, fast, and self-contained:
+    - `rso_headless`: Pure compute & telemetry output (**no GLFW / windowing dependency**).
+    - `rso`: Interactive graphical visualization (links `svk_window` / GLFW).
+    - `rso_video` *(planned)*: Headless offscreen rendering piped to FFmpeg (**no GLFW dependency**).
+- **Zero Heavy Runtime Bloat:** No VMA (`VulkanMemoryAllocator`), no Dear ImGui, no external asset/font loaders. Shaders (`.slang`) are compiled to SPIR-V at build time via `add_slang_shader_target` ([`cmake/svk_common.cmake`](file:///home/pasha/build/RSO/RemoteSensingOptimizer/cmake/svk_common.cmake)) and embedded directly as C++ `uint32_t` array headers (`<shader_name>::smci`).
+
+---
+
+## 2. Agent Roles & Execution Workflow (Planner vs. Worker)
+
+- **Role Division:**
+  - **Architecture Planner (`Carbon High`):** Responsible for high-level system design, Vulkan synchronization/memory contracts, Mermaid architecture specifications, and decomposing work into small, self-contained, single-issue tasks.
+  - **Per-Task Worker (`Hydrogen`):** Responsible for implementing **strictly one atomic issue/task at a time** according to the Planner's specification, verifying compilation, formatting (`clang-format`), and static analysis (`clang-tidy`).
+- **One Issue at a Time:** Never bundle unrelated refactors or multiple issues into a single step. Complete, format, build, and verify one atomic task before moving to the next.
+
+---
+
+## 3. Environment & Compiler (AlmaLinux 9 / GCC 13)
 
 - **OS:** AlmaLinux 9 (RHEL 9 compatible). The default system compiler (`/usr/bin/g++`, GCC 11) is **too old** and will fail CMake configuration and `clang-tidy` checks.
 - **Required Toolchain:** `gcc-toolset-13` (`/opt/rh/gcc-toolset-13/root/usr/bin/g++`).
@@ -17,7 +40,7 @@ This file is automatically loaded into the agent context for all tasks in this r
 
 ---
 
-## 2. Code Style & Formatting (`.clang-format`)
+## 4. Code Style & Formatting (`.clang-format`)
 
 All C++ code under `src/` **must** conform to [`.clang-format`](file:///home/pasha/build/RSO/RemoteSensingOptimizer/.clang-format):
 - **Indentation:** Tabs (`UseTab: ForIndentation`, `TabWidth: 4`, `IndentWidth: 4`).
@@ -31,7 +54,7 @@ All C++ code under `src/` **must** conform to [`.clang-format`](file:///home/pas
 
 ---
 
-## 3. Include Hygiene (IWYU) & Precompiled Headers (PCH)
+## 5. Include Hygiene (IWYU) & Precompiled Headers (PCH)
 
 - **Strict Self-Contained Headers (Include What You Use):** Every `.hpp` and `.cpp` file must explicitly `#include` every header defining the types/functions it directly uses. Never rely on transitive includes or `SVK_PCH_HEADERS` to make a file compile.
 - **PCH Role:** `SVK_PCH_HEADERS` in [`src/engine/CMakeLists.txt`](file:///home/pasha/build/RSO/RemoteSensingOptimizer/src/engine/CMakeLists.txt) exists **solely** to accelerate compilation speed.
@@ -43,23 +66,23 @@ All C++ code under `src/` **must** conform to [`.clang-format`](file:///home/pas
 
 ---
 
-## 4. Core Engine (`svk`) & Simulator (`rso`) Design Philosophy
+## 6. Vulkan 1.3, GPU Memory & Shader Portability Rules
 
-1. **Extreme Simplicity & Zero Bloat:**
-   - Do **not** introduce heavy third-party runtime dependencies (no VMA / VulkanMemoryAllocator, no Dear ImGui, no external asset loaders).
-   - Binaries must remain self-contained. Shaders (`.slang`) are compiled to SPIR-V at build time via `add_slang_shader_target` ([`cmake/svk_common.cmake`](file:///home/pasha/build/RSO/RemoteSensingOptimizer/cmake/svk_common.cmake)) and embedded directly as C++ `uint32_t` array headers (`<shader_name>::smci`).
-2. **Modern C++20 & Vulkan 1.3 RAII:**
+1. **Modern C++20 & Vulkan 1.3 RAII:**
    - Use `vk::raii::*` handles exclusively for automatic deterministic resource cleanup.
-   - Declare class member `vk::raii` handles in strict dependency order so reverse-order destruction is always valid (e.g., `DescriptorSetLayout` $\to$ `PipelineLayout` $\to$ `Pipeline`).
+   - Declare class member `vk::raii` handles in strict dependency order so reverse-order destruction is always valid (e.g., `DescriptorSetLayout` -> `PipelineLayout` -> `Pipeline`).
    - Use C++20 designated initializers (`.field = value`) for all Vulkan structs (`VULKAN_HPP_NO_CONSTRUCTORS` is defined project-wide).
    - Target Vulkan 1.3 core features: `synchronization2` (`vk::SubmitInfo2`, `vk::ImageMemoryBarrier2`, `vk::MemoryBarrier2`, `pipelineBarrier2`) and `dynamicRendering` (`cmd.beginRendering`, no `VkRenderPass` or `VkFramebuffer`).
-3. **GPU Memory & Alignment Discipline:**
-   - Host-shared GPU structs (`UBO`, `AgentData`, vertex/storage structs) must use explicit `alignas(16)` and `static_assert` size/offset checks to guarantee exact layout compatibility with Slang shaders.
-   - Maintain explicit separation between `TRANSFER`, `COMPUTE`, `GRAPHICS`, and `PRESENT` queues in [`svk::Device`](file:///home/pasha/build/RSO/RemoteSensingOptimizer/src/engine/Device.hpp).
+2. **Polyglot CPU/GPU Shared Structs:**
+   - Host-shared GPU structs (`UBO`, `AgentData`, vertex/storage structs) should be defined in a **polyglot header** (`.slangh` / shared C++ & Slang header) as the single source of truth, backed on the C++ side by explicit `alignas(16)` and `static_assert` size/offset checks so CPU and GPU layouts can never drift.
+3. **Explicit Hardware Feature Verification & Broad GPU Support:**
+   - Every Vulkan feature requested at device creation **must** be explicitly queried and verified via `getFeatures2()`—never blindly enable unused or optional features.
+   - Do **not** rely on `shaderFloat16`, `shaderFloat64`, or hardware float atomic extensions (`VK_EXT_shader_atomic_float`) in shaders: the primary development target (`Intel(R) Iris(R) Xe Graphics (ADL GT2)`) has `shaderFloat64 = false`, lacks hardware float atomic add, and has buggy/unwanted `float16` behavior. Keep GPU compute in portable IEEE-754 `float32` and use `double` on the CPU for long-horizon accumulations.
+   - Decouple queue selection cleanly: headless compute selects only `TRANSFER` + `COMPUTE` queues; graphical mode adds `GRAPHICS` + `PRESENT`.
 
 ---
 
-## 5. Build Profiles Reference
+## 7. Build Profiles Reference
 
 See [`how_to_build.md`](file:///home/pasha/build/RSO/RemoteSensingOptimizer/how_to_build.md) and [`cmake/build_config.cmake`](file:///home/pasha/build/RSO/RemoteSensingOptimizer/cmake/build_config.cmake) for full details:
 

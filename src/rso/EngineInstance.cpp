@@ -1,7 +1,9 @@
 // src/EngineInstance.cpp
 
 #include <algorithm>
+#include <array>
 #include <cstring>
+#include <span>
 #include <string>
 
 #include "EngineInstance.hpp"
@@ -76,12 +78,24 @@ EngineInstance::EngineInstance(const Settings& settings,
 		               static_cast<double>(maxUboBytes) / bytesPerKiB);
 	}
 
-	m_vertexBuffer.emplace(
-	    m_device->createBuffer(vertexBytes,
-	                           vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer |
-	                               vk::BufferUsageFlagBits::eStorageBuffer,
-	                           vk::MemoryPropertyFlagBits::eDeviceLocal,
-	                           {svk::Device::TRANSFER, svk::Device::COMPUTE, svk::Device::GRAPHICS}));
+	static constexpr std::array<svk::Device::QueueType, 2> kHeadlessComputeTransferQueues{
+	    svk::Device::TRANSFER,
+	    svk::Device::COMPUTE,
+	};
+	static constexpr std::array<svk::Device::QueueType, 3> kGraphicsComputeTransferQueues{
+	    svk::Device::TRANSFER,
+	    svk::Device::COMPUTE,
+	    svk::Device::GRAPHICS,
+	};
+	const std::span<const svk::Device::QueueType> sharedComputeQueues =
+	    Settings::headlessMode ? std::span<const svk::Device::QueueType>(kHeadlessComputeTransferQueues)
+	                           : std::span<const svk::Device::QueueType>(kGraphicsComputeTransferQueues);
+
+	vk::BufferUsageFlags vertexUsage = vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eStorageBuffer;
+	if constexpr (!Settings::headlessMode) { vertexUsage |= vk::BufferUsageFlagBits::eVertexBuffer; }
+
+	m_vertexBuffer.emplace(m_device->createBuffer(
+	    vertexBytes, vertexUsage, vk::MemoryPropertyFlagBits::eDeviceLocal, sharedComputeQueues));
 	m_vertexDataBuffer.emplace(
 	    m_device->createBuffer(vertexDataBytes,
 	                           vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eStorageBuffer,
@@ -157,7 +171,7 @@ EngineInstance::EngineInstance(const Settings& settings,
 		    m_device->createBuffer(rawSize,
 		                           vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eUniformBuffer,
 		                           vk::MemoryPropertyFlagBits::eDeviceLocal,
-		                           {svk::Device::TRANSFER, svk::Device::COMPUTE, svk::Device::GRAPHICS}));
+		                           sharedComputeQueues));
 
 		m_uboStagingBuffer.emplace(
 		    m_device->createBuffer(stagingTotalSize,

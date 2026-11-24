@@ -172,6 +172,13 @@ bool svk::Swapchain::present(const svk::SwapchainFrame& frame) const
 	                                     .pSwapchains = &*m_swapchain,
 	                                     .pImageIndices = &frame.imageIndex};
 
+	// NOTE (Vulkan-Hpp RAII behavior, see vulkan_raii.hpp Queue::presentKHR):
+	// vkQueuePresentKHR treats VK_SUCCESS and VK_SUBOPTIMAL_KHR as non-error return codes,
+	// whereas VK_ERROR_OUT_OF_DATE_KHR is a negative VkResult error code.
+	// Consequently, vk::raii::Queue::presentKHR passes {eSuccess, eSuboptimalKHR} to
+	// detail::resultCheck(...) and THROWS vk::OutOfDateKHRError on VK_ERROR_OUT_OF_DATE_KHR!
+	// Without catching vk::OutOfDateKHRError (as acquireNextImage does above), the
+	// eErrorOutOfDateKHR check below is unreachable and window resizes can terminate the app.
 	const vk::Result result = m_presentQueue.present(presentInfo);
 
 	return (result != vk::Result::eErrorOutOfDateKHR && result != vk::Result::eSuboptimalKHR);
