@@ -1,8 +1,10 @@
 // src/triangle/main.cpp
 // Minimal triangle example using SVK engine
 
+#include <cstdint>
 #include <cstdlib>
-#include <iostream>
+#include <exception>
+#include <optional>
 #include <stdexcept>
 #include <vector>
 
@@ -30,10 +32,10 @@ constexpr const char* DEVICE_NAME = "Intel(R) Iris(R) Xe Graphics (ADL GT2)";
 
 int main()
 {
+	// === 1. Setup Logger ===
+	const svk::ConsoleLogger logger;
 	try
 	{
-		// === 1. Setup Logger ===
-		svk::ConsoleLogger logger;
 		logger.cInfo("Triangle Example Starting...");
 
 		// === 2. Create Vulkan Instance ===
@@ -138,13 +140,11 @@ int main()
 	}
 	catch (const std::exception& e)
 	{
-		std::cerr << svk::ConsoleLogger::COLOR_RED << "Error: " << e.what() << svk::ConsoleLogger::COLOR_RESET
-		          << std::endl;
+		logger.cError("Error: {}", e.what());
 	}
 	catch (...)
 	{
-		std::cerr << svk::ConsoleLogger::COLOR_RED << "An unknown error occurred." << svk::ConsoleLogger::COLOR_RESET
-		          << std::endl;
+		logger.cError("An unknown error occurred.");
 	}
 	return EXIT_FAILURE; // If error occured
 }

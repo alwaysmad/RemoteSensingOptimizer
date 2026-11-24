@@ -196,26 +196,35 @@ void svk::Device::pickGraphicsAndPresentQueues(const vk::raii::SurfaceKHR& surfa
 	}
 }
 
+void svk::Device::validateUniformBufferRange(vk::DeviceSize boundRange) const
+{
+	const vk::DeviceSize supportedLimit = m_physicalDevice.getProperties().limits.maxUniformBufferRange;
+	if (boundRange > supportedLimit)
+	{
+		throw std::runtime_error(std::string("Bound UBO range (") + std::to_string(boundRange) +
+		                         ") exceeds device maxUniformBufferRange (" + std::to_string(supportedLimit) + ")");
+	}
+	if (boundRange > kConventionalUboLimit)
+	{
+		m_logger.cWarn("Bound UBO range ({}) is larger than the conventional 64 KB budget.", boundRange);
+	}
+}
+
+void svk::Device::validateDescriptorBinding(const svk::BufferBinding& binding) const
+{
+	const vk::DeviceSize boundRange = binding.effectiveRange();
+	if ((binding.usage & vk::BufferUsageFlagBits::eUniformBuffer) != vk::BufferUsageFlags{})
+	{
+		validateUniformBufferRange(boundRange);
+	}
+}
+
 svk::Buffer svk::Device::createBuffer(vk::DeviceSize size,
                                       vk::BufferUsageFlags usage,
                                       vk::MemoryPropertyFlags properties,
                                       std::span<const QueueType> targetQueues) const
 {
 	logAllocationPressure();
-
-	if ((usage & vk::BufferUsageFlagBits::eUniformBuffer) != vk::BufferUsageFlags{})
-	{
-		const vk::DeviceSize supportedLimit = m_physicalDevice.getProperties().limits.maxUniformBufferRange;
-		if (size > supportedLimit)
-		{
-			throw std::runtime_error(std::string("Requested UBO size (") + std::to_string(size) +
-			                         ") exceeds device maxUniformBufferRange (" + std::to_string(supportedLimit) + ")");
-		}
-		if (size > kConventionalUboLimit)
-		{
-			m_logger.cWarn("Requested UBO size ({}) is larger than the conventional 64 KB budget.", size);
-		}
-	}
 
 	std::vector<uint32_t> uniqueFamiliesVector;
 	uniqueFamiliesVector.reserve(targetQueues.size());

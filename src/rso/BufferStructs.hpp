@@ -1,56 +1,31 @@
 #pragma once
 
-#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
 #include <vector>
 
 #include <glm/ext/scalar_constants.hpp>
 #include <glm/mat4x4.hpp>
+#include <glm/vec4.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
-constexpr uint32_t MAX_AGENTS = 512;
+#include "engine/ConsoleLogger.hpp"
+#include "shaders/shared_types.slangh"
 
-struct alignas(16) AgentData
-{
-	glm::mat4 camera;
-	float data[4];
-};
-static_assert(sizeof(AgentData) == 80, "AgentData must be 80 bytes (5x vec4) to match GPU shared.slang layout");
+static_assert(sizeof(AgentData) == 80, "AgentData must be 80 bytes (5x vec4) to match GPU shared_types.slangh layout");
 static_assert(alignof(AgentData) == 16, "AgentData must be 16-byte aligned for GPU");
-
-struct alignas(16) UBO
-{
-	glm::mat4 view;
-	glm::mat4 proj;
-	glm::mat4 model;
-	uint32_t vertexCount;
-	uint32_t agentCount;
-	float timeStep;
-	uint32_t _padding0;
-	AgentData agents[MAX_AGENTS];
-};
-static_assert(offsetof(UBO, agents) == 208, "UBO::agents offset must be 208 bytes to match GPU shared.slang layout");
-static_assert(sizeof(UBO) == 208 + MAX_AGENTS * sizeof(AgentData), "UBO total size must match GPU shared.slang layout");
-
-struct alignas(16) VertexCoords
-{
-	float values[4];
-	VertexCoords() = default;
-	explicit VertexCoords(const std::array<float, 4>& input) { std::ranges::copy(input, values); }
-};
+static_assert(offsetof(AgentData, data) == 64, "AgentData::data offset must be 64 bytes");
+static_assert(alignof(UBO) == 16, "UBO must be 16-byte aligned for GPU");
+static_assert(offsetof(UBO, agents) == 208,
+              "UBO::agents offset must be 208 bytes to match GPU shared_types.slangh layout");
+static_assert(sizeof(UBO) == 208 + MAX_AGENTS * sizeof(AgentData),
+              "UBO total size must match GPU shared_types.slangh layout");
 static_assert(sizeof(VertexCoords) == 16, "VertexCoords must be 16 bytes (1x vec4)");
-
-struct alignas(16) VertexData
-{
-	float values[4];
-	VertexData() = default;
-	explicit VertexData(const std::array<float, 4>& input) { std::ranges::copy(input, values); }
-};
+static_assert(alignof(VertexCoords) == 16, "VertexCoords must be 16-byte aligned for GPU");
 static_assert(sizeof(VertexData) == 16, "VertexData must be 16 bytes (1x vec4)");
+static_assert(alignof(VertexData) == 16, "VertexData must be 16-byte aligned for GPU");
 
 struct Mesh
 {
@@ -138,7 +113,7 @@ struct Mesh
 
 	// Populates a point-cloud cubesphere.
 	// 'resolution' is the number of cells per dimension on a single face.
-	void populateMesh(uint32_t resolution)
+	void populateMesh(uint32_t resolution, const svk::ConsoleLogger& logger)
 	{
 		const uint32_t cellsPerFace = resolution * resolution;
 		const uint32_t totalCells = 6 * cellsPerFace;
@@ -149,19 +124,19 @@ struct Mesh
 		const double totalGB = static_cast<double>(totalBytes) / (1024.0 * 1024.0 * 1024.0);
 		double totalSurfaceArea = 0.0;
 
-		std::printf("[Mesh] total cells: %u\n", totalCells);
-		if (totalBytes < (1ull << 30)) { std::printf("[Mesh] total required memory: %.2f MB\n", totalMB); }
+		logger.cInfo("[Mesh] total cells: {}", totalCells);
+		if (totalBytes < (1ull << 30)) { logger.cInfo("[Mesh] total required memory: {:.2f} MB", totalMB); }
 		else
 		{
-			std::printf("[Mesh] total required memory: %.2f GB\n", totalGB);
+			logger.cInfo("[Mesh] total required memory: {:.2f} GB", totalGB);
 		}
 
 		// 4 * resolution * cellSize == 2 * pi * kEarthRadiusKm
 		const double maxCellSizeKm = (glm::pi<double>() * kEarthRadiusKm) / (2.0 * static_cast<double>(resolution));
 		const double maxCellSizeM = maxCellSizeKm * 1000.0;
 
-		std::printf("[Mesh] total cells: %u\n", totalCells);
-		std::printf("[Mesh] maximum cell size: %.3f km (%.1f m)\n", maxCellSizeKm, maxCellSizeM);
+		logger.cInfo("[Mesh] total cells: {}", totalCells);
+		logger.cInfo("[Mesh] maximum cell size: {:.3f} km ({:.1f} m)", maxCellSizeKm, maxCellSizeM);
 
 		vertices.clear();
 		vertices.reserve(totalCells);
@@ -241,17 +216,16 @@ struct Mesh
 					    || isMeshPointInGeoRect(31.5075, 34.4597, 100.0, 300.0, pos) // Gaza 100x300
 					    || isMeshPointInGeoRect(12.6392, 8.0025, 200.0, 200.0, pos)) // Mali, Bamako 200x200
 					{
-						vertices.emplace_back(std::array<float, 4>{
-						    static_cast<float>(pos.x), static_cast<float>(pos.y), static_cast<float>(pos.z), alpha});
-						vertexData.emplace_back(std::array<float, 4>{epsilon, v, s, w});
+						vertices.push_back(VertexCoords{.values = glm::vec4{pos.x, pos.y, pos.z, alpha}});
+						vertexData.push_back(VertexData{.values = glm::vec4{epsilon, v, s, w}});
 						totalSurfaceArea += area;
 					}
 				}
 			}
-			std::printf("[Mesh] generated face %d/6\n", face + 1);
+			logger.cInfo("[Mesh] generated face {}/6", face + 1);
 		}
-		std::printf(
-		    "[Mesh] total generated surface area: %.10f (ideal: %.10f)\n", totalSurfaceArea, 4.0 * glm::pi<double>());
+		logger.cInfo(
+		    "[Mesh] total generated surface area: {:.10f} (ideal: {:.10f})", totalSurfaceArea, 4.0 * glm::pi<double>());
 	}
 };
 

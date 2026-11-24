@@ -61,11 +61,12 @@ void svk::ComputeRoutine::registerBuffers(uint32_t setIndex,
 	for (size_t i = 0; i < descriptorBindings.size(); ++i)
 	{
 		const svk::BufferBinding& binding = descriptorBindings[i];
+		m_device->validateDescriptorBinding(binding);
 
 		bufferInfos[i] = vk::DescriptorBufferInfo{
 		    .buffer = binding.buffer,
-		    .offset = 0,
-		    .range = vk::WholeSize,
+		    .offset = binding.offset,
+		    .range = binding.range,
 		};
 
 		writes[i] = vk::WriteDescriptorSet{

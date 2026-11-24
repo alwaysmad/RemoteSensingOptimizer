@@ -6,6 +6,7 @@
 #include <initializer_list>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_raii.hpp>
@@ -38,34 +39,6 @@ private:
 	uint32_t m_vertexCount = 0;
 	uint32_t m_instanceCount = 1;
 
-	void updateDescriptors(std::span<const svk::BufferBinding> descriptorBindings)
-	{
-		if (descriptorBindings.empty()) { return; }
-
-		std::vector<vk::DescriptorBufferInfo> bufferInfos(descriptorBindings.size());
-		std::vector<vk::WriteDescriptorSet> writes(descriptorBindings.size());
-
-		for (size_t i = 0; i < descriptorBindings.size(); ++i)
-		{
-			bufferInfos[i] = vk::DescriptorBufferInfo{
-			    .buffer = descriptorBindings[i].buffer,
-			    .offset = 0,
-			    .range = vk::WholeSize,
-			};
-
-			writes[i] = vk::WriteDescriptorSet{
-			    .dstSet = *m_descriptorSets[0],
-			    .dstBinding = descriptorBindings[i].binding,
-			    .dstArrayElement = 0U,
-			    .descriptorCount = 1U,
-			    .descriptorType = descriptorBindings[i].deduceDescriptorType(),
-			    .pBufferInfo = &bufferInfos[i],
-			};
-		}
-
-		m_device->updateDescriptorSets(writes, nullptr);
-	}
-
 public:
 	// Takes ownership of the pipeline and allocates the required Descriptor Pools
 	RenderTask(const vk::raii::Device& device,
@@ -75,28 +48,32 @@ public:
 	           vk::CullModeFlags cullMode,
 	           std::span<const vk::DescriptorSetLayoutBinding> descriptorBindings,
 	           vk::Format colorFormat,
-	           vk::Format depthFormat)
+	           vk::Format depthFormat,
+	           uint32_t descriptorSetCount = 1U)
 	    : m_device(&device),
 	      m_pipeline(
 	          device, shaderStages, vertexInput, topology, cullMode, descriptorBindings, colorFormat, depthFormat)
 	{
-		const std::vector<vk::DescriptorPoolSize> poolSizes = svk::deduceDescriptorPoolSizes(descriptorBindings);
+		if (descriptorSetCount == 0U) { throw std::invalid_argument("RenderTask descriptorSetCount must be >= 1"); }
+
+		std::vector<vk::DescriptorPoolSize> scaledPoolSizes = svk::deduceDescriptorPoolSizes(descriptorBindings);
+		for (vk::DescriptorPoolSize& poolSize : scaledPoolSizes) { poolSize.descriptorCount *= descriptorSetCount; }
 
 		// Per Vulkan spec §14.2.2 & vk.xml, poolSizeCount can be 0 when no descriptors are required.
 		// maxSets must be > 0. Allocating an empty descriptor set layout consumes 0 descriptors.
 		const vk::DescriptorPoolCreateInfo poolInfo{
 		    .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-		    .maxSets = 1U,
-		    .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
-		    .pPoolSizes = poolSizes.data(),
+		    .maxSets = descriptorSetCount,
+		    .poolSizeCount = static_cast<uint32_t>(scaledPoolSizes.size()),
+		    .pPoolSizes = scaledPoolSizes.data(),
 		};
 		m_descriptorPool = vk::raii::DescriptorPool(device, poolInfo);
 
-		const vk::DescriptorSetLayout layout = *m_pipeline.getDescriptorSetLayout();
+		const std::vector<vk::DescriptorSetLayout> layouts(descriptorSetCount, *m_pipeline.getDescriptorSetLayout());
 		const vk::DescriptorSetAllocateInfo allocInfo{
 		    .descriptorPool = *m_descriptorPool,
-		    .descriptorSetCount = 1U,
-		    .pSetLayouts = &layout,
+		    .descriptorSetCount = descriptorSetCount,
+		    .pSetLayouts = layouts.data(),
 		};
 		m_descriptorSets = vk::raii::DescriptorSets(device, allocInfo);
 	}
@@ -108,7 +85,8 @@ public:
 	           vk::CullModeFlags cullMode,
 	           std::span<const vk::DescriptorSetLayoutBinding> descriptorBindings,
 	           vk::Format colorFormat,
-	           vk::Format depthFormat)
+	           vk::Format depthFormat,
+	           uint32_t descriptorSetCount = 1U)
 	    : RenderTask(device,
 	                 std::span<const vk::PipelineShaderStageCreateInfo>(shaderStages.begin(), shaderStages.size()),
 	                 vertexInput,
@@ -116,7 +94,8 @@ public:
 	                 cullMode,
 	                 descriptorBindings,
 	                 colorFormat,
-	                 depthFormat)
+	                 depthFormat,
+	                 descriptorSetCount)
 	{}
 
 	RenderTask(const vk::raii::Device& device,
@@ -126,7 +105,8 @@ public:
 	           vk::CullModeFlags cullMode,
 	           std::initializer_list<vk::DescriptorSetLayoutBinding> descriptorBindings,
 	           vk::Format colorFormat,
-	           vk::Format depthFormat)
+	           vk::Format depthFormat,
+	           uint32_t descriptorSetCount = 1U)
 	    : RenderTask(
 	          device,
 	          shaderStages,
@@ -135,7 +115,8 @@ public:
 	          cullMode,
 	          std::span<const vk::DescriptorSetLayoutBinding>(descriptorBindings.begin(), descriptorBindings.size()),
 	          colorFormat,
-	          depthFormat)
+	          depthFormat,
+	          descriptorSetCount)
 	{}
 
 	RenderTask(const vk::raii::Device& device,
@@ -145,7 +126,8 @@ public:
 	           vk::CullModeFlags cullMode,
 	           std::initializer_list<vk::DescriptorSetLayoutBinding> descriptorBindings,
 	           vk::Format colorFormat,
-	           vk::Format depthFormat)
+	           vk::Format depthFormat,
+	           uint32_t descriptorSetCount = 1U)
 	    : RenderTask(
 	          device,
 	          std::span<const vk::PipelineShaderStageCreateInfo>(shaderStages.begin(), shaderStages.size()),
@@ -154,7 +136,8 @@ public:
 	          cullMode,
 	          std::span<const vk::DescriptorSetLayoutBinding>(descriptorBindings.begin(), descriptorBindings.size()),
 	          colorFormat,
-	          depthFormat)
+	          depthFormat,
+	          descriptorSetCount)
 	{}
 
 	// Ironclad Constraints: Non-Copyable
@@ -165,6 +148,45 @@ public:
 	RenderTask& operator=(RenderTask&&) noexcept = default;
 
 	~RenderTask() = default;
+
+	void updateDescriptors(uint32_t setIndex, std::span<const svk::BufferBinding> descriptorBindings)
+	{
+		if (static_cast<std::size_t>(setIndex) >= m_descriptorSets.size())
+		{
+			throw std::out_of_range("RenderTask descriptor set index out of range");
+		}
+
+		if (descriptorBindings.empty()) { return; }
+
+		std::vector<vk::DescriptorBufferInfo> bufferInfos(descriptorBindings.size());
+		std::vector<vk::WriteDescriptorSet> writes(descriptorBindings.size());
+
+		for (std::size_t i = 0; i < descriptorBindings.size(); ++i)
+		{
+			bufferInfos[i] = vk::DescriptorBufferInfo{
+			    .buffer = descriptorBindings[i].buffer,
+			    .offset = descriptorBindings[i].offset,
+			    .range = descriptorBindings[i].range,
+			};
+
+			writes[i] = vk::WriteDescriptorSet{
+			    .dstSet = *m_descriptorSets[static_cast<std::size_t>(setIndex)],
+			    .dstBinding = descriptorBindings[i].binding,
+			    .dstArrayElement = 0U,
+			    .descriptorCount = 1U,
+			    .descriptorType = descriptorBindings[i].deduceDescriptorType(),
+			    .pBufferInfo = &bufferInfos[i],
+			};
+		}
+
+		m_device->updateDescriptorSets(writes, nullptr);
+	}
+
+	void updateDescriptors(uint32_t setIndex, std::initializer_list<svk::BufferBinding> descriptorBindings)
+	{
+		updateDescriptors(setIndex,
+		                  std::span<const svk::BufferBinding>(descriptorBindings.begin(), descriptorBindings.size()));
+	}
 
 	// --- Buffer Registration ---
 	// MUST NOT BE EXECUTED DURING RENDERING
@@ -184,7 +206,7 @@ public:
 		for (const auto& binding : vertexBindings)
 		{
 			m_vertexBuffers.emplace_back(binding.buffer);
-			m_vertexOffsets.emplace_back(0); // Offset is explicitly cached
+			m_vertexOffsets.emplace_back(binding.offset); // Offset is explicitly cached
 		}
 
 		// 2. Save the index binding and draw counts
@@ -193,7 +215,7 @@ public:
 		m_instanceCount = instanceCount;
 
 		// 3. Delegate Descriptor logic to updateDescriptors
-		updateDescriptors(descriptorBindings);
+		updateDescriptors(0U, descriptorBindings);
 	}
 
 	void registerBuffers(std::initializer_list<svk::BufferBinding> descriptorBindings,
@@ -236,19 +258,28 @@ public:
 	}
 
 	// Executes the draw calls into the provided command buffer
-	void recordCommands(const vk::raii::CommandBuffer& cmd) const
+	void recordCommands(const vk::raii::CommandBuffer& cmd, uint32_t setIndex = 0U) const
 	{
+		const std::size_t activeSetIndex = (m_descriptorSets.size() > 1U) ? static_cast<std::size_t>(setIndex) : 0U;
+		if (activeSetIndex >= m_descriptorSets.size())
+		{
+			throw std::out_of_range("RenderTask descriptor set index out of range");
+		}
+
 		cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, *m_pipeline.getPipeline());
 
 		if (!m_vertexBuffers.empty()) { cmd.bindVertexBuffers(0, m_vertexBuffers, m_vertexOffsets); }
 
 		if (m_indexBufferBinding.has_value())
 		{
-			cmd.bindIndexBuffer(m_indexBufferBinding->buffer, 0, vk::IndexType::eUint32);
+			cmd.bindIndexBuffer(m_indexBufferBinding->buffer, m_indexBufferBinding->offset, vk::IndexType::eUint32);
 		}
 
-		cmd.bindDescriptorSets(
-		    vk::PipelineBindPoint::eGraphics, *m_pipeline.getPipelineLayout(), 0, {*m_descriptorSets[0]}, nullptr);
+		cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+		                       *m_pipeline.getPipelineLayout(),
+		                       0,
+		                       {*m_descriptorSets[activeSetIndex]},
+		                       nullptr);
 
 		if (m_indexBufferBinding.has_value()) { cmd.drawIndexed(m_vertexCount, m_instanceCount, 0, 0, 0); }
 		else

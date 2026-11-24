@@ -113,6 +113,7 @@ set(SVK_PCH_HEADERS
     <engine/Flags.hpp>
     <engine/Frames.hpp>
     <engine/ConsoleLogger.hpp>
+    <engine/FileLogger.hpp>
     <engine/Queue.hpp>
     <engine/Buffer.hpp>
     <engine/Command.hpp>

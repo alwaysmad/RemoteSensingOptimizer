@@ -91,25 +91,41 @@ add_custom_target(synth_tle_data DEPENDS ${SYNTH_TLE_HEADER_FILE})
 add_slang_shader_target(CompileMesh
 	SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/shaders/mesh.slang
 	ENTRIES vertMain fragMain
-	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared.slang
+	DEPENDS
+		${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared.slang
+		${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared_types.slangh
 )
 
 add_slang_shader_target(CompileComputeAlpha
 	SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/shaders/compute_alpha.slang
 	ENTRIES computeMain
-	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared.slang
+	DEPENDS
+		${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared.slang
+		${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared_types.slangh
 )
 
 add_slang_shader_target(CompileSatellite
 	SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/shaders/satellite.slang
 	ENTRIES vertMain fragMain
-	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared.slang
+	DEPENDS
+		${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared.slang
+		${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared_types.slangh
 )
 
 add_slang_shader_target(CompileReduce
 	SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/shaders/reduce.slang
-	ENTRIES reduceMain
-	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared.slang
+	ENTRIES reducePartials
+	DEPENDS
+		${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared.slang
+		${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared_types.slangh
+)
+
+add_slang_shader_target(CompileReduceFinal
+	SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/shaders/reduce_final.slang
+	ENTRIES reduceFinal
+	DEPENDS
+		${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared.slang
+		${CMAKE_CURRENT_SOURCE_DIR}/shaders/shared_types.slangh
 )
 
 # ============================================================================
@@ -125,7 +141,6 @@ set(RSO_COMMON_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/Application.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/EngineInstance.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/EngineInstance.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/FileLogger.hpp
 	${CMAKE_SOURCE_DIR}/src/engine/window/Camera.cpp
 	${CMAKE_SOURCE_DIR}/src/engine/window/WindowContext.hpp
 	${CMAKE_SOURCE_DIR}/src/engine/window/Window.hpp
@@ -137,6 +152,7 @@ set(RSO_COMMON_SOURCES
 	${CMAKE_SOURCE_DIR}/src/engine/DepthResources.hpp
 	${CMAKE_SOURCE_DIR}/src/engine/Device.cpp
 	${CMAKE_SOURCE_DIR}/src/engine/Device.hpp
+	${CMAKE_SOURCE_DIR}/src/engine/FileLogger.hpp
 	${CMAKE_SOURCE_DIR}/src/engine/GraphicsPipeline.hpp
 	${CMAKE_SOURCE_DIR}/src/engine/Image.hpp
 	${CMAKE_SOURCE_DIR}/src/engine/Instance.cpp
@@ -180,7 +196,7 @@ target_link_libraries(rso PRIVATE
 	glm::glm
 	sgp4
 )
-add_dependencies(rso flock_tle_data synth_tle_data CompileMesh CompileComputeAlpha CompileSatellite CompileReduce)
+add_dependencies(rso flock_tle_data synth_tle_data CompileMesh CompileComputeAlpha CompileSatellite CompileReduce CompileReduceFinal)
 
 # ============================================================================
 # Build RSO Headless (no GUI)
@@ -212,6 +228,6 @@ target_link_libraries(rso_headless PRIVATE
 	glm::glm
 	sgp4
 )
-add_dependencies(rso_headless flock_tle_data synth_tle_data CompileMesh CompileComputeAlpha CompileSatellite CompileReduce)
+add_dependencies(rso_headless flock_tle_data synth_tle_data CompileMesh CompileComputeAlpha CompileSatellite CompileReduce CompileReduceFinal)
 
 message(STATUS "RSO: Applications configured (rso + rso_headless with SGP4 and Celestrak TLE)")

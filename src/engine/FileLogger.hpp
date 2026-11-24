@@ -1,15 +1,16 @@
-// src/rso/FileLogger.hpp
+// src/engine/FileLogger.hpp
 #pragma once
 
+#include <cerrno>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <ios>
 #include <mutex>
 #include <stdexcept>
 #include <string>
-#include <string_view>
 #include <utility>
 
 namespace svk

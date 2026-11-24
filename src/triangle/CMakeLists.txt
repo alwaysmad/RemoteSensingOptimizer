@@ -31,6 +31,7 @@ add_svk_binary(triangle
 		${CMAKE_SOURCE_DIR}/src/engine/DepthResources.hpp
 		${CMAKE_SOURCE_DIR}/src/engine/Device.cpp
 		${CMAKE_SOURCE_DIR}/src/engine/Device.hpp
+		${CMAKE_SOURCE_DIR}/src/engine/FileLogger.hpp
 		${CMAKE_SOURCE_DIR}/src/engine/GraphicsPipeline.hpp
 		${CMAKE_SOURCE_DIR}/src/engine/Image.hpp
 		${CMAKE_SOURCE_DIR}/src/engine/Instance.cpp

@@ -1,34 +1,6 @@
 #pragma once
 
-static const uint MAX_AGENTS = 512;
-
-struct AgentData
-{
-    float4x4 camera;
-    float4 data;
-};
-
-struct UBO
-{
-    float4x4 view;
-    float4x4 proj;
-    float4x4 model;
-    uint vertexCount;
-    uint agentCount;
-    float timeStep;
-    uint _padding0;
-    AgentData agents[MAX_AGENTS];
-};
-
-struct VertexCoords
-{
-    float4 values;
-};
-
-struct VertexData
-{
-    float4 values;
-};
+#include "shared_types.slangh"
 
 // ==========================================
 // Camera Packing Contract (CPU ↔ GPU)

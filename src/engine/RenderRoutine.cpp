@@ -33,35 +33,27 @@ void RenderRoutine::draw(uint32_t currentFrame, vk::Fence fence, vk::Semaphore w
 		return;
 	}
 
-	// 2. Acquire Image
+	// 2. Depth Extent Check (before acquiring an image so no acquired image is stranded)
+	if (extent != m_depthResources.getExtent())
+	{
+		m_graphicsQueue->waitIdle();
+		m_depthResources.recreate(extent);
+	}
+
+	// 3. Acquire Image
 	const auto frameOpt = m_swapchain->acquireNextImage(*m_imageAvailableSemaphores[currentFrame]);
 	if (!frameOpt.has_value())
 	{
-		// If no frame is available, submit a dummy command to consume the wait semaphore and signal the fence, then recreate the swapchain
+		// If no frame is available, submit a dummy command to consume the wait semaphore and signal the fence, then
+		// recreate the swapchain
 		m_graphicsQueue->dummySubmit(fence, waitSemaphore);
 		m_swapchain->recreate();
 		return;
 	}
 	const svk::SwapchainFrame frame = frameOpt.value();
-
-	// 3. Depth Extent Check
 	const auto& depthImage = m_depthResources[currentFrame];
-	if (extent != m_depthResources.getExtent())
-	{
-		const std::array<vk::SemaphoreSubmitInfo, 2> waitInfos = {
-		    vk::SemaphoreSubmitInfo{.semaphore = *m_imageAvailableSemaphores[currentFrame],
-		                            .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput},
-		    vk::SemaphoreSubmitInfo{.semaphore = waitSemaphore, .stageMask = vk::PipelineStageFlagBits2::eAllCommands}};
-		const vk::SubmitInfo2 dummyInfo{.waitSemaphoreInfoCount = waitSemaphore ? 2u : 1u,
-		                                .pWaitSemaphoreInfos = waitInfos.data()};
-		// Submit empty command, consume all semaphores, and signal the fence
-		m_graphicsQueue->submit(dummyInfo, fence);
-		m_graphicsQueue->waitIdle();
-		m_depthResources.recreate(extent);
-		return;
-	}
 
-	// 6. Get Command Buffer
+	// 4. Get Command Buffer
 	const vk::raii::CommandBuffer& cmd = m_command[currentFrame];
 
 	// 5. Begin Recording
@@ -136,7 +128,7 @@ void RenderRoutine::draw(uint32_t currentFrame, vk::Fence fence, vk::Semaphore w
 	cmd.setScissor(0, vk::Rect2D{.extent = extent});
 
 	// 9. Record inline commands for each task
-	for (const auto& task : m_tasks) { task.recordCommands(cmd); }
+	for (const auto& task : m_tasks) { task.recordCommands(cmd, currentFrame); }
 
 	// 10. End Rendering
 	cmd.endRendering();

@@ -2,8 +2,11 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <span>
+#include <stdexcept>
 #include <string>
 
 #include "EngineInstance.hpp"
@@ -11,12 +14,14 @@
 #include "compute_alpha.hpp"
 #include "mesh.hpp"
 #include "reduce.hpp"
+#include "reduce_final.hpp"
 #include "satellite.hpp"
+#include "shaders/shared_types.slangh"
 
 EngineInstance::EngineInstance(const Settings& settings,
                                const svk::ConsoleLogger& logger,
-                               float& J_T,
-                               float& J_av,
+                               double& J_T,
+                               double& J_av,
                                const Mesh& mesh,
                                const std::vector<AgentData>& agents,
                                const glm::mat4& model)
@@ -47,6 +52,7 @@ EngineInstance::EngineInstance(const Settings& settings,
 
 	m_uboUpdatedSemaphores.reserve(svk::MAX_FRAMES_IN_FLIGHT);
 	m_computeFinishedSemaphores.reserve(svk::MAX_FRAMES_IN_FLIGHT);
+	m_reducePartialsFinishedSemaphores.reserve(svk::MAX_FRAMES_IN_FLIGHT);
 	m_reduceFinishedSemaphores.reserve(svk::MAX_FRAMES_IN_FLIGHT);
 	m_resultTransferredSemaphores.reserve(svk::MAX_FRAMES_IN_FLIGHT);
 	m_inFlightFences.reserve(svk::MAX_FRAMES_IN_FLIGHT);
@@ -54,6 +60,7 @@ EngineInstance::EngineInstance(const Settings& settings,
 	{
 		m_uboUpdatedSemaphores.emplace_back(m_device->device(), vk::SemaphoreCreateInfo{});
 		m_computeFinishedSemaphores.emplace_back(m_device->device(), vk::SemaphoreCreateInfo{});
+		m_reducePartialsFinishedSemaphores.emplace_back(m_device->device(), vk::SemaphoreCreateInfo{});
 		m_reduceFinishedSemaphores.emplace_back(m_device->device(), vk::SemaphoreCreateInfo{});
 		m_resultTransferredSemaphores.emplace_back(m_device->device(), vk::SemaphoreCreateInfo{});
 		m_inFlightFences.emplace_back(m_device->device(),
@@ -63,10 +70,10 @@ EngineInstance::EngineInstance(const Settings& settings,
 	const vk::DeviceSize vertexBytes = static_cast<vk::DeviceSize>(sizeof(VertexCoords) * m_mesh.vertices.size());
 	const vk::DeviceSize vertexDataBytes = static_cast<vk::DeviceSize>(sizeof(VertexData) * m_mesh.vertexData.size());
 
+	const vk::PhysicalDeviceLimits deviceLimits = m_device->physicalDevice().getProperties().limits;
 	{
-		const vk::PhysicalDeviceProperties properties = m_device->physicalDevice().getProperties();
-		const uint32_t maxSharedMemoryBytes = properties.limits.maxComputeSharedMemorySize;
-		const uint32_t maxUboBytes = properties.limits.maxUniformBufferRange;
+		const uint32_t maxSharedMemoryBytes = deviceLimits.maxComputeSharedMemorySize;
+		const uint32_t maxUboBytes = deviceLimits.maxUniformBufferRange;
 		const vk::DeviceSize l1SharedCacheBytes = static_cast<vk::DeviceSize>(sizeof(glm::mat4) * MAX_AGENTS);
 		const vk::DeviceSize uboBytes = static_cast<vk::DeviceSize>(sizeof(UBO));
 		constexpr double bytesPerKiB = 1024.0;
@@ -101,12 +108,30 @@ EngineInstance::EngineInstance(const Settings& settings,
 	                           vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eStorageBuffer,
 	                           vk::MemoryPropertyFlagBits::eDeviceLocal,
 	                           {svk::Device::TRANSFER, svk::Device::COMPUTE}));
-	m_resultDeviceBuffer.emplace(m_device->createBuffer(sizeof(float),
-	                                                    vk::BufferUsageFlagBits::eStorageBuffer |
-	                                                        vk::BufferUsageFlagBits::eTransferSrc |
-	                                                        vk::BufferUsageFlagBits::eTransferDst,
-	                                                    vk::MemoryPropertyFlagBits::eDeviceLocal,
-	                                                    {svk::Device::TRANSFER, svk::Device::COMPUTE}));
+	const uint32_t totalGroups =
+	    (static_cast<uint32_t>(m_mesh.vertices.size()) + kComputeWorkgroupSize - 1U) / kComputeWorkgroupSize;
+	const uint32_t groupCountX = std::min(totalGroups, kMaxDispatchGroupsPerDim);
+	const uint32_t groupCountY = (totalGroups + kMaxDispatchGroupsPerDim - 1U) / kMaxDispatchGroupsPerDim;
+
+	const vk::DeviceSize storageAlignment =
+	    std::max<vk::DeviceSize>(sizeof(float), deviceLimits.minStorageBufferOffsetAlignment);
+	const vk::DeviceSize rawPartialsSliceBytes =
+	    static_cast<vk::DeviceSize>(std::max<uint32_t>(1U, totalGroups)) * sizeof(float);
+	const vk::DeviceSize partialsFrameStride =
+	    ((rawPartialsSliceBytes + storageAlignment - 1) / storageAlignment) * storageAlignment;
+	const vk::DeviceSize partialsRingSize = partialsFrameStride * svk::MAX_FRAMES_IN_FLIGHT;
+	m_partialsDeviceBuffer.emplace(m_device->createBuffer(partialsRingSize,
+	                                                      vk::BufferUsageFlagBits::eStorageBuffer,
+	                                                      vk::MemoryPropertyFlagBits::eDeviceLocal,
+	                                                      {svk::Device::COMPUTE}));
+
+	m_resultFrameStride = ((sizeof(float) + storageAlignment - 1) / storageAlignment) * storageAlignment;
+	const vk::DeviceSize resultDeviceRingSize = m_resultFrameStride * svk::MAX_FRAMES_IN_FLIGHT;
+	m_resultDeviceBuffer.emplace(
+	    m_device->createBuffer(resultDeviceRingSize,
+	                           vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferSrc,
+	                           vk::MemoryPropertyFlagBits::eDeviceLocal,
+	                           {svk::Device::TRANSFER, svk::Device::COMPUTE}));
 	const vk::DeviceSize resultRingSize = sizeof(float) * svk::MAX_FRAMES_IN_FLIGHT;
 	m_resultStagingBuffer.emplace(
 	    m_device->createBuffer(resultRingSize,
@@ -159,27 +184,26 @@ EngineInstance::EngineInstance(const Settings& settings,
 	}
 
 	{
-		// Create UBO and staging-UBO buffeers; bake transfer commands for them
+		// Create UBO and staging-UBO buffers; bake transfer commands for them
 		const vk::DeviceSize rawSize = sizeof(UBO);
-		const vk::DeviceSize alignment =
-		    m_device->physicalDevice().getProperties().limits.minUniformBufferOffsetAlignment;
+		const vk::DeviceSize alignment = deviceLimits.minUniformBufferOffsetAlignment;
 		m_uboFrameSize = (rawSize + alignment - 1) / alignment * alignment;
 
-		const vk::DeviceSize stagingTotalSize = m_uboFrameSize * svk::MAX_FRAMES_IN_FLIGHT;
+		const vk::DeviceSize ringTotalSize = m_uboFrameSize * svk::MAX_FRAMES_IN_FLIGHT;
 
 		m_uboDeviceBuffer.emplace(
-		    m_device->createBuffer(rawSize,
+		    m_device->createBuffer(ringTotalSize,
 		                           vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eUniformBuffer,
 		                           vk::MemoryPropertyFlagBits::eDeviceLocal,
 		                           sharedComputeQueues));
 
 		m_uboStagingBuffer.emplace(
-		    m_device->createBuffer(stagingTotalSize,
+		    m_device->createBuffer(ringTotalSize,
 		                           vk::BufferUsageFlagBits::eTransferSrc,
 		                           vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
 		                           {svk::Device::TRANSFER}));
 
-		m_uboStagingMap.emplace(m_uboStagingBuffer->map(0, stagingTotalSize));
+		m_uboStagingMap.emplace(m_uboStagingBuffer->map(0, ringTotalSize));
 		m_uboStagingPtrs.resize(svk::MAX_FRAMES_IN_FLIGHT);
 		char* mappedBase = static_cast<char*>(m_uboStagingMap->get());
 		for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
@@ -187,7 +211,7 @@ EngineInstance::EngineInstance(const Settings& settings,
 			const vk::DeviceSize offset = m_uboFrameSize * i;
 			m_uboStagingPtrs[i] = mappedBase + offset;
 			m_transferRoutine->bakeCommands(
-			    i, vk::CommandBufferUsageFlags{}, *m_uboStagingBuffer, *m_uboDeviceBuffer, offset, 0, sizeof(UBO));
+			    i, vk::CommandBufferUsageFlags{}, *m_uboStagingBuffer, *m_uboDeviceBuffer, offset, offset, sizeof(UBO));
 		}
 	}
 
@@ -221,23 +245,19 @@ EngineInstance::EngineInstance(const Settings& settings,
 		// Ring-buffer per frame-in-flight rather than using eSimultaneousUse:
 		// Hardware vendors (NVIDIA, Arm, PowerVR) advise against VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT
 		// due to driver-side tracking overhead, state cloning, or queue serialization.
-		// Dedicated per-frame command buffers maintain architectural symmetry with m_reduceRoutine
+		// Dedicated per-frame command buffers maintain architectural symmetry with the reduction routines
 		// and guarantee race-free execution across in-flight frames.
 		m_computeRoutine.emplace(*m_device, computeStage, computeDescriptorBindings, svk::MAX_FRAMES_IN_FLIGHT);
 		for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
 		{
+			const vk::DeviceSize uboOffset = m_uboFrameSize * i;
 			m_computeRoutine->registerBuffers(i,
 			                                  {
-			                                      svk::BufferBinding(*m_uboDeviceBuffer, 0),
+			                                      svk::BufferBinding(*m_uboDeviceBuffer, 0, uboOffset, sizeof(UBO)),
 			                                      svk::BufferBinding(*m_vertexBuffer, 1),
 			                                      svk::BufferBinding(*m_vertexDataBuffer, 2),
 			                                  });
 		}
-
-		const uint32_t totalGroups = (static_cast<uint32_t>(m_mesh.vertices.size()) + 255) / 256;
-		constexpr uint32_t MAX_GROUPS = 65535U;
-		const uint32_t groupCountX = std::min(totalGroups, MAX_GROUPS);
-		const uint32_t groupCountY = (totalGroups + MAX_GROUPS - 1) / MAX_GROUPS;
 
 		for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
 		{
@@ -247,12 +267,12 @@ EngineInstance::EngineInstance(const Settings& settings,
 
 	{
 		const vk::raii::ShaderModule reduceModule(m_device->device(), reduce::smci);
-		const vk::PipelineShaderStageCreateInfo reduceStage{
+		const vk::PipelineShaderStageCreateInfo reducePartialsStage{
 		    .stage = vk::ShaderStageFlagBits::eCompute,
 		    .module = *reduceModule,
-		    .pName = "reduceMain",
+		    .pName = "reducePartials",
 		};
-		const std::vector<vk::DescriptorSetLayoutBinding> reduceDescriptorBindings = {
+		const std::vector<vk::DescriptorSetLayoutBinding> reducePartialsBindings = {
 		    vk::DescriptorSetLayoutBinding{
 		        .binding = 0,
 		        .descriptorType = vk::DescriptorType::eUniformBuffer,
@@ -279,27 +299,64 @@ EngineInstance::EngineInstance(const Settings& settings,
 		    },
 		};
 
-		m_reduceRoutine.emplace(*m_device, reduceStage, reduceDescriptorBindings, svk::MAX_FRAMES_IN_FLIGHT);
+		m_reducePartialsRoutine.emplace(
+		    *m_device, reducePartialsStage, reducePartialsBindings, svk::MAX_FRAMES_IN_FLIGHT);
 		for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
 		{
-			m_reduceRoutine->registerBuffers(i,
-			                                 {
-			                                     svk::BufferBinding(*m_uboDeviceBuffer, 0),
-			                                     svk::BufferBinding(*m_vertexBuffer, 1),
-			                                     svk::BufferBinding(*m_vertexDataBuffer, 2),
-			                                     svk::BufferBinding(*m_resultDeviceBuffer, 3),
-			                                 },
-			                                 {*m_resultDeviceBuffer});
+			const vk::DeviceSize uboOffset = m_uboFrameSize * i;
+			const vk::DeviceSize partialsOffset = partialsFrameStride * i;
+			m_reducePartialsRoutine->registerBuffers(
+			    i,
+			    {
+			        svk::BufferBinding(*m_uboDeviceBuffer, 0, uboOffset, sizeof(UBO)),
+			        svk::BufferBinding(*m_vertexBuffer, 1),
+			        svk::BufferBinding(*m_vertexDataBuffer, 2),
+			        svk::BufferBinding(*m_partialsDeviceBuffer, 3, partialsOffset, rawPartialsSliceBytes),
+			    });
+			m_reducePartialsRoutine->bakeCommands(i, vk::CommandBufferUsageFlags{}, groupCountX, groupCountY, 1);
 		}
 
-		const uint32_t totalGroups = (static_cast<uint32_t>(m_mesh.vertices.size()) + 255) / 256;
-		constexpr uint32_t MAX_GROUPS = 65535U;
-		const uint32_t groupCountX = std::min(totalGroups, MAX_GROUPS);
-		const uint32_t groupCountY = (totalGroups + MAX_GROUPS - 1) / MAX_GROUPS;
+		const vk::raii::ShaderModule reduceFinalModule(m_device->device(), reduce_final::smci);
+		const vk::PipelineShaderStageCreateInfo reduceFinalStage{
+		    .stage = vk::ShaderStageFlagBits::eCompute,
+		    .module = *reduceFinalModule,
+		    .pName = "reduceFinal",
+		};
+		const std::vector<vk::DescriptorSetLayoutBinding> reduceFinalBindings = {
+		    vk::DescriptorSetLayoutBinding{
+		        .binding = 0,
+		        .descriptorType = vk::DescriptorType::eUniformBuffer,
+		        .descriptorCount = 1,
+		        .stageFlags = vk::ShaderStageFlagBits::eCompute,
+		    },
+		    vk::DescriptorSetLayoutBinding{
+		        .binding = 1,
+		        .descriptorType = vk::DescriptorType::eStorageBuffer,
+		        .descriptorCount = 1,
+		        .stageFlags = vk::ShaderStageFlagBits::eCompute,
+		    },
+		    vk::DescriptorSetLayoutBinding{
+		        .binding = 2,
+		        .descriptorType = vk::DescriptorType::eStorageBuffer,
+		        .descriptorCount = 1,
+		        .stageFlags = vk::ShaderStageFlagBits::eCompute,
+		    },
+		};
 
+		m_reduceFinalRoutine.emplace(*m_device, reduceFinalStage, reduceFinalBindings, svk::MAX_FRAMES_IN_FLIGHT);
 		for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
 		{
-			m_reduceRoutine->bakeCommands(i, vk::CommandBufferUsageFlags{}, groupCountX, groupCountY, 1);
+			const vk::DeviceSize uboOffset = m_uboFrameSize * i;
+			const vk::DeviceSize partialsOffset = partialsFrameStride * i;
+			const vk::DeviceSize resultOffset = m_resultFrameStride * i;
+			m_reduceFinalRoutine->registerBuffers(
+			    i,
+			    {
+			        svk::BufferBinding(*m_uboDeviceBuffer, 0, uboOffset, sizeof(UBO)),
+			        svk::BufferBinding(*m_partialsDeviceBuffer, 1, partialsOffset, rawPartialsSliceBytes),
+			        svk::BufferBinding(*m_resultDeviceBuffer, 2, resultOffset, sizeof(float)),
+			    });
+			m_reduceFinalRoutine->bakeCommands(i, vk::CommandBufferUsageFlags{}, 1U, 1U, 1U);
 		}
 	}
 
@@ -309,8 +366,8 @@ EngineInstance::EngineInstance(const Settings& settings,
 		                                vk::CommandBufferUsageFlags{},
 		                                *m_resultDeviceBuffer,
 		                                *m_resultStagingBuffer,
-		                                0,
-		                                i * sizeof(float),
+		                                static_cast<vk::DeviceSize>(i) * m_resultFrameStride,
+		                                static_cast<vk::DeviceSize>(i) * sizeof(float),
 		                                sizeof(float));
 	}
 
@@ -353,12 +410,19 @@ EngineInstance::EngineInstance(const Settings& settings,
 			                                                       vk::CullModeFlagBits::eNone,
 			                                                       descriptorBindings,
 			                                                       m_swapchain->getFormat(),
-			                                                       m_renderRoutine->getDepthFormat());
-			meshTask.registerBuffers({svk::BufferBinding(*m_uboDeviceBuffer, 0)},
+			                                                       m_renderRoutine->getDepthFormat(),
+			                                                       svk::MAX_FRAMES_IN_FLIGHT);
+			meshTask.registerBuffers({},
 			                         {svk::BufferBinding(*m_vertexBuffer, 0)},
 			                         std::nullopt,
 			                         static_cast<uint32_t>(m_mesh.vertices.size()),
 			                         1);
+			for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
+			{
+				const svk::BufferBinding uboBinding(*m_uboDeviceBuffer, 0, m_uboFrameSize * i, sizeof(UBO));
+				m_device->validateDescriptorBinding(uboBinding);
+				meshTask.updateDescriptors(i, {uboBinding});
+			}
 		}
 
 		{
@@ -391,14 +455,31 @@ EngineInstance::EngineInstance(const Settings& settings,
 			                                                            vk::CullModeFlagBits::eNone,
 			                                                            descriptorBindings,
 			                                                            m_swapchain->getFormat(),
-			                                                            m_renderRoutine->getDepthFormat());
-			satelliteTask.registerBuffers({svk::BufferBinding(*m_uboDeviceBuffer, 0)},
-			                              {},
-			                              std::nullopt,
-			                              32,
-			                              static_cast<uint32_t>(m_agents.size()));
+			                                                            m_renderRoutine->getDepthFormat(),
+			                                                            svk::MAX_FRAMES_IN_FLIGHT);
+			satelliteTask.registerBuffers({}, {}, std::nullopt, 32, static_cast<uint32_t>(m_agents.size()));
+			for (uint32_t i = 0; i < svk::MAX_FRAMES_IN_FLIGHT; ++i)
+			{
+				const svk::BufferBinding uboBinding(*m_uboDeviceBuffer, 0, m_uboFrameSize * i, sizeof(UBO));
+				m_device->validateDescriptorBinding(uboBinding);
+				satelliteTask.updateDescriptors(i, {uboBinding});
+			}
 		}
 	}
+}
+
+void EngineInstance::harvestSlot(std::size_t slotIndex)
+{
+	if (!m_hasPendingResult[slotIndex]) { return; }
+
+	const std::span<const float> mappedResults(static_cast<const float*>(m_resultMap->get()),
+	                                           svk::MAX_FRAMES_IN_FLIGHT);
+	const double reducedResult = static_cast<double>(mappedResults[slotIndex]);
+	m_J_T = reducedResult;
+	m_J_av += reducedResult * m_pendingTimeStep[slotIndex];
+	m_harvestedTime += m_pendingTimeStep[slotIndex];
+	++m_harvestedStepCount;
+	m_hasPendingResult[slotIndex] = false;
 }
 
 void EngineInstance::tick(float timeStep)
@@ -409,11 +490,13 @@ void EngineInstance::tick(float timeStep)
 		m_window->updateFPS(std::string(Settings::appName));
 	}
 
-	const vk::Fence fence = *m_inFlightFences[m_currentFrame];
+	const std::size_t frameIdx = static_cast<std::size_t>(m_currentFrame);
+	const vk::Fence fence = *m_inFlightFences[frameIdx];
 	if (m_device->device().waitForFences({fence}, vk::True, UINT64_MAX) != vk::Result::eSuccess)
 	{
 		throw std::runtime_error("Fence wait failed");
 	}
+	harvestSlot(frameIdx);
 	m_device->device().resetFences({fence});
 
 	updateUBO(m_currentFrame, timeStep);
@@ -422,34 +505,52 @@ void EngineInstance::tick(float timeStep)
 	{
 		if (m_camera->isPaused())
 		{
-			m_renderRoutine->draw(m_currentFrame, fence, *m_uboUpdatedSemaphores[m_currentFrame]);
+			m_renderRoutine->draw(m_currentFrame, fence, *m_uboUpdatedSemaphores[frameIdx]);
 			m_currentFrame = svk::advanceFrame(m_currentFrame);
 			return;
 		}
 	}
 
-	float* mappedResults = static_cast<float*>(m_resultMap->get());
-	const float reducedResult = mappedResults[m_currentFrame];
-	m_J_T = reducedResult;
-	m_J_av += reducedResult * timeStep;
-
 	m_computeRoutine->submitCommands(
-	    m_currentFrame, *m_uboUpdatedSemaphores[m_currentFrame], *m_computeFinishedSemaphores[m_currentFrame]);
+	    m_currentFrame, *m_uboUpdatedSemaphores[frameIdx], *m_computeFinishedSemaphores[frameIdx]);
 
-	m_reduceRoutine->submitCommands(
-	    m_currentFrame, *m_computeFinishedSemaphores[m_currentFrame], *m_reduceFinishedSemaphores[m_currentFrame]);
+	m_reducePartialsRoutine->submitCommands(
+	    m_currentFrame, *m_computeFinishedSemaphores[frameIdx], *m_reducePartialsFinishedSemaphores[frameIdx]);
+
+	m_reduceFinalRoutine->submitCommands(
+	    m_currentFrame, *m_reducePartialsFinishedSemaphores[frameIdx], *m_reduceFinishedSemaphores[frameIdx]);
 
 	m_transferRoutine->submitCommands(kResultReadbackTransferCmdBase + m_currentFrame,
-	                                  *m_reduceFinishedSemaphores[m_currentFrame],
-	                                  Settings::headlessMode ? nullptr : *m_resultTransferredSemaphores[m_currentFrame],
+	                                  *m_reduceFinishedSemaphores[frameIdx],
+	                                  Settings::headlessMode ? nullptr : *m_resultTransferredSemaphores[frameIdx],
 	                                  Settings::headlessMode ? fence : nullptr);
 
 	if constexpr (!Settings::headlessMode)
 	{
-		m_renderRoutine->draw(m_currentFrame, fence, *m_resultTransferredSemaphores[m_currentFrame]);
+		m_renderRoutine->draw(m_currentFrame, fence, *m_resultTransferredSemaphores[frameIdx]);
 	}
 
+	m_hasPendingResult[frameIdx] = true;
+	m_pendingTimeStep[frameIdx] = static_cast<double>(timeStep);
 	m_currentFrame = svk::advanceFrame(m_currentFrame);
+}
+
+void EngineInstance::drainPendingResults()
+{
+	// Wait in FIFO order starting from the oldest in-flight slot (m_currentFrame) without resetting fences,
+	// so all fences remain signaled for any subsequent paused rendering or shutdown.
+	for (uint32_t offset = 0; offset < svk::MAX_FRAMES_IN_FLIGHT; ++offset)
+	{
+		const std::size_t slotIndex = static_cast<std::size_t>((m_currentFrame + offset) % svk::MAX_FRAMES_IN_FLIGHT);
+		if (!m_hasPendingResult[slotIndex]) { continue; }
+
+		const vk::Fence fence = *m_inFlightFences[slotIndex];
+		if (m_device->device().waitForFences({fence}, vk::True, UINT64_MAX) != vk::Result::eSuccess)
+		{
+			throw std::runtime_error("Fence wait failed");
+		}
+		harvestSlot(slotIndex);
+	}
 }
 
 void EngineInstance::updateUBO(uint32_t currentFrame, float timeStep)

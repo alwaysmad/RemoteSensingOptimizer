@@ -28,7 +28,7 @@ private:
 	// The privy council
 	static std::optional<Application> s_instance; // The throne
 	Settings m_settings;                          // Rulebook
-	svk::ConsoleLogger m_logger;                  // Herald and Scribe
+	const svk::ConsoleLogger& m_logger;           // Herald and Scribe
 
 	// The Imperial court
 	// TODO more
@@ -46,10 +46,10 @@ public:
 
 	// start the application
 	// 'crown emperor and start his reign'
-	static int run(/*TODO parse cli args*/)
+	static int run(const svk::ConsoleLogger& logger /*TODO parse cli args*/)
 	{
 		// Crown a new emperor with a (empty) crown and a new rulebook
-		s_instance.emplace(PassKey(), configure(/*TODO args */));
+		s_instance.emplace(PassKey(), configure(/*TODO args */), logger);
 
 		// emperor reigns
 		int result = s_instance->launch();
@@ -63,9 +63,8 @@ public:
 
 	// Public so std::optional can create and destroy
 	// Since only 'run()' can make the Key, this is effectively private.
-	explicit Application(PassKey /*key*/, Settings&& s) : m_settings(std::move(s))
-	{
-		m_logger.cInfo("Application started");
-	}
+	explicit Application(PassKey /*key*/, Settings&& s, const svk::ConsoleLogger& logger)
+	    : m_settings(std::move(s)), m_logger(logger)
+	{ m_logger.cInfo("Application started"); }
 	~Application() { m_logger.cInfo("Application ended"); }
 };

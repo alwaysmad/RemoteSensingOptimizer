@@ -1,22 +1,31 @@
 // src/Application.cpp
-#include <cstdlib> // EXIT_SUCCESS
-#include <cstring>
-#include <filesystem> // std::filesystem::temp_directory_path
-#include <iostream>   // std::cerr for SGP4 error reporting
-
 #include <algorithm>
-#include <array>
 #include <cmath>
+#include <cstdint>
+#include <cstdlib>    // EXIT_SUCCESS
+#include <exception>  // std::exception
+#include <filesystem> // std::filesystem::temp_directory_path
 #include <numbers>
+#include <span>
+#include <string>
 #include <vector>
 
 #include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/vector_float4.hpp>
 
+#include <DateTime.h>
+#include <Eci.h>
 #include <SGP4.h>
+#include <TimeSpan.h>
+#include <Tle.h>
+#include <Vector.h>
 
 #include "Application.hpp"
 #include "BufferStructs.hpp"
+#include "engine/ConsoleLogger.hpp"
+#include "engine/FileLogger.hpp"
 #include "EngineInstance.hpp"
+#include "shaders/shared_types.slangh"
 #include "SYNTH_tle_data.hpp"
 
 // Define the static Throne
@@ -38,7 +47,7 @@ Settings Application::configure(/*TODO parse cli args*/)
 	return s;
 }
 
-static inline std::array<float, 4> getCosineColor(double offset)
+static inline glm::vec4 getCosineColor(double offset)
 {
 	// offset is double; std::cos returns double — cast explicitly at the boundary
 	const float r = static_cast<float>(0.5 + 0.5 * std::cos(offset));
@@ -98,7 +107,9 @@ static inline float getSunElevationAngle(const glm::vec3& pos, const glm::vec3& 
 
 static inline void updateAgents(std::vector<AgentData>& agents,
                                 const std::vector<libsgp4::SGP4>& propagators,
-                                const libsgp4::DateTime& currentTime)
+                                std::span<const libsgp4::Tle> tles,
+                                const libsgp4::DateTime& currentTime,
+                                const svk::ConsoleLogger& logger)
 {
 	// Specifications derived from SuperDove sensor.
 	// Settings::scaling is constexpr double — arithmetic stays double, cast at the boundary.
@@ -169,16 +180,22 @@ static inline void updateAgents(std::vector<AgentData>& agents,
 
 			agents[i].camera = view;
 
-			const auto col = getCosineColor(static_cast<double>(i));
-			std::memcpy(agents[i].data, col.data(), sizeof(col));
+			agents[i].data = getCosineColor(static_cast<double>(i));
 			// no survey if no On
-			agents[i].data[3] = isOn ? OmegaStrength : 0.0f;
+			agents[i].data.w = isOn ? OmegaStrength : 0.0f;
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "[WARNING] SGP4 propagation failed for satellite " << i << ": " << e.what()
-			          << " — disabling this satellite for the current timestep.\n";
-			agents[i].data[3] = 0.0f;
+			const double epochAgeDays = (i < tles.size()) ? (currentTime - tles[i].Epoch()).TotalDays() : 0.0;
+			const std::string satName = (i < tles.size()) ? tles[i].Name() : std::string("<unknown>");
+			logger.cWarn("SGP4 propagation failed for satellite {} ('{}') at {} (TLE age: {:.2f} days): {} — "
+			             "disabling this satellite for the current timestep.",
+			             i,
+			             satName,
+			             currentTime.ToString(),
+			             epochAgeDays,
+			             e.what());
+			agents[i].data.w = 0.0f;
 		}
 	}
 }
@@ -197,9 +214,10 @@ int Application::launch()
 {
 	// Declare start of the reign
 	m_logger.cInfo("Application name is {}", Settings::appName);
+	const svk::FileLogger fileLogger(m_settings.logPath);
 
 	Mesh mesh;
-	mesh.populateMesh(m_settings.meshResolution);
+	mesh.populateMesh(m_settings.meshResolution, m_logger);
 
 	const auto& tle_data = SYNTH_tle_data::tle_data;
 
@@ -207,23 +225,17 @@ int Application::launch()
 	propagators.reserve(tle_data.size());
 	std::vector<AgentData> agents(tle_data.size());
 	glm::mat4 model = glm::mat4(1.0f);
-	float J_T = 0.0f;
-	float J_av = 0.0f;
-	// Ring buffer warmup: the result staging buffer uses MAX_FRAMES_IN_FLIGHT
-	// slots. The first N reads return zero (no GPU results yet). We must run
-	// N extra simulation steps to drain the pipeline, and exclude those
-	// warmup reads from the J_av accumulation.
-	constexpr uint32_t RING_WARMUP_STEPS = svk::MAX_FRAMES_IN_FLIGHT;
-	uint32_t stepIndex = 0;
+	double J_T = 0.0;
+	double J_av = 0.0;
 
 	constexpr double SIMULATION_TIME_STEP = 1.0;
 	const libsgp4::DateTime startSimTime(2026, 9, 11, 10, 0, 0);
-	const auto endSimTime =
-	    libsgp4::DateTime(2026, 9, 18, 10, 0, 0).AddSeconds(SIMULATION_TIME_STEP * RING_WARMUP_STEPS);
+	const libsgp4::DateTime endSimTime(2026, 9, 18, 10, 0, 0);
 
 	libsgp4::DateTime simTime = startSimTime;
 
 	m_logger.cInfo("Active satellites: {}", tle_data.size());
+	fileLogger.log("Active satellites: {}", tle_data.size());
 	for (const auto& tle : tle_data)
 	{
 		m_logger.cInfo("{} : {}", propagators.size() + 1, tle.Name());
@@ -233,30 +245,39 @@ int Application::launch()
 	// agents.resize(1);
 
 	EngineInstance engine(m_settings, m_logger, J_T, J_av, mesh, agents, model);
-	while (!engine.shouldClose() && simTime <= endSimTime)
+	while (!engine.shouldClose() && simTime < endSimTime)
 	{
-		if (engine.isPaused())
+		[[maybe_unused]] const std::uint64_t prevHarvestedSteps = engine.harvestedStepCount();
+		const bool pausedBeforeTick = engine.isPaused();
+		if (!pausedBeforeTick)
 		{
-			engine.tick(static_cast<float>(SIMULATION_TIME_STEP));
-			continue;
+			updateAgents(agents, propagators, tle_data, simTime, m_logger);
+			updateModel(model, simTime);
 		}
-		updateAgents(agents, propagators, simTime);
-		updateModel(model, simTime);
 		engine.tick(static_cast<float>(SIMULATION_TIME_STEP));
-		++stepIndex;
-		const auto reportedSimTime = (simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP * RING_WARMUP_STEPS;
 		if constexpr (!Settings::headlessMode)
 		{
-			if (stepIndex > RING_WARMUP_STEPS) { m_logger.cInfo("{} | J_T: {:.6f}", reportedSimTime, J_T); }
+			if (engine.harvestedStepCount() > prevHarvestedSteps)
+			{
+				m_logger.cInfo("{} | J_T: {:.6f}", engine.harvestedTime(), J_T);
+			}
 		}
-		simTime = simTime.AddSeconds(SIMULATION_TIME_STEP);
+		if (!pausedBeforeTick && !engine.isPaused()) { simTime = simTime.AddSeconds(SIMULATION_TIME_STEP); }
 	}
 
 	m_logger.cInfo("Simulation completed");
-	// Effective simulation duration excludes warmup steps
-	const auto elapsedTime = (simTime - startSimTime).TotalSeconds() - SIMULATION_TIME_STEP * RING_WARMUP_STEPS;
-	if constexpr (Settings::headlessMode) { m_logger.cInfo("{} | J_T: {:.6f}", elapsedTime, J_T); }
-	if (elapsedTime > 0.0) { m_logger.cInfo("Final J_av: {:.6f}", J_av / elapsedTime); }
+	engine.drainPendingResults();
+	const double elapsedTime = (simTime - startSimTime).TotalSeconds();
+	if (engine.harvestedStepCount() > 0)
+	{
+		m_logger.cInfo("{} | J_T: {:.6f}", elapsedTime, J_T);
+		fileLogger.log("{} | J_T: {:.6f}", elapsedTime, J_T);
+	}
+	if (elapsedTime > 0.0)
+	{
+		m_logger.cInfo("Final J_av: {:.6f}", J_av / elapsedTime);
+		fileLogger.log("Final J_av: {:.6f}", J_av / elapsedTime);
+	}
 
 	// Once simulation is done pause to show the final state
 	engine.setPause(true);

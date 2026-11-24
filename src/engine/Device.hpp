@@ -103,6 +103,11 @@ public:
 	[[nodiscard]] const vk::raii::PhysicalDevice& physicalDevice() const { return m_physicalDevice; }
 	[[nodiscard]] const vk::raii::Device& device() const { return m_device; }
 
+	// Validates a bound UBO descriptor range against hardware maxUniformBufferRange and the 64 KiB baseline.
+	void validateUniformBufferRange(vk::DeviceSize boundRange) const;
+	// Validates effective descriptor binding bounds (and UBO range limits when applicable).
+	void validateDescriptorBinding(const svk::BufferBinding& binding) const;
+
 	// The Laboratories
 	[[nodiscard]] const svk::Queue& transferQueue() const { return m_queues[queueSlot(TRANSFER)]; }
 	[[nodiscard]] const svk::Queue& computeQueue() const { return m_queues[queueSlot(COMPUTE)]; }

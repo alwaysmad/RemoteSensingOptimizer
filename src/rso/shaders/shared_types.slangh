@@ -1,0 +1,56 @@
+#pragma once
+
+#ifdef __cplusplus
+#include <cstdint>
+#include <glm/mat4x4.hpp>
+#include <glm/vec4.hpp>
+#define SVK_ALIGN16 alignas(16)
+#define SVK_CONST constexpr
+#define uint uint32_t
+#define float4 glm::vec4
+#define float4x4 glm::mat4
+#else
+#define SVK_ALIGN16
+#define SVK_CONST static const
+#endif
+
+SVK_CONST uint MAX_AGENTS = 512;
+
+struct SVK_ALIGN16 AgentData
+{
+	float4x4 camera;
+	float4 data;
+};
+
+struct SVK_ALIGN16 UBO
+{
+	float4x4 view;
+	float4x4 proj;
+	float4x4 model;
+	uint vertexCount;
+	uint agentCount;
+	float timeStep;
+	uint _padding0;
+	AgentData agents[MAX_AGENTS]; // NOLINT(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
+};
+
+struct SVK_ALIGN16 VertexCoords
+{
+	float4 values;
+};
+
+struct SVK_ALIGN16 VertexData
+{
+	float4 values;
+};
+
+#ifdef __cplusplus
+#undef SVK_ALIGN16
+#undef SVK_CONST
+#undef uint
+#undef float4
+#undef float4x4
+#else
+#undef SVK_ALIGN16
+#undef SVK_CONST
+#endif

@@ -2,8 +2,10 @@
 #pragma once
 
 #include <atomic>
+#include <cstdint>
 #include <stdexcept>
 #include <utility>
+#include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
 namespace svk
@@ -117,9 +119,7 @@ public:
 	}
 
 	[[nodiscard]] BufferMap map(vk::DeviceSize offset = 0, vk::DeviceSize size = VK_WHOLE_SIZE) const
-	{
-		return BufferMap(m_memory, offset, size);
-	}
+	{ return BufferMap(m_memory, offset, size); }
 
 	[[nodiscard]] vk::BufferUsageFlags getUsage() const { return m_usage; }
 	[[nodiscard]] vk::DeviceSize getSize() const { return m_size; }
@@ -134,14 +134,29 @@ struct svk::BufferBinding
 {
 	vk::Buffer buffer = nullptr;
 	uint32_t binding = 0;
+	vk::DeviceSize offset = 0;
+	vk::DeviceSize range = vk::WholeSize;
+	vk::DeviceSize bufferSize = 0;
 	vk::BufferUsageFlags usage; // Required to deduce DescriptorType dynamically
 
 	BufferBinding() = default;
 
 	// Instantly extracts the raw handle and flags from the RAII wrapper
-	BufferBinding(const svk::Buffer& b, uint32_t bindingSlot)
-	    : buffer(*b.getBuffer()), binding(bindingSlot), usage(b.getUsage())
+	BufferBinding(const svk::Buffer& b,
+	              uint32_t bindingSlot,
+	              vk::DeviceSize offsetBytes = 0,
+	              vk::DeviceSize rangeBytes = vk::WholeSize)
+	    : buffer(*b.getBuffer()), binding(bindingSlot), offset(offsetBytes), range(rangeBytes), bufferSize(b.getSize()),
+	      usage(b.getUsage())
 	{}
+
+	[[nodiscard]] vk::DeviceSize effectiveRange() const
+	{
+		if (offset > bufferSize) { throw std::out_of_range("BufferBinding offset exceeds backing buffer size"); }
+		if (range == vk::WholeSize) { return bufferSize - offset; }
+		if (range > bufferSize - offset) { throw std::out_of_range("BufferBinding range exceeds backing buffer size"); }
+		return range;
+	}
 
 	vk::DescriptorType deduceDescriptorType() const
 	{

@@ -20,9 +20,9 @@ This file is automatically loaded into the agent context for all tasks in this r
 
 ## 2. Agent Roles & Execution Workflow (Planner vs. Worker)
 
-- **Role Division:**
-  - **Architecture Planner (`Carbon High`):** Responsible for high-level system design, Vulkan synchronization/memory contracts, Mermaid architecture specifications, and decomposing work into small, self-contained, single-issue tasks.
-  - **Per-Task Worker (`Hydrogen`):** Responsible for implementing **strictly one atomic issue/task at a time** according to the Planner's specification, verifying compilation, formatting (`clang-format`), and static analysis (`clang-tidy`).
+- **Role Division & Delegation Level:**
+  - **Architecture Planner (`Carbon High`):** Responsible for high-level system design, Vulkan synchronization/memory contracts, Mermaid architecture specifications, and decomposing work into small, self-contained, single-issue tasks. **Do not micromanage workers with literal line-by-line diffs**—delegate by pointing a dedicated per-task worker to the issue, invariants, and proposed architectural solution, then review the resulting diff.
+  - **Per-Task Worker (`Hydrogen` / `flash` subagent):** Spawn a fresh per-task worker per isolated issue. It inspects the relevant files, implements **strictly one atomic issue/task**, formats (`clang-format`), builds, runs static analysis (`clang-tidy`), and reports **only a concise summary at task completion** (no step-by-step intermediate chatter).
 - **One Issue at a Time:** Never bundle unrelated refactors or multiple issues into a single step. Complete, format, build, and verify one atomic task before moving to the next.
 
 ---
@@ -34,19 +34,19 @@ This file is automatically loaded into the agent context for all tasks in this r
 - **CRITICAL Rule for Terminal Commands:** Each `run_command` execution spawns a **new, isolated shell session**—environment variables do **not** persist across calls. Whenever running `cmake`, `make`, `ninja`, `clang-tidy`, or `ctest`, **always** source the toolset in the same command invocation:
   ```bash
   source /opt/rh/gcc-toolset-13/enable && cmake -B build -DCMAKE_BUILD_TYPE=Release
-  source /opt/rh/gcc-toolset-13/enable && cmake --build build -j$(nproc)
+  source /opt/rh/gcc-toolset-13/enable && cmake --build build --parallel
   ```
 - **Offline / Sandbox Builds:** Third-party dependencies (`glm`, `vulkan-hpp`, `sgp4`, `googletest`, `slang`, `celestrak_tle`) are already populated in `_deps/`. When configuring a new build directory inside the sandbox (no network), pass `-DFETCHCONTENT_FULLY_DISCONNECTED=ON` if needed, or reuse the existing `build/` directory.
 
 ---
 
-## 4. Code Style & Formatting (`.clang-format`)
+## 4. Code Craft, Style & Formatting (`.clang-format`)
 
-All C++ code under `src/` **must** conform to [`.clang-format`](file:///home/pasha/build/RSO/RemoteSensingOptimizer/.clang-format):
-- **Indentation:** Tabs (`UseTab: ForIndentation`, `TabWidth: 4`, `IndentWidth: 4`).
-- **Line Length:** `120` characters maximum (`ColumnLimit: 120`).
-- **Braces:** Allman-style custom brace wrapping (`AfterClass: true`, `AfterFunction: true`, `AfterControlStatement: Always`, `BeforeElse: true`, `BeforeCatch: true`), with short single-line blocks/functions/ifs allowed (`AllowShortBlocksOnASingleLine: Always`, `AllowShortIfStatementsOnASingleLine: WithoutElse`).
-- **Pointers & References:** Left-aligned (`Type* ptr`, `Type& ref`).
+All C++ code under `src/` **must** conform to [`.clang-format`](file:///home/pasha/build/RSO/RemoteSensingOptimizer/.clang-format) and project craft conventions:
+- **Type Discipline for Indices & Sentinels:** Use `std::size_t` for host C++ container/array indexing (e.g., slot indices into `std::array` / `std::vector`) and explicit fixed-width Vulkan types (`uint32_t`, `vk::DeviceSize`) for Vulkan API indices/handles (e.g., `queueFamilyIndex`, descriptor bindings), with distinct named `static constexpr` sentinels—never conflate host container slots with Vulkan indices.
+- **Documented Constants:** Every `static constexpr` constant, limit, or sentinel in class/header definitions must include a brief explanatory comment stating its meaning, unit, or Vulkan specification origin.
+- **Member Helpers Over Static State-Passing:** Prefer private (`const` where applicable) member functions when operating on a class's own members (`m_physicalDevice`, `m_logger`, etc.) rather than `static` helpers that pass member references back into the class.
+- **Formatting Rules:** Tabs (`UseTab: ForIndentation`, `TabWidth: 4`), `120`-column limit, custom Allman braces with short single-line blocks/functions/ifs allowed, left-aligned pointers/references (`Type* ptr`, `Type& ref`).
 - **Mandatory Post-Edit Step:** After creating or modifying any `.cpp` or `.hpp` file in `src/`, always format it before finishing:
   ```bash
   clang-format -i <modified_files>
